@@ -48,7 +48,7 @@ const Parcelles = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedHectare, setSelectedHectare] = useState<string>(
-    searchParams.get("hectare") || ""
+    searchParams.get("hectare") || "all"
   );
   const [formData, setFormData] = useState({
     numero: "",
@@ -88,7 +88,7 @@ const Parcelles = () => {
     try {
       let query = supabase.from("parcelles").select("*");
       
-      if (selectedHectare) {
+      if (selectedHectare && selectedHectare !== "all") {
         query = query.eq("hectare_id", selectedHectare);
       }
 
@@ -182,7 +182,7 @@ const Parcelles = () => {
               <SelectValue placeholder="Tous les hectares" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les hectares</SelectItem>
+              <SelectItem value="all">Tous les hectares</SelectItem>
               {hectares.map((h) => (
                 <SelectItem key={h.id} value={h.id}>
                   {h.name}
