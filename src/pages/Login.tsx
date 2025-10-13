@@ -28,18 +28,25 @@ const Login = () => {
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Formulaire d'inscription soumis");
+    console.log("Données:", { signupName, signupEmail, signupPhone, signupOrganization });
+    
     if (signupPassword !== signupConfirmPassword) {
+      console.log("Erreur: Les mots de passe ne correspondent pas");
       alert("Les mots de passe ne correspondent pas");
       return;
     }
-    console.log("Inscription:", { 
-      signupName, 
-      signupEmail, 
-      signupPhone, 
-      signupOrganization, 
-      signupPassword 
+    
+    console.log("✅ Inscription réussie:", { 
+      name: signupName, 
+      email: signupEmail, 
+      phone: signupPhone, 
+      organization: signupOrganization 
     });
-    // Logique d'inscription à implémenter plus tard
+    
+    alert(`Inscription réussie pour ${signupName}! La connexion avec le backend sera implémentée prochainement.`);
+    
+    // Logique d'inscription à implémenter plus tard avec Lovable Cloud
   };
 
   return (
