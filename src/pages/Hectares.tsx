@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import {
@@ -16,13 +16,21 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
+interface Hectare {
+  id: string;
+  name: string;
+  surface: number;
+  location: string;
+  status: string;
+  created_at: string;
+}
+
 const Hectares = () => {
   const navigate = useNavigate();
-  const [hectares, setHectares] = useState<any[]>([]);
+  const [hectares, setHectares] = useState<Hectare[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingHectare, setEditingHectare] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -31,19 +39,18 @@ const Hectares = () => {
   });
 
   useEffect(() => {
-    checkAuthAndLoadData();
+    checkAuth();
+    fetchHectares();
   }, []);
 
-  const checkAuthAndLoadData = async () => {
+  const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       navigate("/login");
-      return;
     }
-    loadHectares();
   };
 
-  const loadHectares = async () => {
+  const fetchHectares = async () => {
     try {
       const { data, error } = await supabase
         .from("hectares")
@@ -62,38 +69,26 @@ const Hectares = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     try {
-      if (editingHectare) {
-        const { error } = await supabase
-          .from("hectares")
-          .update({
-            name: formData.name,
-            surface: parseFloat(formData.surface),
-            location: formData.location,
-            status: formData.status,
-          })
-          .eq("id", editingHectare.id);
-
-        if (error) throw error;
-        toast.success("Hectare modifié avec succès");
-      } else {
-        const { error } = await supabase.from("hectares").insert({
+      const { error } = await supabase.from("hectares").insert([
+        {
           name: formData.name,
           surface: parseFloat(formData.surface),
           location: formData.location,
           status: formData.status,
-        });
+        },
+      ]);
 
-        if (error) throw error;
-        toast.success("Hectare créé avec succès");
-      }
+      if (error) throw error;
 
+      toast.success("Hectare créé avec succès");
       setIsDialogOpen(false);
-      resetForm();
-      loadHectares();
+      setFormData({ name: "", surface: "", location: "", status: "available" });
+      fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de l'enregistrement");
+      toast.error("Erreur lors de la création");
     }
   };
 
@@ -103,32 +98,18 @@ const Hectares = () => {
     try {
       const { error } = await supabase.from("hectares").delete().eq("id", id);
       if (error) throw error;
+
       toast.success("Hectare supprimé");
-      loadHectares();
+      fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression");
     }
   };
 
-  const resetForm = () => {
-    setFormData({ name: "", surface: "", location: "", status: "available" });
-    setEditingHectare(null);
-  };
-
-  const openEditDialog = (hectare: any) => {
-    setEditingHectare(hectare);
-    setFormData({
-      name: hectare.name,
-      surface: hectare.surface.toString(),
-      location: hectare.location || "",
-      status: hectare.status,
-    });
-    setIsDialogOpen(true);
-  };
-
   const filteredHectares = hectares.filter((h) =>
-    h.name.toLowerCase().includes(searchTerm.toLowerCase())
+    h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    h.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -144,35 +125,39 @@ const Hectares = () => {
       <DashboardSidebar />
 
       <div className="flex-1 p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Hectares</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Gérez vos terrains et leurs informations
-            </p>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Gestion des Hectares</h1>
+          <p className="text-muted-foreground">Gérez vos terrains et leurs parcelles</p>
+        </div>
+
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un hectare..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+              <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 Nouvel Hectare
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>
-                  {editingHectare ? "Modifier l'hectare" : "Nouvel hectare"}
-                </DialogTitle>
+                <DialogTitle>Créer un nouvel hectare</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>Nom</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
@@ -182,9 +167,7 @@ const Hectares = () => {
                     type="number"
                     step="0.01"
                     value={formData.surface}
-                    onChange={(e) =>
-                      setFormData({ ...formData, surface: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
                     required
                   />
                 </div>
@@ -192,109 +175,75 @@ const Hectares = () => {
                   <Label>Localisation</Label>
                   <Input
                     value={formData.location}
-                    onChange={(e) =>
-                      setFormData({ ...formData, location: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   />
                 </div>
-                <div>
-                  <Label>Statut</Label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-border bg-background"
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                  >
-                    <option value="available">Disponible</option>
-                    <option value="sold">Vendu</option>
-                    <option value="reserved">Réservé</option>
-                  </select>
-                </div>
-                <Button type="submit" className="w-full">
-                  {editingHectare ? "Modifier" : "Créer"}
-                </Button>
+                <Button type="submit" className="w-full">Créer</Button>
               </form>
             </DialogContent>
           </Dialog>
-        </div>
-
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un hectare..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredHectares.map((hectare) => (
             <Card key={hectare.id} className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground">
-                    {hectare.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {hectare.surface} hectares
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{hectare.name}</h3>
+                    <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
+                  </div>
                 </div>
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    hectare.status === "available"
-                      ? "bg-green-100 text-green-800"
-                      : hectare.status === "sold"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}
-                >
-                  {hectare.status === "available"
-                    ? "Disponible"
-                    : hectare.status === "sold"
-                    ? "Vendu"
-                    : "Réservé"}
-                </span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => {}}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(hectare.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
 
               {hectare.location && (
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   📍 {hectare.location}
                 </p>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <span className="text-xs text-muted-foreground">
+                  {new Date(hectare.created_at).toLocaleDateString()}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => openEditDialog(hectare)}
-                  className="flex-1"
+                  onClick={() => navigate(`/parcelles?hectare=${hectare.id}`)}
                 >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Modifier
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(hectare.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
+                  Voir les parcelles
                 </Button>
               </div>
             </Card>
           ))}
-
-          {filteredHectares.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <p className="text-muted-foreground">
-                Aucun hectare trouvé. Créez-en un pour commencer.
-              </p>
-            </div>
-          )}
         </div>
+
+        {filteredHectares.length === 0 && (
+          <div className="text-center py-12">
+            <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              Aucun hectare trouvé
+            </h3>
+            <p className="text-muted-foreground">
+              Commencez par créer votre premier hectare
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
