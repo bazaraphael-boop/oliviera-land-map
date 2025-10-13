@@ -91,6 +91,43 @@ const Dashboard = () => {
     }
   };
 
+  const handleExportReport = () => {
+    try {
+      const reportContent = `
+RAPPORT TABLEAU DE BORD - CONCESSION D'OLIVEIRA
+==============================================
+Date: ${new Date().toLocaleDateString('fr-FR')}
+
+STATISTIQUES
+-----------
+Revenus Total: ${stats.totalRevenue.toFixed(0)} USD
+Ventes réalisées: ${stats.soldParcelles}
+Taux de Vente: ${stats.salesRate.toFixed(1)}%
+Prix Moyen: ${stats.averagePrice.toFixed(0)} USD
+Parcelles disponibles: ${stats.available}
+Total parcelles: ${stats.totalParcelles}
+
+==============================================
+Rapport généré automatiquement
+`;
+
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tableau-bord-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Rapport téléchargé avec succès");
+    } catch (error) {
+      console.error("Erreur export:", error);
+      toast.error("Erreur lors de l'export du rapport");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -180,7 +217,7 @@ const Dashboard = () => {
                 <option>Ce trimestre</option>
                 <option>Cette année</option>
               </select>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-primary hover:bg-primary/90" onClick={handleExportReport}>
                 <Download className="w-4 h-4 mr-2" />
                 Exporter PDF
               </Button>

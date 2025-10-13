@@ -119,7 +119,57 @@ const Rapports = () => {
   };
 
   const exportToPDF = () => {
-    toast.info("Fonctionnalité d'export PDF en cours de développement");
+    try {
+      // Créer le contenu du rapport
+      const reportContent = `
+RAPPORT D'ANALYSES - CONCESSION D'OLIVEIRA
+========================================
+Date: ${new Date().toLocaleDateString('fr-FR')}
+
+STATISTIQUES GLOBALES
+--------------------
+Revenus Total: ${stats.totalRevenue.toLocaleString()} USD
+Ventes réalisées: ${stats.salesCount}
+Taux de vente: ${stats.salesRate.toFixed(1)}%
+Prix moyen par parcelle: ${Math.round(stats.averagePrice).toLocaleString()} USD
+Parcelles disponibles: ${stats.availableCount}
+Parcelles vendues: ${stats.soldCount}
+
+PERFORMANCE PAR HECTARE
+----------------------
+${hectareStats.map(h => `
+${h.name}
+  - Parcelles: ${h.soldParcelles}/${h.totalParcelles}
+  - Taux de vente: ${h.salesRate.toFixed(1)}%
+  - Revenus: ${h.revenue.toLocaleString()} USD
+`).join('\n')}
+
+RÉPARTITION PAR STATUT
+---------------------
+Disponibles: ${stats.availableCount} (${((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%)
+Vendues: ${stats.soldCount} (${stats.salesRate.toFixed(1)}%)
+Réservées: 0 (0%)
+
+========================================
+Rapport généré automatiquement
+`;
+
+      // Créer un blob et télécharger
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `rapport-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Rapport téléchargé avec succès");
+    } catch (error) {
+      console.error("Erreur export:", error);
+      toast.error("Erreur lors de l'export du rapport");
+    }
   };
 
   if (loading) {
