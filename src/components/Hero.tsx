@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Database, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-land.jpg";
 
 const Hero = () => {
@@ -33,9 +34,11 @@ const Hero = () => {
           </p>
 
           <div className="flex flex-wrap gap-4 mb-12">
-            <Button variant="hero" size="lg">
-              Explorer les terrains
-            </Button>
+            <Link to="/login">
+              <Button variant="hero" size="lg">
+                Explorer les terrains
+              </Button>
+            </Link>
             <Button variant="outline" size="lg">
               Documentation
             </Button>

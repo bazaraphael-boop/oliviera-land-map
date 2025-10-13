@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Search, Layers } from "lucide-react";
+import { Link } from "react-router-dom";
 import mapImage from "@/assets/map-feature.jpg";
 
 const MapPreview = () => {
@@ -54,9 +55,11 @@ const MapPreview = () => {
               </div>
             </div>
 
-            <Button variant="hero" size="lg">
-              Voir la carte complète
-            </Button>
+            <Link to="/login">
+              <Button variant="hero" size="lg">
+                Voir la carte complète
+              </Button>
+            </Link>
           </div>
 
           <div className="relative animate-fade-in" style={{ animationDelay: '200ms' }}>
