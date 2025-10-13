@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Hectares from "./pages/Hectares";
 import Parcelles from "./pages/Parcelles";
 import Localisation from "./pages/Localisation";
+import Rapports from "./pages/Rapports";
 import Parametres from "./pages/Parametres";
 import Utilisateurs from "./pages/Utilisateurs";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/hectares" element={<Hectares />} />
           <Route path="/parcelles" element={<Parcelles />} />
           <Route path="/localisation" element={<Localisation />} />
+          <Route path="/rapports" element={<Rapports />} />
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/utilisateurs" element={<Utilisateurs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
