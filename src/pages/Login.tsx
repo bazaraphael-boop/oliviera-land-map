@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +7,16 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Lock, Mail, User, Phone, Building } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Login = () => {
+  const navigate = useNavigate();
+  
   // États pour la connexion
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // États pour l'inscription
   const [signupName, setSignupName] = useState("");
@@ -19,41 +25,95 @@ const Login = () => {
   const [signupOrganization, setSignupOrganization] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Formulaire de connexion soumis");
-    console.log("Email:", loginEmail);
-    console.log("Password length:", loginPassword.length);
+    setIsLoggingIn(true);
     
-    console.log("✅ Tentative de connexion:", { email: loginEmail });
-    
-    alert(`Connexion pour ${loginEmail}! L'authentification avec le backend sera implémentée prochainement.`);
-    
-    // Logique de connexion à implémenter plus tard avec Lovable Cloud
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) {
+        toast.error("Erreur de connexion", {
+          description: error.message,
+        });
+        return;
+      }
+
+      if (data.user) {
+        toast.success("Connexion réussie !", {
+          description: `Bienvenue ${loginEmail}`,
+        });
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Une erreur est survenue lors de la connexion");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Formulaire d'inscription soumis");
-    console.log("Données:", { signupName, signupEmail, signupPhone, signupOrganization });
     
     if (signupPassword !== signupConfirmPassword) {
-      console.log("Erreur: Les mots de passe ne correspondent pas");
-      alert("Les mots de passe ne correspondent pas");
+      toast.error("Les mots de passe ne correspondent pas");
       return;
     }
+
+    if (signupPassword.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères");
+      return;
+    }
+
+    setIsSigningUp(true);
     
-    console.log("✅ Inscription réussie:", { 
-      name: signupName, 
-      email: signupEmail, 
-      phone: signupPhone, 
-      organization: signupOrganization 
-    });
-    
-    alert(`Inscription réussie pour ${signupName}! La connexion avec le backend sera implémentée prochainement.`);
-    
-    // Logique d'inscription à implémenter plus tard avec Lovable Cloud
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
+          data: {
+            full_name: signupName,
+            phone: signupPhone,
+            organization: signupOrganization,
+          },
+        },
+      });
+
+      if (error) {
+        toast.error("Erreur d'inscription", {
+          description: error.message,
+        });
+        return;
+      }
+
+      if (data.user) {
+        toast.success("Inscription réussie !", {
+          description: "Vous pouvez maintenant vous connecter",
+        });
+        
+        // Auto-login après inscription
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: signupEmail,
+          password: signupPassword,
+        });
+
+        if (!loginError) {
+          navigate("/");
+        }
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Une erreur est survenue lors de l'inscription");
+    } finally {
+      setIsSigningUp(false);
+    }
   };
 
   return (
@@ -121,8 +181,8 @@ const Login = () => {
                   </div>
                 </div>
 
-                <Button type="submit" variant="hero" className="w-full" size="lg">
-                  Se connecter
+                <Button type="submit" variant="hero" className="w-full" size="lg" disabled={isLoggingIn}>
+                  {isLoggingIn ? "Connexion..." : "Se connecter"}
                 </Button>
               </form>
             </TabsContent>
@@ -243,8 +303,8 @@ const Login = () => {
                   </div>
                 </div>
 
-                <Button type="submit" variant="hero" className="w-full" size="lg">
-                  S'inscrire
+                <Button type="submit" variant="hero" className="w-full" size="lg" disabled={isSigningUp}>
+                  {isSigningUp ? "Inscription..." : "S'inscrire"}
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">
