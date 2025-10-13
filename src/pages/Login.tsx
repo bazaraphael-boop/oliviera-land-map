@@ -22,8 +22,15 @@ const Login = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Connexion:", { loginEmail, loginPassword });
-    // Logique de connexion à implémenter plus tard
+    console.log("Formulaire de connexion soumis");
+    console.log("Email:", loginEmail);
+    console.log("Password length:", loginPassword.length);
+    
+    console.log("✅ Tentative de connexion:", { email: loginEmail });
+    
+    alert(`Connexion pour ${loginEmail}! L'authentification avec le backend sera implémentée prochainement.`);
+    
+    // Logique de connexion à implémenter plus tard avec Lovable Cloud
   };
 
   const handleSignup = (e: React.FormEvent) => {
