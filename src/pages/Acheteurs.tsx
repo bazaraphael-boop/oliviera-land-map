@@ -178,6 +178,10 @@ const Acheteurs = () => {
             <User className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">{acheteurs.length} acheteurs</span>
           </div>
+
+          <Button onClick={() => navigate("/parcelles")}>
+            Nouveau Acheteur
+          </Button>
         </div>
 
         {/* Statistics Cards */}

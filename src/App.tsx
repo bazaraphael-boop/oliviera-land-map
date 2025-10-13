@@ -13,6 +13,7 @@ import Localisation from "./pages/Localisation";
 import Rapports from "./pages/Rapports";
 import Parametres from "./pages/Parametres";
 import Utilisateurs from "./pages/Utilisateurs";
+import Documents from "./pages/Documents";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/rapports" element={<Rapports />} />
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/utilisateurs" element={<Utilisateurs />} />
+          <Route path="/documents" element={<Documents />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
