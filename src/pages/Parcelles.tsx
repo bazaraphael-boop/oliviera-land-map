@@ -119,6 +119,21 @@ const Parcelles = () => {
     e.preventDefault();
     
     try {
+      // Vérifier combien de parcelles existent déjà pour cet hectare
+      const { data: existingParcelles, error: countError } = await supabase
+        .from("parcelles")
+        .select("id", { count: "exact" })
+        .eq("hectare_id", formData.hectare_id);
+
+      if (countError) throw countError;
+
+      const parcelleCount = existingParcelles?.length || 0;
+
+      if (parcelleCount >= 15) {
+        toast.error("Limite atteinte : un hectare ne peut contenir que 15 parcelles maximum");
+        return;
+      }
+
       const { error } = await supabase.from("parcelles").insert([
         {
           numero: formData.numero,
