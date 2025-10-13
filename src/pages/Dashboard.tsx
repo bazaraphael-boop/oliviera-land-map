@@ -8,6 +8,8 @@ import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Down
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
+import { jsPDF } from "jspdf";
+import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -93,35 +95,54 @@ const Dashboard = () => {
 
   const handleExportReport = () => {
     try {
-      const reportContent = `
-RAPPORT TABLEAU DE BORD - CONCESSION D'OLIVEIRA
-==============================================
-Date: ${new Date().toLocaleDateString('fr-FR')}
-
-STATISTIQUES
------------
-Revenus Total: ${stats.totalRevenue.toFixed(0)} USD
-Ventes réalisées: ${stats.soldParcelles}
-Taux de Vente: ${stats.salesRate.toFixed(1)}%
-Prix Moyen: ${stats.averagePrice.toFixed(0)} USD
-Parcelles disponibles: ${stats.available}
-Total parcelles: ${stats.totalParcelles}
-
-==============================================
-Rapport généré automatiquement
-`;
-
-      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `tableau-bord-${new Date().toISOString().split('T')[0]}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Rapport téléchargé avec succès");
+      const pdf = new jsPDF();
+      
+      // Ajouter l'en-tête image
+      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 50);
+      
+      let yPos = 60;
+      
+      // Titre
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("RAPPORT TABLEAU DE BORD", 105, yPos, { align: "center" });
+      yPos += 10;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
+      yPos += 15;
+      
+      // Statistiques
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("STATISTIQUES", 20, yPos);
+      yPos += 8;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const statsData = [
+        `Revenus Total: ${stats.totalRevenue.toFixed(0)} USD`,
+        `Ventes réalisées: ${stats.soldParcelles}`,
+        `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
+        `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
+        `Parcelles disponibles: ${stats.available}`,
+        `Total parcelles: ${stats.totalParcelles}`,
+      ];
+      
+      statsData.forEach(stat => {
+        pdf.text(`• ${stat}`, 25, yPos);
+        yPos += 6;
+      });
+      
+      // Footer
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "italic");
+      pdf.text("Rapport généré automatiquement", 105, 285, { align: "center" });
+      
+      pdf.save(`tableau-bord-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success("Rapport PDF téléchargé avec succès");
     } catch (error) {
       console.error("Erreur export:", error);
       toast.error("Erreur lors de l'export du rapport");

@@ -7,6 +7,8 @@ import { DollarSign, TrendingUp, BarChart2, Calendar, Download } from "lucide-re
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
+import { jsPDF } from "jspdf";
+import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 
 interface Stats {
   totalRevenue: number;
@@ -118,57 +120,121 @@ const Rapports = () => {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
-      // Créer le contenu du rapport
-      const reportContent = `
-RAPPORT D'ANALYSES - CONCESSION D'OLIVEIRA
-========================================
-Date: ${new Date().toLocaleDateString('fr-FR')}
-
-STATISTIQUES GLOBALES
---------------------
-Revenus Total: ${stats.totalRevenue.toLocaleString()} USD
-Ventes réalisées: ${stats.salesCount}
-Taux de vente: ${stats.salesRate.toFixed(1)}%
-Prix moyen par parcelle: ${Math.round(stats.averagePrice).toLocaleString()} USD
-Parcelles disponibles: ${stats.availableCount}
-Parcelles vendues: ${stats.soldCount}
-
-PERFORMANCE PAR HECTARE
-----------------------
-${hectareStats.map(h => `
-${h.name}
-  - Parcelles: ${h.soldParcelles}/${h.totalParcelles}
-  - Taux de vente: ${h.salesRate.toFixed(1)}%
-  - Revenus: ${h.revenue.toLocaleString()} USD
-`).join('\n')}
-
-RÉPARTITION PAR STATUT
----------------------
-Disponibles: ${stats.availableCount} (${((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%)
-Vendues: ${stats.soldCount} (${stats.salesRate.toFixed(1)}%)
-Réservées: 0 (0%)
-
-========================================
-Rapport généré automatiquement
-`;
-
-      // Créer un blob et télécharger
-      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `rapport-${new Date().toISOString().split('T')[0]}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Rapport téléchargé avec succès");
+      const pdf = new jsPDF();
+      
+      // Ajouter l'en-tête image
+      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 50);
+      
+      let yPos = 60;
+      
+      // Titre du rapport
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("RAPPORT D'ANALYSES", 105, yPos, { align: "center" });
+      yPos += 10;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
+      yPos += 15;
+      
+      // Statistiques globales
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("STATISTIQUES GLOBALES", 20, yPos);
+      yPos += 8;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const globalStats = [
+        `Revenus Total: ${stats.totalRevenue.toLocaleString()} USD`,
+        `Ventes réalisées: ${stats.salesCount}`,
+        `Taux de vente: ${stats.salesRate.toFixed(1)}%`,
+        `Prix moyen par parcelle: ${Math.round(stats.averagePrice).toLocaleString()} USD`,
+        `Parcelles disponibles: ${stats.availableCount}`,
+        `Parcelles vendues: ${stats.soldCount}`,
+      ];
+      
+      globalStats.forEach(stat => {
+        pdf.text(`• ${stat}`, 25, yPos);
+        yPos += 6;
+      });
+      
+      yPos += 5;
+      
+      // Performance par hectare
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("PERFORMANCE PAR HECTARE", 20, yPos);
+      yPos += 8;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      
+      if (hectareStats.length === 0) {
+        pdf.text("Aucune donnée disponible", 25, yPos);
+        yPos += 6;
+      } else {
+        hectareStats.forEach(hectare => {
+          if (yPos > 270) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.text(hectare.name, 25, yPos);
+          yPos += 6;
+          
+          pdf.setFont("helvetica", "normal");
+          pdf.text(`  Parcelles: ${hectare.soldParcelles}/${hectare.totalParcelles}`, 25, yPos);
+          yPos += 5;
+          pdf.text(`  Taux de vente: ${hectare.salesRate.toFixed(1)}%`, 25, yPos);
+          yPos += 5;
+          pdf.text(`  Revenus: ${hectare.revenue.toLocaleString()} USD`, 25, yPos);
+          yPos += 8;
+        });
+      }
+      
+      yPos += 5;
+      
+      // Répartition par statut
+      if (yPos > 240) {
+        pdf.addPage();
+        yPos = 20;
+      }
+      
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("RÉPARTITION PAR STATUT", 20, yPos);
+      yPos += 8;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const statusStats = [
+        `Disponibles: ${stats.availableCount} (${((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%)`,
+        `Vendues: ${stats.soldCount} (${stats.salesRate.toFixed(1)}%)`,
+        `Réservées: 0 (0%)`,
+      ];
+      
+      statusStats.forEach(stat => {
+        pdf.text(`• ${stat}`, 25, yPos);
+        yPos += 6;
+      });
+      
+      // Footer
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "italic");
+      pdf.text("Rapport généré automatiquement", 105, 285, { align: "center" });
+      
+      // Télécharger le PDF
+      pdf.save(`rapport-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success("Rapport PDF téléchargé avec succès");
     } catch (error) {
       console.error("Erreur export:", error);
-      toast.error("Erreur lors de l'export du rapport");
+      toast.error("Erreur lors de la génération du PDF");
     }
   };
 
