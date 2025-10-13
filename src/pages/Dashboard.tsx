@@ -97,10 +97,10 @@ const Dashboard = () => {
     try {
       const pdf = new jsPDF();
       
-      // Ajouter l'en-tête image
-      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 50);
+      // Ajouter l'en-tête image avec proportions préservées
+      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 40);
       
-      let yPos = 60;
+      let yPos = 50;
       
       // Titre
       pdf.setFontSize(16);
