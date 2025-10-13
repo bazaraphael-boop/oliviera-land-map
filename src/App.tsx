@@ -10,6 +10,7 @@ import Hectares from "./pages/Hectares";
 import Parcelles from "./pages/Parcelles";
 import Localisation from "./pages/Localisation";
 import Parametres from "./pages/Parametres";
+import Utilisateurs from "./pages/Utilisateurs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/parcelles" element={<Parcelles />} />
           <Route path="/localisation" element={<Localisation />} />
           <Route path="/parametres" element={<Parametres />} />
+          <Route path="/utilisateurs" element={<Utilisateurs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
