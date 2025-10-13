@@ -14,6 +14,14 @@ const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    salesRate: 0,
+    averagePrice: 0,
+    available: 0,
+    totalParcelles: 0,
+    soldParcelles: 0,
+  });
 
   useEffect(() => {
     checkUser();
@@ -40,11 +48,46 @@ const Dashboard = () => {
       if (!profileError && profileData) {
         setProfile(profileData);
       }
+
+      // Charger les statistiques
+      await loadStats();
     } catch (error) {
       console.error("Erreur:", error);
       navigate("/login");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const { data: parcelles, error } = await supabase
+        .from("parcelles")
+        .select("*");
+
+      if (error) throw error;
+
+      const totalParcelles = parcelles?.length || 0;
+      const soldParcelles = parcelles?.filter((p) => p.status === "vendue").length || 0;
+      const totalRevenue = parcelles
+        ?.filter((p) => p.status === "vendue")
+        .reduce((sum, p) => sum + Number(p.prix), 0) || 0;
+      const averagePrice = totalParcelles > 0
+        ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / totalParcelles
+        : 0;
+      const available = parcelles?.filter((p) => p.status === "disponible").length || 0;
+      const salesRate = totalParcelles > 0 ? (soldParcelles / totalParcelles) * 100 : 0;
+
+      setStats({
+        totalRevenue,
+        salesRate,
+        averagePrice,
+        available,
+        totalParcelles,
+        soldParcelles,
+      });
+    } catch (error) {
+      console.error("Erreur stats:", error);
     }
   };
 
@@ -148,28 +191,28 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
               title="Revenus Total"
-              value="0 USD"
-              subtitle="0 ventes réalisées"
+              value={`${stats.totalRevenue.toFixed(0)} USD`}
+              subtitle={`${stats.soldParcelles} ventes réalisées`}
               icon={DollarSign}
               colorClass="bg-[hsl(160,84%,39%)]"
             />
             <StatsCard
               title="Taux de Vente"
-              value="0.0%"
-              subtitle="0/0 parcelles"
+              value={`${stats.salesRate.toFixed(1)}%`}
+              subtitle={`${stats.soldParcelles}/${stats.totalParcelles} parcelles`}
               icon={TrendingUp}
               colorClass="bg-[hsl(217,91%,60%)]"
             />
             <StatsCard
               title="Prix Moyen"
-              value="0 USD"
+              value={`${stats.averagePrice.toFixed(0)} USD`}
               subtitle="par parcelle"
               icon={BarChart2}
               colorClass="bg-[hsl(24,95%,53%)]"
             />
             <StatsCard
               title="Disponibles"
-              value="0"
+              value={stats.available.toString()}
               subtitle="à vendre"
               icon={Calendar}
               colorClass="bg-[hsl(271,91%,65%)]"

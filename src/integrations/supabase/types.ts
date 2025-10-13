@@ -14,6 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      documents: {
+        Row: {
+          created_at: string
+          file_url: string | null
+          id: string
+          parcelle_id: string | null
+          title: string
+          type: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          parcelle_id?: string | null
+          title: string
+          type: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          parcelle_id?: string | null
+          title?: string
+          type?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_parcelle_id_fkey"
+            columns: ["parcelle_id"]
+            isOneToOne: false
+            referencedRelation: "parcelles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hectares: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          status: string | null
+          surface: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          status?: string | null
+          surface: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          status?: string | null
+          surface?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      parcelles: {
+        Row: {
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
+          created_at: string
+          hectare_id: string | null
+          id: string
+          numero: string
+          prix: number
+          sale_date: string | null
+          status: string | null
+          surface: number
+          updated_at: string
+        }
+        Insert: {
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          created_at?: string
+          hectare_id?: string | null
+          id?: string
+          numero: string
+          prix: number
+          sale_date?: string | null
+          status?: string | null
+          surface: number
+          updated_at?: string
+        }
+        Update: {
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          created_at?: string
+          hectare_id?: string | null
+          id?: string
+          numero?: string
+          prix?: number
+          sale_date?: string | null
+          status?: string | null
+          surface?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcelles_hectare_id_fkey"
+            columns: ["hectare_id"]
+            isOneToOne: false
+            referencedRelation: "hectares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
