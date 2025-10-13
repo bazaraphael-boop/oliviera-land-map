@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MapPin, LogOut, User, Building, Phone, Mail } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download } from "lucide-react";
 import { toast } from "sonner";
+import DashboardSidebar from "@/components/DashboardSidebar";
+import StatsCard from "@/components/StatsCard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -68,134 +71,146 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-hero">
-                <MapPin className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground">Concession MJO</h1>
-                <p className="text-xs text-muted-foreground">Système de Gestion</p>
-              </div>
-            </div>
-
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Déconnexion
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-background">
+      <DashboardSidebar />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Tableau de Bord
-          </h2>
-          <p className="text-muted-foreground">
-            Bienvenue, {profile?.full_name || user?.email}
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Profil Utilisateur */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <User className="w-6 h-6 text-primary" />
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <header className="bg-card border-b border-border px-8 py-4">
+          <div className="flex items-center justify-between">
+            {/* Search */}
+            <div className="flex-1 max-w-xl">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher hectares, parcelles..."
+                  className="pl-10 bg-background"
+                />
               </div>
-              <h3 className="text-xl font-semibold text-foreground">Mon Profil</h3>
             </div>
-            
-            <div className="space-y-3">
-              {profile?.full_name && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{profile.full_name}</span>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-semibold">
+                    {profile?.full_name?.charAt(0) || "A"}
+                  </span>
                 </div>
-              )}
-              
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="w-4 h-4 text-muted-foreground" />
-                <span className="text-foreground">{profile?.email || user?.email}</span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {profile?.full_name || "Admin Principal"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Admin</p>
+                </div>
               </div>
 
-              {profile?.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{profile.phone}</span>
-                </div>
-              )}
-
-              {profile?.organization && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Building className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">{profile.organization}</span>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Statistiques */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-                <MapPin className="w-6 h-6 text-secondary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground">Mes Terrains</h3>
-            </div>
-            
-            <div className="text-center py-8">
-              <p className="text-3xl font-bold text-foreground mb-2">0</p>
-              <p className="text-sm text-muted-foreground">Parcelles enregistrées</p>
-            </div>
-          </Card>
-
-          {/* Actions rapides */}
-          <Card className="p-6">
-            <h3 className="text-xl font-semibold text-foreground mb-4">Actions Rapides</h3>
-            
-            <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <MapPin className="w-4 h-4 mr-2" />
-                Voir la carte
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut className="w-5 h-5" />
               </Button>
-              
-              <Button variant="outline" className="w-full justify-start">
-                Nouvelle parcelle
-              </Button>
-              
-              <Button variant="outline" className="w-full justify-start">
-                Consulter les documents
-              </Button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Message d'information */}
-        <Card className="mt-8 p-6 bg-primary/5 border-primary/20">
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <MapPin className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-2">
-                Système de Gestion Cadastrale
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                Vous avez maintenant accès à toutes les fonctionnalités du système de gestion des terrains 
-                de la Concession Manuel Joaquim d'Olivera. Explorez la carte, consultez vos parcelles et 
-                gérez vos documents en toute sécurité.
-              </p>
             </div>
           </div>
-        </Card>
-      </main>
+        </header>
+
+        {/* Dashboard Content */}
+        <main className="flex-1 p-8 overflow-auto">
+          {/* Page Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-1">
+                Rapports & Analyses
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                Analysez les performances de vos terrains - Données mises à jour automatiquement
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <select className="px-4 py-2 rounded-lg border border-border bg-background text-sm">
+                <option>Ce mois</option>
+                <option>Ce trimestre</option>
+                <option>Cette année</option>
+              </select>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Download className="w-4 h-4 mr-2" />
+                Exporter PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatsCard
+              title="Revenus Total"
+              value="0 USD"
+              subtitle="0 ventes réalisées"
+              icon={DollarSign}
+              colorClass="bg-[hsl(160,84%,39%)]"
+            />
+            <StatsCard
+              title="Taux de Vente"
+              value="0.0%"
+              subtitle="0/0 parcelles"
+              icon={TrendingUp}
+              colorClass="bg-[hsl(217,91%,60%)]"
+            />
+            <StatsCard
+              title="Prix Moyen"
+              value="0 USD"
+              subtitle="par parcelle"
+              icon={BarChart2}
+              colorClass="bg-[hsl(24,95%,53%)]"
+            />
+            <StatsCard
+              title="Disponibles"
+              value="0"
+              subtitle="à vendre"
+              icon={Calendar}
+              colorClass="bg-[hsl(271,91%,65%)]"
+            />
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Évolution des Ventes */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Évolution des Ventes Mensuelles
+              </h3>
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                <p className="text-sm">Aucune donnée disponible</p>
+              </div>
+            </Card>
+
+            {/* Performance par Hectare */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">
+                  Performance par Hectare
+                </h3>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-foreground">issetech</p>
+                    <p className="text-sm text-muted-foreground">0/15 parcelles</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-foreground">0.0%</p>
+                    <p className="text-sm text-muted-foreground">0k USD</p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
