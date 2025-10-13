@@ -1,4 +1,4 @@
-import { MapPin, Home, Map, Grid3x3, Navigation, BarChart3, FileText, Settings, Users } from "lucide-react";
+import { MapPin, Home, Map, Grid3x3, Navigation, BarChart3, FileText, Settings, Users, ShoppingCart } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ const menuItems = [
   { icon: Home, label: "Tableau de Bord", path: "/dashboard" },
   { icon: Map, label: "Hectares", path: "/hectares" },
   { icon: Grid3x3, label: "Parcelles", path: "/parcelles" },
+  { icon: ShoppingCart, label: "Acheteurs", path: "/acheteurs" },
   { icon: Navigation, label: "Localisation du Terrain", path: "/localisation" },
   { icon: BarChart3, label: "Rapports", path: "/rapports" },
   { icon: FileText, label: "Documents", path: "/documents" },
