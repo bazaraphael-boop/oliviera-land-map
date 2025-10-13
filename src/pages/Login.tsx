@@ -48,7 +48,7 @@ const Login = () => {
         toast.success("Connexion réussie !", {
           description: `Bienvenue ${loginEmail}`,
         });
-        navigate("/");
+        navigate("/dashboard");
       }
     } catch (error) {
       console.error("Erreur:", error);
@@ -105,7 +105,7 @@ const Login = () => {
         });
 
         if (!loginError) {
-          navigate("/");
+          navigate("/dashboard");
         }
       }
     } catch (error) {
