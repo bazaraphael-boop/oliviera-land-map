@@ -31,6 +31,8 @@ interface Parcelle {
   status: string;
   buyer_name: string | null;
   buyer_phone: string | null;
+  buyer_email: string | null;
+  sale_date: string | null;
   hectare_id: string;
 }
 
@@ -47,6 +49,8 @@ const Parcelles = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
   const [selectedHectare, setSelectedHectare] = useState<string>(
     searchParams.get("hectare") || "all"
   );
@@ -55,6 +59,13 @@ const Parcelles = () => {
     surface: "",
     prix: "",
     hectare_id: searchParams.get("hectare") || "",
+  });
+  const [editFormData, setEditFormData] = useState({
+    status: "",
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    sale_date: "",
   });
 
   useEffect(() => {
@@ -142,6 +153,62 @@ const Parcelles = () => {
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const handleEdit = (parcelle: Parcelle) => {
+    setSelectedParcelle(parcelle);
+    setEditFormData({
+      status: parcelle.status || "disponible",
+      buyer_name: parcelle.buyer_name || "",
+      buyer_phone: parcelle.buyer_phone || "",
+      buyer_email: parcelle.buyer_email || "",
+      sale_date: parcelle.sale_date || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateParcelle = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedParcelle) return;
+
+    try {
+      const updateData: any = {
+        status: editFormData.status,
+      };
+
+      if (editFormData.status === "vendu") {
+        if (!editFormData.buyer_name) {
+          toast.error("Le nom de l'acheteur est requis pour une vente");
+          return;
+        }
+        updateData.buyer_name = editFormData.buyer_name;
+        updateData.buyer_phone = editFormData.buyer_phone || null;
+        updateData.buyer_email = editFormData.buyer_email || null;
+        updateData.sale_date = editFormData.sale_date || new Date().toISOString();
+      } else {
+        // Si le statut n'est pas "vendu", on enlève les infos acheteur
+        updateData.buyer_name = null;
+        updateData.buyer_phone = null;
+        updateData.buyer_email = null;
+        updateData.sale_date = null;
+      }
+
+      const { error } = await supabase
+        .from("parcelles")
+        .update(updateData)
+        .eq("id", selectedParcelle.id);
+
+      if (error) throw error;
+
+      toast.success("Parcelle mise à jour avec succès");
+      setIsEditDialogOpen(false);
+      setSelectedParcelle(null);
+      fetchParcelles();
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors de la mise à jour");
     }
   };
 
@@ -281,7 +348,12 @@ const Parcelles = () => {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleEdit(parcelle)}
+                  >
                     <Edit className="w-3 h-3" />
                   </Button>
                   <Button
@@ -326,6 +398,105 @@ const Parcelles = () => {
             </p>
           </div>
         )}
+
+        {/* Dialog Édition Parcelle */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                Modifier Parcelle {selectedParcelle?.numero}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleUpdateParcelle} className="space-y-4">
+              <div>
+                <Label>Statut *</Label>
+                <Select
+                  value={editFormData.status}
+                  onValueChange={(value) =>
+                    setEditFormData({ ...editFormData, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disponible">Disponible</SelectItem>
+                    <SelectItem value="reserve">Réservé</SelectItem>
+                    <SelectItem value="vendu">Vendu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editFormData.status === "vendu" && (
+                <>
+                  <div className="space-y-4 p-4 bg-muted rounded-lg">
+                    <h4 className="font-semibold text-sm">Informations Acheteur</h4>
+                    
+                    <div>
+                      <Label>Nom complet *</Label>
+                      <Input
+                        value={editFormData.buyer_name}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, buyer_name: e.target.value })
+                        }
+                        placeholder="Ex: Jean Dupont"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Téléphone</Label>
+                      <Input
+                        value={editFormData.buyer_phone}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, buyer_phone: e.target.value })
+                        }
+                        placeholder="Ex: +243 123 456 789"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={editFormData.buyer_email}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, buyer_email: e.target.value })
+                        }
+                        placeholder="Ex: jean.dupont@email.com"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Date de vente</Label>
+                      <Input
+                        type="date"
+                        value={editFormData.sale_date ? new Date(editFormData.sale_date).toISOString().split('T')[0] : ""}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, sale_date: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Enregistrer
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
