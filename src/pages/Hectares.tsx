@@ -23,6 +23,8 @@ interface Hectare {
   location: string;
   status: string;
   created_at: string;
+  prix: number;
+  rmb_number: string | null;
 }
 
 const Hectares = () => {
@@ -36,6 +38,8 @@ const Hectares = () => {
     surface: "",
     location: "",
     status: "available",
+    prix: "",
+    rmb_number: "",
   });
 
   useEffect(() => {
@@ -77,6 +81,8 @@ const Hectares = () => {
           surface: parseFloat(formData.surface),
           location: formData.location,
           status: formData.status,
+          prix: parseFloat(formData.prix) || 0,
+          rmb_number: formData.rmb_number || null,
         },
       ]);
 
@@ -84,7 +90,7 @@ const Hectares = () => {
 
       toast.success("Hectare créé avec succès");
       setIsDialogOpen(false);
-      setFormData({ name: "", surface: "", location: "", status: "available" });
+      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "" });
       fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
@@ -178,6 +184,24 @@ const Hectares = () => {
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label>Prix (USD)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.prix}
+                    onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
+                    placeholder="Prix total de l'hectare"
+                  />
+                </div>
+                <div>
+                  <Label>Numéro RMB</Label>
+                  <Input
+                    value={formData.rmb_number}
+                    onChange={(e) => setFormData({ ...formData, rmb_number: e.target.value })}
+                    placeholder="Ex: RMB-2024-001"
+                  />
+                </div>
                 <Button type="submit" className="w-full">Créer</Button>
               </form>
             </DialogContent>
@@ -195,6 +219,9 @@ const Hectares = () => {
                   <div>
                     <h3 className="font-semibold text-foreground">{hectare.name}</h3>
                     <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
+                    {hectare.prix > 0 && (
+                      <p className="text-sm font-semibold text-primary">${hectare.prix.toLocaleString()}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -211,11 +238,18 @@ const Hectares = () => {
                 </div>
               </div>
 
-              {hectare.location && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  📍 {hectare.location}
-                </p>
-              )}
+              <div className="space-y-1 mb-3">
+                {hectare.location && (
+                  <p className="text-sm text-muted-foreground">
+                    📍 {hectare.location}
+                  </p>
+                )}
+                {hectare.rmb_number && (
+                  <p className="text-sm text-muted-foreground">
+                    RMB: {hectare.rmb_number}
+                  </p>
+                )}
+              </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-border">
                 <span className="text-xs text-muted-foreground">

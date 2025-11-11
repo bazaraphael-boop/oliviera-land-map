@@ -58,6 +58,8 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          prix: number | null
+          rmb_number: string | null
           status: string | null
           surface: number
           updated_at: string
@@ -67,6 +69,8 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          prix?: number | null
+          rmb_number?: string | null
           status?: string | null
           surface: number
           updated_at?: string
@@ -76,6 +80,8 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          prix?: number | null
+          rmb_number?: string | null
           status?: string | null
           surface?: number
           updated_at?: string
@@ -84,6 +90,7 @@ export type Database = {
       }
       parcelles: {
         Row: {
+          amount_paid: number | null
           buyer_email: string | null
           buyer_name: string | null
           buyer_phone: string | null
@@ -91,13 +98,17 @@ export type Database = {
           hectare_id: string | null
           id: string
           numero: string
+          payment_type: string | null
           prix: number
+          remaining_amount: number | null
           sale_date: string | null
+          sale_type: string | null
           status: string | null
           surface: number
           updated_at: string
         }
         Insert: {
+          amount_paid?: number | null
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
@@ -105,13 +116,17 @@ export type Database = {
           hectare_id?: string | null
           id?: string
           numero: string
+          payment_type?: string | null
           prix: number
+          remaining_amount?: number | null
           sale_date?: string | null
+          sale_type?: string | null
           status?: string | null
           surface: number
           updated_at?: string
         }
         Update: {
+          amount_paid?: number | null
           buyer_email?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
@@ -119,8 +134,11 @@ export type Database = {
           hectare_id?: string | null
           id?: string
           numero?: string
+          payment_type?: string | null
           prix?: number
+          remaining_amount?: number | null
           sale_date?: string | null
+          sale_type?: string | null
           status?: string | null
           surface?: number
           updated_at?: string
@@ -201,10 +219,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

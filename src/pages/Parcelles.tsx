@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit, Trash2, Grid3x3 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import { Badge } from "@/components/ui/badge";
+import jsPDF from "jspdf";
+import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +37,10 @@ interface Parcelle {
   buyer_email: string | null;
   sale_date: string | null;
   hectare_id: string;
+  payment_type: string;
+  amount_paid: number;
+  remaining_amount: number;
+  sale_type: string;
 }
 
 interface Hectare {
@@ -66,6 +73,10 @@ const Parcelles = () => {
     buyer_phone: "",
     buyer_email: "",
     sale_date: "",
+    payment_type: "total",
+    amount_paid: "",
+    sale_type: "normal",
+    prix: "",
   });
 
   useEffect(() => {
@@ -179,6 +190,10 @@ const Parcelles = () => {
       buyer_phone: parcelle.buyer_phone || "",
       buyer_email: parcelle.buyer_email || "",
       sale_date: parcelle.sale_date || "",
+      payment_type: parcelle.payment_type || "total",
+      amount_paid: parcelle.amount_paid?.toString() || "",
+      sale_type: parcelle.sale_type || "normal",
+      prix: parcelle.prix?.toString() || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -191,6 +206,8 @@ const Parcelles = () => {
     try {
       const updateData: any = {
         status: editFormData.status,
+        prix: parseFloat(editFormData.prix) || selectedParcelle.prix,
+        sale_type: editFormData.sale_type,
       };
 
       if (editFormData.status === "vendu") {
@@ -198,16 +215,26 @@ const Parcelles = () => {
           toast.error("Le nom de l'acheteur est requis pour une vente");
           return;
         }
+        
+        const prix = parseFloat(editFormData.prix) || selectedParcelle.prix;
+        const amountPaid = parseFloat(editFormData.amount_paid) || 0;
+        
         updateData.buyer_name = editFormData.buyer_name;
         updateData.buyer_phone = editFormData.buyer_phone || null;
         updateData.buyer_email = editFormData.buyer_email || null;
         updateData.sale_date = editFormData.sale_date || new Date().toISOString();
+        updateData.payment_type = editFormData.payment_type;
+        updateData.amount_paid = amountPaid;
+        updateData.remaining_amount = editFormData.payment_type === "partiel" ? prix - amountPaid : 0;
       } else {
         // Si le statut n'est pas "vendu", on enlève les infos acheteur
         updateData.buyer_name = null;
         updateData.buyer_phone = null;
         updateData.buyer_email = null;
         updateData.sale_date = null;
+        updateData.payment_type = "total";
+        updateData.amount_paid = 0;
+        updateData.remaining_amount = 0;
       }
 
       const { error } = await supabase
@@ -218,6 +245,12 @@ const Parcelles = () => {
       if (error) throw error;
 
       toast.success("Parcelle mise à jour avec succès");
+      
+      // Générer la facture si vendu
+      if (editFormData.status === "vendu") {
+        await generateInvoice(selectedParcelle, updateData);
+      }
+      
       setIsEditDialogOpen(false);
       setSelectedParcelle(null);
       fetchParcelles();
@@ -230,6 +263,97 @@ const Parcelles = () => {
   const filteredParcelles = parcelles.filter((p) =>
     p.numero.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const generateInvoice = async (parcelle: Parcelle, saleData: any) => {
+    try {
+      const pdf = new jsPDF();
+      
+      // Ajouter l'en-tête image
+      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 30);
+      
+      let yPos = 40;
+      
+      // Titre
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("FACTURE DE VENTE", 105, yPos, { align: "center" });
+      yPos += 15;
+      
+      // Informations générales
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Date: ${new Date(saleData.sale_date).toLocaleDateString()}`, 20, yPos);
+      yPos += 10;
+      pdf.text(`Parcelle N°: ${parcelle.numero}`, 20, yPos);
+      yPos += 10;
+      pdf.text(`Surface: ${parcelle.surface} m²`, 20, yPos);
+      yPos += 15;
+      
+      // Type de vente
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre onéreux" : "Vente normale"}`, 20, yPos);
+      yPos += 15;
+      
+      // Informations acheteur
+      pdf.setFontSize(14);
+      pdf.text("INFORMATIONS ACHETEUR", 20, yPos);
+      yPos += 8;
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Nom: ${saleData.buyer_name}`, 20, yPos);
+      yPos += 7;
+      if (saleData.buyer_phone) {
+        pdf.text(`Téléphone: ${saleData.buyer_phone}`, 20, yPos);
+        yPos += 7;
+      }
+      if (saleData.buyer_email) {
+        pdf.text(`Email: ${saleData.buyer_email}`, 20, yPos);
+        yPos += 7;
+      }
+      yPos += 10;
+      
+      // Détails financiers
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("DÉTAILS FINANCIERS", 20, yPos);
+      yPos += 8;
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Prix total: $${saleData.prix.toLocaleString()}`, 20, yPos);
+      yPos += 7;
+      pdf.text(`Type de paiement: ${saleData.payment_type === "partiel" ? "Paiement partiel" : "Paiement total"}`, 20, yPos);
+      yPos += 7;
+      
+      if (saleData.payment_type === "partiel") {
+        pdf.text(`Montant payé: $${saleData.amount_paid.toLocaleString()}`, 20, yPos);
+        yPos += 7;
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Montant restant: $${saleData.remaining_amount.toLocaleString()}`, 20, yPos);
+        pdf.setFont("helvetica", "normal");
+      } else {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("PAYÉ INTÉGRALEMENT", 20, yPos);
+        pdf.setFont("helvetica", "normal");
+      }
+      
+      // Pied de page
+      yPos = 270;
+      pdf.setFontSize(10);
+      pdf.text("___________________________", 20, yPos);
+      pdf.text("___________________________", 120, yPos);
+      yPos += 5;
+      pdf.text("Signature Vendeur", 20, yPos);
+      pdf.text("Signature Acheteur", 120, yPos);
+      
+      // Sauvegarder le PDF
+      pdf.save(`facture-parcelle-${parcelle.numero}-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success("Facture générée avec succès");
+    } catch (error) {
+      console.error("Erreur génération facture:", error);
+      toast.error("Erreur lors de la génération de la facture");
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const colors = {
@@ -388,13 +512,35 @@ const Parcelles = () => {
                   <span className="text-sm font-semibold">${parcelle.prix.toLocaleString()}</span>
                 </div>
                 
-                <div className={`text-xs px-2 py-1 rounded text-center ${getStatusBadge(parcelle.status)}`}>
-                  {parcelle.status}
+                <div className="flex gap-2 flex-wrap">
+                  <div className={`text-xs px-2 py-1 rounded ${getStatusBadge(parcelle.status)}`}>
+                    {parcelle.status}
+                  </div>
+                  
+                  {parcelle.sale_type === "onereux" && (
+                    <Badge variant="secondary" className="text-xs">
+                      À titre onéreux
+                    </Badge>
+                  )}
+                  
+                  {parcelle.payment_type === "partiel" && parcelle.status === "vendu" && (
+                    <Badge variant="outline" className="text-xs">
+                      Paiement partiel
+                    </Badge>
+                  )}
                 </div>
 
                 {parcelle.buyer_name && (
                   <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                    Acheteur: {parcelle.buyer_name}
+                    <div>Acheteur: {parcelle.buyer_name}</div>
+                    {parcelle.payment_type === "partiel" && (
+                      <div className="mt-1">
+                        <div>Payé: ${parcelle.amount_paid.toLocaleString()}</div>
+                        <div className="font-semibold text-destructive">
+                          Reste: ${parcelle.remaining_amount.toLocaleString()}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -438,6 +584,37 @@ const Parcelles = () => {
                     <SelectItem value="disponible">Disponible</SelectItem>
                     <SelectItem value="reserve">Réservé</SelectItem>
                     <SelectItem value="vendu">Vendu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Prix (USD) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editFormData.prix}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, prix: e.target.value })
+                  }
+                  placeholder="Modifier le prix"
+                />
+              </div>
+              
+              <div>
+                <Label>Type de vente</Label>
+                <Select
+                  value={editFormData.sale_type}
+                  onValueChange={(value) =>
+                    setEditFormData({ ...editFormData, sale_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Vente normale</SelectItem>
+                    <SelectItem value="onereux">À titre onéreux</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -492,6 +669,45 @@ const Parcelles = () => {
                         }
                       />
                     </div>
+                    
+                    <div>
+                      <Label>Type de paiement *</Label>
+                      <Select
+                        value={editFormData.payment_type}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, payment_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="total">Paiement total</SelectItem>
+                          <SelectItem value="partiel">Paiement partiel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {editFormData.payment_type === "partiel" && (
+                      <div>
+                        <Label>Montant payé (USD) *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editFormData.amount_paid}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, amount_paid: e.target.value })
+                          }
+                          placeholder="Montant déjà payé"
+                          required
+                        />
+                        {editFormData.amount_paid && editFormData.prix && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Restant: ${(parseFloat(editFormData.prix) - parseFloat(editFormData.amount_paid)).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               )}
