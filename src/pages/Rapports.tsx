@@ -69,7 +69,7 @@ const Rapports = () => {
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
       
-      const totalRevenue = soldParcelles.reduce((sum, p) => sum + Number(p.prix), 0);
+      const totalRevenue = soldParcelles.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0);
       const averagePrice = parcelles && parcelles.length > 0 
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / parcelles.length 
         : 0;
@@ -96,7 +96,7 @@ const Rapports = () => {
       const hectareStatsData = hectares?.map(hectare => {
         const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
         const soldInHectare = hectareParcelles.filter(p => p.status === "vendu");
-        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + Number(p.prix), 0);
+        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0);
         const salesRateInHectare = hectareParcelles.length > 0
           ? (soldInHectare.length / hectareParcelles.length) * 100
           : 0;

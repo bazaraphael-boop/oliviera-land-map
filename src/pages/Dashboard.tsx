@@ -70,10 +70,10 @@ const Dashboard = () => {
       if (error) throw error;
 
       const totalParcelles = parcelles?.length || 0;
-      const soldParcelles = parcelles?.filter((p) => p.status === "vendue").length || 0;
+      const soldParcelles = parcelles?.filter((p) => p.status === "vendu").length || 0;
       const totalRevenue = parcelles
-        ?.filter((p) => p.status === "vendue")
-        .reduce((sum, p) => sum + Number(p.prix), 0) || 0;
+        ?.filter((p) => p.status === "vendu")
+        .reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0) || 0;
       const averagePrice = totalParcelles > 0
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / totalParcelles
         : 0;

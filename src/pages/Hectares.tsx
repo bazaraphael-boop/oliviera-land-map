@@ -33,6 +33,8 @@ const Hectares = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -75,27 +77,62 @@ const Hectares = () => {
     e.preventDefault();
     
     try {
-      const { error } = await supabase.from("hectares").insert([
-        {
-          name: formData.name,
-          surface: parseFloat(formData.surface),
-          location: formData.location,
-          status: formData.status,
-          prix: parseFloat(formData.prix) || 0,
-          rmb_number: formData.rmb_number || null,
-        },
-      ]);
+      if (isEditMode && editingId) {
+        // Mode édition
+        const { error } = await supabase
+          .from("hectares")
+          .update({
+            name: formData.name,
+            surface: parseFloat(formData.surface),
+            location: formData.location,
+            status: formData.status,
+            prix: parseFloat(formData.prix) || 0,
+            rmb_number: formData.rmb_number || null,
+          })
+          .eq("id", editingId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Hectare modifié avec succès");
+      } else {
+        // Mode création
+        const { error } = await supabase.from("hectares").insert([
+          {
+            name: formData.name,
+            surface: parseFloat(formData.surface),
+            location: formData.location,
+            status: formData.status,
+            prix: parseFloat(formData.prix) || 0,
+            rmb_number: formData.rmb_number || null,
+          },
+        ]);
 
-      toast.success("Hectare créé avec succès");
+        if (error) throw error;
+        toast.success("Hectare créé avec succès");
+      }
+
       setIsDialogOpen(false);
+      setIsEditMode(false);
+      setEditingId(null);
       setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "" });
       fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de la création");
+      toast.error(isEditMode ? "Erreur lors de la modification" : "Erreur lors de la création");
     }
+  };
+
+  const handleEdit = (hectare: Hectare) => {
+    setFormData({
+      name: hectare.name,
+      surface: hectare.surface.toString(),
+      location: hectare.location || "",
+      status: hectare.status,
+      prix: hectare.prix.toString(),
+      rmb_number: hectare.rmb_number || "",
+    });
+    setEditingId(hectare.id);
+    setIsEditMode(true);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -147,7 +184,14 @@ const Hectares = () => {
             />
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setIsEditMode(false);
+              setEditingId(null);
+              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "" });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
@@ -156,7 +200,7 @@ const Hectares = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Créer un nouvel hectare</DialogTitle>
+                <DialogTitle>{isEditMode ? "Modifier l'hectare" : "Créer un nouvel hectare"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -202,7 +246,9 @@ const Hectares = () => {
                     placeholder="Ex: RMB-2024-001"
                   />
                 </div>
-                <Button type="submit" className="w-full">Créer</Button>
+                <Button type="submit" className="w-full">
+                  {isEditMode ? "Modifier" : "Créer"}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -225,7 +271,7 @@ const Hectares = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => {}}>
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(hectare)}>
                     <Edit className="w-4 h-4" />
                   </Button>
                   <Button

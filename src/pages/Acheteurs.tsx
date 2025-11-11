@@ -26,6 +26,10 @@ interface Acheteur {
     prix: number;
     sale_date: string | null;
     hectare_id: string;
+    payment_type: string;
+    amount_paid: number;
+    remaining_amount: number;
+    sale_type: string;
     hectares?: {
       name: string;
       location: string;
@@ -98,9 +102,13 @@ const Acheteurs = () => {
           prix: parcelle.prix,
           sale_date: parcelle.sale_date,
           hectare_id: parcelle.hectare_id,
+          payment_type: parcelle.payment_type,
+          amount_paid: parcelle.amount_paid || 0,
+          remaining_amount: parcelle.remaining_amount || 0,
+          sale_type: parcelle.sale_type,
           hectares: parcelle.hectares,
         });
-        acheteur.totalAchat += Number(parcelle.prix);
+        acheteur.totalAchat += Number(parcelle.amount_paid || parcelle.prix);
         acheteur.nombreParcelles += 1;
 
         // Mettre à jour les infos de contact si elles sont plus récentes
@@ -362,6 +370,11 @@ const Acheteurs = () => {
                               <span className="text-xs text-muted-foreground">
                                 {parcelle.hectares?.name}
                               </span>
+                              {parcelle.sale_type === "onereux" && (
+                                <span className="text-xs px-2 py-1 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                  À titre onéreux
+                                </span>
+                              )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -375,6 +388,22 @@ const Acheteurs = () => {
                                   {parcelle.prix.toLocaleString()} USD
                                 </span>
                               </div>
+                              {parcelle.payment_type === "partiel" && (
+                                <>
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Payé: </span>
+                                    <span className="font-medium text-green-500">
+                                      {parcelle.amount_paid.toLocaleString()} USD
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Restant: </span>
+                                    <span className="font-medium text-orange-500">
+                                      {parcelle.remaining_amount.toLocaleString()} USD
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                               {parcelle.sale_date && (
                                 <div className="col-span-2">
                                   <span className="text-muted-foreground">Date: </span>
