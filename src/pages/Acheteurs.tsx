@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -30,13 +31,28 @@ interface Acheteur {
     amount_paid: number;
     remaining_amount: number;
     sale_type: string;
+    purchase_type: string | null;
     hectares?: {
       name: string;
       location: string;
     };
   }[];
+  hectares: {
+    id: string;
+    name: string;
+    surface: number;
+    prix: number;
+    sale_date: string | null;
+    location: string | null;
+    payment_type: string;
+    amount_paid: number;
+    remaining_amount: number;
+    sale_type: string;
+    purchase_type: string | null;
+  }[];
   totalAchat: number;
   nombreParcelles: number;
+  nombreHectares: number;
 }
 
 const Acheteurs = () => {
@@ -61,8 +77,8 @@ const Acheteurs = () => {
 
   const loadAcheteurs = async () => {
     try {
-      // Récupérer toutes les parcelles vendues avec les infos des acheteurs
-      const { data: parcelles, error } = await supabase
+      // Récupérer toutes les parcelles vendues
+      const { data: parcelles, error: parcellesError } = await supabase
         .from("parcelles")
         .select(`
           *,
@@ -74,11 +90,21 @@ const Acheteurs = () => {
         .eq("status", "vendu")
         .not("buyer_name", "is", null);
 
-      if (error) throw error;
+      if (parcellesError) throw parcellesError;
+      
+      // Récupérer tous les hectares vendus
+      const { data: hectares, error: hectaresError } = await supabase
+        .from("hectares")
+        .select("*")
+        .eq("status", "vendu")
+        .not("buyer_name", "is", null);
+
+      if (hectaresError) throw hectaresError;
 
       // Regrouper par acheteur
       const acheteursMap = new Map<string, Acheteur>();
 
+      // Traiter les parcelles
       parcelles?.forEach((parcelle) => {
         const buyerKey = parcelle.buyer_name.toLowerCase().trim();
         
@@ -89,8 +115,10 @@ const Acheteurs = () => {
             buyer_phone: parcelle.buyer_phone,
             buyer_email: parcelle.buyer_email,
             parcelles: [],
+            hectares: [],
             totalAchat: 0,
             nombreParcelles: 0,
+            nombreHectares: 0,
           });
         }
 
@@ -106,17 +134,60 @@ const Acheteurs = () => {
           amount_paid: parcelle.amount_paid || 0,
           remaining_amount: parcelle.remaining_amount || 0,
           sale_type: parcelle.sale_type,
+          purchase_type: parcelle.purchase_type,
           hectares: parcelle.hectares,
         });
         acheteur.totalAchat += Number(parcelle.amount_paid || parcelle.prix);
         acheteur.nombreParcelles += 1;
 
-        // Mettre à jour les infos de contact si elles sont plus récentes
         if (parcelle.buyer_phone && !acheteur.buyer_phone) {
           acheteur.buyer_phone = parcelle.buyer_phone;
         }
         if (parcelle.buyer_email && !acheteur.buyer_email) {
           acheteur.buyer_email = parcelle.buyer_email;
+        }
+      });
+      
+      // Traiter les hectares
+      hectares?.forEach((hectare) => {
+        const buyerKey = hectare.buyer_name.toLowerCase().trim();
+        
+        if (!acheteursMap.has(buyerKey)) {
+          acheteursMap.set(buyerKey, {
+            id: buyerKey,
+            buyer_name: hectare.buyer_name,
+            buyer_phone: hectare.buyer_phone,
+            buyer_email: hectare.buyer_email,
+            parcelles: [],
+            hectares: [],
+            totalAchat: 0,
+            nombreParcelles: 0,
+            nombreHectares: 0,
+          });
+        }
+
+        const acheteur = acheteursMap.get(buyerKey)!;
+        acheteur.hectares.push({
+          id: hectare.id,
+          name: hectare.name,
+          surface: hectare.surface,
+          prix: hectare.prix,
+          sale_date: hectare.sale_date,
+          location: hectare.location,
+          payment_type: hectare.payment_type,
+          amount_paid: hectare.amount_paid || 0,
+          remaining_amount: hectare.remaining_amount || 0,
+          sale_type: hectare.sale_type,
+          purchase_type: hectare.purchase_type,
+        });
+        acheteur.totalAchat += Number(hectare.amount_paid || hectare.prix);
+        acheteur.nombreHectares += 1;
+
+        if (hectare.buyer_phone && !acheteur.buyer_phone) {
+          acheteur.buyer_phone = hectare.buyer_phone;
+        }
+        if (hectare.buyer_email && !acheteur.buyer_email) {
+          acheteur.buyer_email = hectare.buyer_email;
         }
       });
 
@@ -187,8 +258,8 @@ const Acheteurs = () => {
             <span className="text-sm font-medium">{acheteurs.length} acheteurs</span>
           </div>
 
-          <Button onClick={() => navigate("/parcelles")}>
-            Nouveau Acheteur
+          <Button onClick={() => navigate("/hectares")}>
+            Nouvel Acheteur
           </Button>
         </div>
 
@@ -253,6 +324,11 @@ const Acheteurs = () => {
                       <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-500 border border-green-500/20">
                         {acheteur.nombreParcelles} parcelle{acheteur.nombreParcelles > 1 ? 's' : ''}
                       </span>
+                      {acheteur.nombreHectares > 0 && (
+                        <span className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                          {acheteur.nombreHectares} hectare{acheteur.nombreHectares > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -337,10 +413,13 @@ const Acheteurs = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <Card className="p-4">
                     <p className="text-sm text-muted-foreground mb-1">
-                      Nombre de parcelles
+                      Total achats
                     </p>
                     <p className="text-2xl font-bold text-foreground">
-                      {selectedAcheteur.nombreParcelles}
+                      {selectedAcheteur.nombreParcelles + selectedAcheteur.nombreHectares}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedAcheteur.nombreParcelles} parcelle{selectedAcheteur.nombreParcelles > 1 ? 's' : ''} + {selectedAcheteur.nombreHectares} hectare{selectedAcheteur.nombreHectares > 1 ? 's' : ''}
                     </p>
                   </Card>
                   <Card className="p-4">
@@ -353,12 +432,81 @@ const Acheteurs = () => {
                   </Card>
                 </div>
 
-                {/* Liste des parcelles */}
+                {/* Liste des achats (hectares + parcelles) */}
                 <div>
                   <h4 className="font-semibold text-foreground mb-3">
-                    Parcelles achetées
+                    Achats effectués
                   </h4>
                   <div className="space-y-3">
+                    {/* Afficher les hectares */}
+                    {selectedAcheteur.hectares.map((hectare) => (
+                      <Card key={hectare.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h5 className="font-semibold text-foreground">
+                                Hectare {hectare.name}
+                              </h5>
+                              <Badge variant="default" className="text-xs">
+                                {hectare.purchase_type || 'hectare'}
+                              </Badge>
+                              {hectare.sale_type === "onereux" && (
+                                <Badge variant="secondary" className="text-xs">
+                                  À titre onéreux
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Surface: </span>
+                                <span className="font-medium">{hectare.surface} ha</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Prix: </span>
+                                <span className="font-medium">
+                                  {hectare.prix.toLocaleString()} USD
+                                </span>
+                              </div>
+                              {hectare.payment_type === "partiel" && (
+                                <>
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Payé: </span>
+                                    <span className="font-medium text-green-500">
+                                      {hectare.amount_paid.toLocaleString()} USD
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Restant: </span>
+                                    <span className="font-medium text-orange-500">
+                                      {hectare.remaining_amount.toLocaleString()} USD
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                              {hectare.sale_date && (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">Date: </span>
+                                  <span className="font-medium">
+                                    {new Date(hectare.sale_date).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                              {hectare.location && (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">Localisation: </span>
+                                  <span className="font-medium">
+                                    {hectare.location}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                    
+                    {/* Afficher les parcelles */}
                     {selectedAcheteur.parcelles.map((parcelle) => (
                       <Card key={parcelle.id} className="p-4">
                         <div className="flex items-center justify-between">
@@ -370,10 +518,15 @@ const Acheteurs = () => {
                               <span className="text-xs text-muted-foreground">
                                 {parcelle.hectares?.name}
                               </span>
+                              {parcelle.purchase_type && (
+                                <Badge variant="outline" className="text-xs">
+                                  {parcelle.purchase_type}
+                                </Badge>
+                              )}
                               {parcelle.sale_type === "onereux" && (
-                                <span className="text-xs px-2 py-1 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                <Badge variant="secondary" className="text-xs">
                                   À titre onéreux
-                                </span>
+                                </Badge>
                               )}
                             </div>
 

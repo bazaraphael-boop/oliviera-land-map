@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, MapPin } from "lucide-react";
+import { Plus, Search, Edit, Trash2, MapPin, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import { Badge } from "@/components/ui/badge";
+import { PaymentDialog } from "@/components/PaymentDialog";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,15 @@ interface Hectare {
   created_at: string;
   prix: number;
   rmb_number: string | null;
+  buyer_name: string | null;
+  buyer_phone: string | null;
+  buyer_email: string | null;
+  sale_date: string | null;
+  payment_type: string | null;
+  amount_paid: number;
+  remaining_amount: number;
+  sale_type: string | null;
+  purchase_type: string | null;
 }
 
 const Hectares = () => {
@@ -35,6 +46,8 @@ const Hectares = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedHectare, setSelectedHectare] = useState<Hectare | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -42,6 +55,11 @@ const Hectares = () => {
     status: "available",
     prix: "",
     rmb_number: "",
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    sale_type: "normal",
+    purchase_type: "hectare",
   });
 
   useEffect(() => {
@@ -113,7 +131,7 @@ const Hectares = () => {
       setIsDialogOpen(false);
       setIsEditMode(false);
       setEditingId(null);
-      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "" });
+      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare" });
       fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
@@ -129,10 +147,20 @@ const Hectares = () => {
       status: hectare.status,
       prix: hectare.prix.toString(),
       rmb_number: hectare.rmb_number || "",
+      buyer_name: hectare.buyer_name || "",
+      buyer_phone: hectare.buyer_phone || "",
+      buyer_email: hectare.buyer_email || "",
+      sale_type: hectare.sale_type || "normal",
+      purchase_type: hectare.purchase_type || "hectare",
     });
     setEditingId(hectare.id);
     setIsEditMode(true);
     setIsDialogOpen(true);
+  };
+
+  const handleAddPayment = (hectare: Hectare) => {
+    setSelectedHectare(hectare);
+    setPaymentDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -189,7 +217,7 @@ const Hectares = () => {
             if (!open) {
               setIsEditMode(false);
               setEditingId(null);
-              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "" });
+              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare" });
             }
           }}>
             <DialogTrigger asChild>
@@ -246,7 +274,56 @@ const Hectares = () => {
                     placeholder="Ex: RMB-2024-001"
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                
+                {formData.status === "vendu" && (
+                  <>
+                    <div className="col-span-2 border-t border-border pt-4">
+                      <h3 className="font-semibold mb-3">Informations acheteur</h3>
+                    </div>
+                    
+                    <div>
+                      <Label>Nom de l'acheteur</Label>
+                      <Input
+                        value={formData.buyer_name}
+                        onChange={(e) => setFormData({ ...formData, buyer_name: e.target.value })}
+                        placeholder="Nom complet"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Téléphone</Label>
+                      <Input
+                        value={formData.buyer_phone}
+                        onChange={(e) => setFormData({ ...formData, buyer_phone: e.target.value })}
+                        placeholder="+243..."
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={formData.buyer_email}
+                        onChange={(e) => setFormData({ ...formData, buyer_email: e.target.value })}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Type de vente</Label>
+                      <select
+                        value={formData.sale_type}
+                        onChange={(e) => setFormData({ ...formData, sale_type: e.target.value })}
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                      >
+                        <option value="normal">Vente normale</option>
+                        <option value="onereux">À titre onéreux</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+                
+                <Button type="submit" className="w-full col-span-2">
                   {isEditMode ? "Modifier" : "Créer"}
                 </Button>
               </form>
@@ -263,7 +340,12 @@ const Hectares = () => {
                     <MapPin className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">{hectare.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-foreground">{hectare.name}</h3>
+                      {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
+                        <Badge variant="secondary" className="text-xs">À titre onéreux</Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
                     {hectare.prix > 0 && (
                       <p className="text-sm font-semibold text-primary">${hectare.prix.toLocaleString()}</p>
@@ -295,18 +377,46 @@ const Hectares = () => {
                     RMB: {hectare.rmb_number}
                   </p>
                 )}
+                
+                {hectare.status === "vendu" && hectare.buyer_name && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-sm font-semibold text-foreground">{hectare.buyer_name}</p>
+                    {hectare.buyer_phone && (
+                      <p className="text-xs text-muted-foreground">{hectare.buyer_phone}</p>
+                    )}
+                    {hectare.payment_type === "partiel" && (
+                      <div className="mt-2 p-2 bg-muted rounded">
+                        <p className="text-xs">
+                          Payé: <span className="font-semibold">${hectare.amount_paid.toLocaleString()}</span>
+                        </p>
+                        <p className="text-xs text-destructive">
+                          Reste: <span className="font-semibold">${hectare.remaining_amount.toLocaleString()}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-border">
-                <span className="text-xs text-muted-foreground">
-                  {new Date(hectare.created_at).toLocaleDateString()}
-                </span>
+              <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
+                {hectare.status === "vendu" && hectare.remaining_amount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddPayment(hectare)}
+                    className="flex-1"
+                  >
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Paiement
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(`/parcelles?hectare=${hectare.id}`)}
+                  className="flex-1"
                 >
-                  Voir les parcelles
+                  Parcelles
                 </Button>
               </div>
             </Card>
@@ -325,6 +435,20 @@ const Hectares = () => {
           </div>
         )}
       </div>
+      
+      {selectedHectare && (
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          itemId={selectedHectare.id}
+          itemType="hectare"
+          itemName={selectedHectare.name}
+          totalPrice={selectedHectare.prix}
+          remainingAmount={selectedHectare.remaining_amount}
+          buyerName={selectedHectare.buyer_name || undefined}
+          onPaymentComplete={fetchHectares}
+        />
+      )}
     </div>
   );
 };

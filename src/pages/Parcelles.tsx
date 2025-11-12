@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
+import { PaymentDialog } from "@/components/PaymentDialog";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
@@ -41,6 +42,7 @@ interface Parcelle {
   amount_paid: number;
   remaining_amount: number;
   sale_type: string;
+  purchase_type: string | null;
 }
 
 interface Hectare {
@@ -58,6 +60,7 @@ const Parcelles = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedHectare, setSelectedHectare] = useState<string>(
     searchParams.get("hectare") || "all"
   );
@@ -77,6 +80,7 @@ const Parcelles = () => {
     amount_paid: "",
     sale_type: "normal",
     prix: "",
+    purchase_type: "parcelle",
   });
 
   useEffect(() => {
@@ -194,8 +198,14 @@ const Parcelles = () => {
       amount_paid: parcelle.amount_paid?.toString() || "",
       sale_type: parcelle.sale_type || "normal",
       prix: parcelle.prix?.toString() || "",
+      purchase_type: parcelle.purchase_type || "parcelle",
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleAddPayment = (parcelle: Parcelle) => {
+    setSelectedParcelle(parcelle);
+    setPaymentDialogOpen(true);
   };
 
   const handleUpdateParcelle = async (e: React.FormEvent) => {
@@ -208,6 +218,7 @@ const Parcelles = () => {
         status: editFormData.status,
         prix: parseFloat(editFormData.prix) || selectedParcelle.prix,
         sale_type: editFormData.sale_type,
+        purchase_type: editFormData.purchase_type,
       };
 
       if (editFormData.status === "vendu") {
@@ -543,6 +554,18 @@ const Parcelles = () => {
                     )}
                   </div>
                 )}
+                
+                {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddPayment(parcelle)}
+                    className="w-full mt-2"
+                  >
+                    <DollarSign className="w-3 h-3 mr-1" />
+                    Ajouter un paiement
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -670,7 +693,7 @@ const Parcelles = () => {
                       />
                     </div>
                     
-                    <div>
+                     <div>
                       <Label>Type de paiement *</Label>
                       <Select
                         value={editFormData.payment_type}
@@ -684,6 +707,25 @@ const Parcelles = () => {
                         <SelectContent>
                           <SelectItem value="total">Paiement total</SelectItem>
                           <SelectItem value="partiel">Paiement partiel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label>Type d'achat *</Label>
+                      <Select
+                        value={editFormData.purchase_type}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, purchase_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="parcelle">Parcelle</SelectItem>
+                          <SelectItem value="hectare">Hectare</SelectItem>
+                          <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -728,6 +770,20 @@ const Parcelles = () => {
             </form>
           </DialogContent>
         </Dialog>
+        
+        {selectedParcelle && (
+          <PaymentDialog
+            open={paymentDialogOpen}
+            onOpenChange={setPaymentDialogOpen}
+            itemId={selectedParcelle.id}
+            itemType="parcelle"
+            itemName={`Parcelle ${selectedParcelle.numero}`}
+            totalPrice={selectedParcelle.prix}
+            remainingAmount={selectedParcelle.remaining_amount}
+            buyerName={selectedParcelle.buyer_name || undefined}
+            onPaymentComplete={fetchParcelles}
+          />
+        )}
       </div>
     </div>
   );

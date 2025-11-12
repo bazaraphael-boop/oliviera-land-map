@@ -54,34 +54,61 @@ export type Database = {
       }
       hectares: {
         Row: {
+          amount_paid: number | null
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
           created_at: string
           id: string
           location: string | null
           name: string
+          payment_type: string | null
           prix: number | null
+          purchase_type: string | null
+          remaining_amount: number | null
           rmb_number: string | null
+          sale_date: string | null
+          sale_type: string | null
           status: string | null
           surface: number
           updated_at: string
         }
         Insert: {
+          amount_paid?: number | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           created_at?: string
           id?: string
           location?: string | null
           name: string
+          payment_type?: string | null
           prix?: number | null
+          purchase_type?: string | null
+          remaining_amount?: number | null
           rmb_number?: string | null
+          sale_date?: string | null
+          sale_type?: string | null
           status?: string | null
           surface: number
           updated_at?: string
         }
         Update: {
+          amount_paid?: number | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           created_at?: string
           id?: string
           location?: string | null
           name?: string
+          payment_type?: string | null
           prix?: number | null
+          purchase_type?: string | null
+          remaining_amount?: number | null
           rmb_number?: string | null
+          sale_date?: string | null
+          sale_type?: string | null
           status?: string | null
           surface?: number
           updated_at?: string
@@ -100,6 +127,7 @@ export type Database = {
           numero: string
           payment_type: string | null
           prix: number
+          purchase_type: string | null
           remaining_amount: number | null
           sale_date: string | null
           sale_type: string | null
@@ -118,6 +146,7 @@ export type Database = {
           numero: string
           payment_type?: string | null
           prix: number
+          purchase_type?: string | null
           remaining_amount?: number | null
           sale_date?: string | null
           sale_type?: string | null
@@ -136,6 +165,7 @@ export type Database = {
           numero?: string
           payment_type?: string | null
           prix?: number
+          purchase_type?: string | null
           remaining_amount?: number | null
           sale_date?: string | null
           sale_type?: string | null
@@ -149,6 +179,57 @@ export type Database = {
             columns: ["hectare_id"]
             isOneToOne: false
             referencedRelation: "hectares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          hectare_id: string | null
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          parcelle_id: string | null
+          payment_date: string
+          payment_method: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          hectare_id?: string | null
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          parcelle_id?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          hectare_id?: string | null
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          parcelle_id?: string | null
+          payment_date?: string
+          payment_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_hectare_id_fkey"
+            columns: ["hectare_id"]
+            isOneToOne: false
+            referencedRelation: "hectares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_parcelle_id_fkey"
+            columns: ["parcelle_id"]
+            isOneToOne: false
+            referencedRelation: "parcelles"
             referencedColumns: ["id"]
           },
         ]
