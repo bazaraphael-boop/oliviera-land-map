@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign, Plus } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import {
@@ -14,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Acheteur {
   id: string;
@@ -62,11 +70,31 @@ const Acheteurs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAcheteur, setSelectedAcheteur] = useState<Acheteur | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showNewBuyerDialog, setShowNewBuyerDialog] = useState(false);
+  const [availableHectares, setAvailableHectares] = useState<any[]>([]);
+  const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
+  const [newBuyerForm, setNewBuyerForm] = useState({
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    purchase_type: "hectare",
+    item_type: "hectare" as "hectare" | "parcelle",
+    selected_item: "",
+    sale_type: "normal",
+    payment_type: "total",
+    amount_paid: "",
+  });
 
   useEffect(() => {
     checkAuth();
     loadAcheteurs();
   }, []);
+
+  useEffect(() => {
+    if (showNewBuyerDialog) {
+      loadAvailableItems();
+    }
+  }, [showNewBuyerDialog, newBuyerForm.item_type]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -214,6 +242,112 @@ const Acheteurs = () => {
     navigate(`/localisation?parcelle=${parcelleId}`);
   };
 
+  const loadAvailableItems = async () => {
+    try {
+      if (newBuyerForm.item_type === "hectare") {
+        const { data, error } = await supabase
+          .from("hectares")
+          .select("*")
+          .eq("status", "available")
+          .order("name");
+        
+        if (error) throw error;
+        setAvailableHectares(data || []);
+      } else {
+        const { data, error } = await supabase
+          .from("parcelles")
+          .select(`
+            *,
+            hectares (
+              name,
+              location
+            )
+          `)
+          .eq("status", "disponible")
+          .order("numero");
+        
+        if (error) throw error;
+        setAvailableParcelles(data || []);
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors du chargement des items disponibles");
+    }
+  };
+
+  const handleNewBuyerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newBuyerForm.selected_item) {
+      toast.error("Veuillez sélectionner un hectare ou une parcelle");
+      return;
+    }
+
+    try {
+      const selectedItem = newBuyerForm.item_type === "hectare"
+        ? availableHectares.find(h => h.id === newBuyerForm.selected_item)
+        : availableParcelles.find(p => p.id === newBuyerForm.selected_item);
+
+      if (!selectedItem) {
+        toast.error("Item sélectionné introuvable");
+        return;
+      }
+
+      const prix = Number(selectedItem.prix);
+      const amountPaid = newBuyerForm.payment_type === "total" 
+        ? prix 
+        : Number(newBuyerForm.amount_paid);
+      const remainingAmount = prix - amountPaid;
+
+      const updateData = {
+        buyer_name: newBuyerForm.buyer_name,
+        buyer_phone: newBuyerForm.buyer_phone || null,
+        buyer_email: newBuyerForm.buyer_email || null,
+        status: newBuyerForm.item_type === "hectare" ? "vendu" : undefined,
+        sale_date: new Date().toISOString(),
+        sale_type: newBuyerForm.sale_type,
+        purchase_type: newBuyerForm.purchase_type,
+        payment_type: newBuyerForm.payment_type,
+        amount_paid: amountPaid,
+        remaining_amount: remainingAmount,
+      };
+
+      if (newBuyerForm.item_type === "hectare") {
+        const { error } = await supabase
+          .from("hectares")
+          .update(updateData)
+          .eq("id", newBuyerForm.selected_item);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("parcelles")
+          .update({ ...updateData, status: "vendu" })
+          .eq("id", newBuyerForm.selected_item);
+
+        if (error) throw error;
+      }
+
+      toast.success("Acheteur enregistré avec succès");
+      setShowNewBuyerDialog(false);
+      setNewBuyerForm({
+        buyer_name: "",
+        buyer_phone: "",
+        buyer_email: "",
+        purchase_type: "hectare",
+        item_type: "hectare",
+        selected_item: "",
+        sale_type: "normal",
+        payment_type: "total",
+        amount_paid: "",
+      });
+      loadAcheteurs();
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors de l'enregistrement de l'acheteur");
+    }
+  };
+
   const filteredAcheteurs = acheteurs.filter((a) =>
     a.buyer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     a.buyer_phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -258,7 +392,8 @@ const Acheteurs = () => {
             <span className="text-sm font-medium">{acheteurs.length} acheteurs</span>
           </div>
 
-          <Button onClick={() => navigate("/hectares")}>
+          <Button onClick={() => setShowNewBuyerDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
             Nouvel Acheteur
           </Button>
         </div>
@@ -591,6 +726,189 @@ const Acheteurs = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Nouvel Acheteur */}
+        <Dialog open={showNewBuyerDialog} onOpenChange={setShowNewBuyerDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Enregistrer un nouvel acheteur</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleNewBuyerSubmit} className="space-y-4">
+              {/* Informations acheteur */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-foreground">Informations de l'acheteur</h4>
+                
+                <div>
+                  <Label>Nom complet *</Label>
+                  <Input
+                    value={newBuyerForm.buyer_name}
+                    onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_name: e.target.value })}
+                    placeholder="Nom complet de l'acheteur"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Téléphone</Label>
+                    <Input
+                      value={newBuyerForm.buyer_phone}
+                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
+                      placeholder="+243..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={newBuyerForm.buyer_email}
+                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Type d'achat */}
+              <div className="space-y-3 border-t border-border pt-4">
+                <h4 className="font-semibold text-foreground">Détails de l'achat</h4>
+                
+                <div>
+                  <Label>Type d'item *</Label>
+                  <Select
+                    value={newBuyerForm.item_type}
+                    onValueChange={(value: "hectare" | "parcelle") => 
+                      setNewBuyerForm({ ...newBuyerForm, item_type: value, selected_item: "" })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hectare">Hectare</SelectItem>
+                      <SelectItem value="parcelle">Parcelle</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sélection de l'hectare ou parcelle */}
+                <div>
+                  <Label>
+                    {newBuyerForm.item_type === "hectare" ? "Sélectionner un hectare *" : "Sélectionner une parcelle *"}
+                  </Label>
+                  <Select
+                    value={newBuyerForm.selected_item}
+                    onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {newBuyerForm.item_type === "hectare" ? (
+                        availableHectares.length > 0 ? (
+                          availableHectares.map((h) => (
+                            <SelectItem key={h.id} value={h.id}>
+                              {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
+                        )
+                      ) : (
+                        availableParcelles.length > 0 ? (
+                          availableParcelles.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              Parcelle {p.numero} - {p.surface} m² - ${p.prix.toLocaleString()}
+                              {p.hectares && ` (${p.hectares.name})`}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>Aucune parcelle disponible</SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Type d'achat (hectare/demi-hectare/parcelle) */}
+                <div>
+                  <Label>Type d'achat</Label>
+                  <Select
+                    value={newBuyerForm.purchase_type}
+                    onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, purchase_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hectare">Hectare complet</SelectItem>
+                      <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
+                      <SelectItem value="parcelle">Parcelle</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Type de vente</Label>
+                    <Select
+                      value={newBuyerForm.sale_type}
+                      onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, sale_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Vente normale</SelectItem>
+                        <SelectItem value="onereux">À titre onéreux</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Type de paiement</Label>
+                    <Select
+                      value={newBuyerForm.payment_type}
+                      onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="total">Paiement total</SelectItem>
+                        <SelectItem value="partiel">Paiement partiel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {newBuyerForm.payment_type === "partiel" && (
+                  <div>
+                    <Label>Montant de l'accompte *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newBuyerForm.amount_paid}
+                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
+                      placeholder="Montant payé"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setShowNewBuyerDialog(false)} className="flex-1">
+                  Annuler
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Enregistrer l'acheteur
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
