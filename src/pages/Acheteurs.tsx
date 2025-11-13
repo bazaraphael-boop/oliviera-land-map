@@ -514,54 +514,58 @@ const Acheteurs = () => {
 
         {/* Dialog Détails Acheteur */}
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card">
+            <DialogHeader className="border-b border-border pb-4">
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <User className="w-6 h-6" />
                 Détails de l'acheteur - {selectedAcheteur?.buyer_name}
               </DialogTitle>
             </DialogHeader>
 
             {selectedAcheteur && (
-              <div className="space-y-6">
+              <div className="space-y-6 pt-4">
                 {/* Informations de contact */}
-                <Card className="p-4">
-                  <h4 className="font-semibold text-foreground mb-3">
+                <Card className="p-5 bg-muted/50">
+                  <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Phone className="w-5 h-5 text-primary" />
                     Informations de contact
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {selectedAcheteur.buyer_phone && (
-                      <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-3 text-sm p-2 bg-background rounded">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{selectedAcheteur.buyer_phone}</span>
+                        <span className="font-medium">{selectedAcheteur.buyer_phone}</span>
                       </div>
                     )}
                     {selectedAcheteur.buyer_email && (
-                      <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-3 text-sm p-2 bg-background rounded">
                         <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span>{selectedAcheteur.buyer_email}</span>
+                        <span className="font-medium">{selectedAcheteur.buyer_email}</span>
                       </div>
                     )}
                   </div>
                 </Card>
 
                 {/* Résumé des achats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Total achats
-                    </p>
-                    <p className="text-2xl font-bold text-foreground">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="p-5 bg-gradient-to-br from-primary/10 to-primary/5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <MapPin className="w-5 h-5 text-primary" />
+                      <p className="text-sm text-muted-foreground">Total achats</p>
+                    </div>
+                    <p className="text-3xl font-bold text-foreground">
                       {selectedAcheteur.nombreParcelles + selectedAcheteur.nombreHectares}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {selectedAcheteur.nombreParcelles} parcelle{selectedAcheteur.nombreParcelles > 1 ? 's' : ''} + {selectedAcheteur.nombreHectares} hectare{selectedAcheteur.nombreHectares > 1 ? 's' : ''}
                     </p>
                   </Card>
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Valeur totale
-                    </p>
-                    <p className="text-2xl font-bold text-foreground">
+                  <Card className="p-5 bg-gradient-to-br from-green-500/10 to-green-500/5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <DollarSign className="w-5 h-5 text-green-500" />
+                      <p className="text-sm text-muted-foreground">Valeur totale</p>
+                    </div>
+                    <p className="text-3xl font-bold text-foreground">
                       {selectedAcheteur.totalAchat.toLocaleString()} USD
                     </p>
                   </Card>
@@ -569,156 +573,178 @@ const Acheteurs = () => {
 
                 {/* Liste des achats (hectares + parcelles) */}
                 <div>
-                  <h4 className="font-semibold text-foreground mb-3">
+                  <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
                     Achats effectués
                   </h4>
                   <div className="space-y-3">
                     {/* Afficher les hectares */}
                     {selectedAcheteur.hectares.map((hectare) => (
-                      <Card key={hectare.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h5 className="font-semibold text-foreground">
-                                Hectare {hectare.name}
-                              </h5>
-                              <Badge variant="default" className="text-xs">
-                                {hectare.purchase_type || 'hectare'}
-                              </Badge>
-                              {hectare.sale_type === "onereux" && (
-                                <Badge variant="secondary" className="text-xs">
-                                  À titre onéreux
+                      <Card key={hectare.id} className="p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-blue-500/5 to-transparent border-l-4 border-l-blue-500">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h5 className="font-semibold text-foreground text-lg">
+                                  Hectare {hectare.name}
+                                </h5>
+                                <Badge variant="default" className="text-xs">
+                                  {hectare.purchase_type || 'hectare'}
                                 </Badge>
-                              )}
+                                {hectare.sale_type === "onereux" && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    À titre onéreux
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">Surface: </span>
-                                <span className="font-medium">{hectare.surface} ha</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Prix: </span>
-                                <span className="font-medium">
-                                  {hectare.prix.toLocaleString()} USD
-                                </span>
-                              </div>
-                              {hectare.payment_type === "partiel" && (
-                                <>
-                                  <div className="col-span-2">
-                                    <span className="text-muted-foreground">Payé: </span>
-                                    <span className="font-medium text-green-500">
-                                      {hectare.amount_paid.toLocaleString()} USD
-                                    </span>
-                                  </div>
-                                  <div className="col-span-2">
-                                    <span className="text-muted-foreground">Restant: </span>
-                                    <span className="font-medium text-orange-500">
-                                      {hectare.remaining_amount.toLocaleString()} USD
-                                    </span>
-                                  </div>
-                                </>
-                              )}
+                          <div className="grid grid-cols-2 gap-3 text-sm bg-muted/50 p-3 rounded-lg">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-xs mb-1">Surface</span>
+                              <span className="font-semibold">{hectare.surface} ha</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-xs mb-1">Prix</span>
+                              <span className="font-semibold">
+                                {hectare.prix.toLocaleString()} USD
+                              </span>
+                            </div>
+                            {hectare.payment_type === "partiel" && (
+                              <>
+                                <div className="flex flex-col">
+                                  <span className="text-muted-foreground text-xs mb-1">Payé</span>
+                                  <span className="font-semibold text-green-600">
+                                    {hectare.amount_paid.toLocaleString()} USD
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-muted-foreground text-xs mb-1">Restant</span>
+                                  <span className="font-semibold text-orange-600">
+                                    {hectare.remaining_amount.toLocaleString()} USD
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {(hectare.sale_date || hectare.location) && (
+                            <div className="flex flex-col gap-2 text-sm pt-2 border-t border-border">
                               {hectare.sale_date && (
-                                <div className="col-span-2">
-                                  <span className="text-muted-foreground">Date: </span>
-                                  <span className="font-medium">
-                                    {new Date(hectare.sale_date).toLocaleDateString()}
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground">
+                                    {new Date(hectare.sale_date).toLocaleDateString('fr-FR', { 
+                                      year: 'numeric', 
+                                      month: 'long', 
+                                      day: 'numeric' 
+                                    })}
                                   </span>
                                 </div>
                               )}
                               {hectare.location && (
-                                <div className="col-span-2">
-                                  <span className="text-muted-foreground">Localisation: </span>
-                                  <span className="font-medium">
-                                    {hectare.location}
-                                  </span>
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground">{hectare.location}</span>
                                 </div>
                               )}
                             </div>
-                          </div>
+                          )}
                         </div>
                       </Card>
                     ))}
                     
                     {/* Afficher les parcelles */}
                     {selectedAcheteur.parcelles.map((parcelle) => (
-                      <Card key={parcelle.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h5 className="font-semibold text-foreground">
-                                Parcelle {parcelle.numero}
-                              </h5>
-                              <span className="text-xs text-muted-foreground">
-                                {parcelle.hectares?.name}
-                              </span>
-                              {parcelle.purchase_type && (
-                                <Badge variant="outline" className="text-xs">
-                                  {parcelle.purchase_type}
-                                </Badge>
-                              )}
-                              {parcelle.sale_type === "onereux" && (
-                                <Badge variant="secondary" className="text-xs">
-                                  À titre onéreux
-                                </Badge>
+                      <Card key={parcelle.id} className="p-5 hover:shadow-md transition-shadow bg-gradient-to-br from-green-500/5 to-transparent border-l-4 border-l-green-500">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h5 className="font-semibold text-foreground text-lg">
+                                  Parcelle {parcelle.numero}
+                                </h5>
+                                {parcelle.purchase_type && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {parcelle.purchase_type}
+                                  </Badge>
+                                )}
+                                {parcelle.sale_type === "onereux" && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    À titre onéreux
+                                  </Badge>
+                                )}
+                              </div>
+                              {parcelle.hectares?.name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Hectare {parcelle.hectares.name}
+                                </p>
                               )}
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleLocaliser(parcelle.id)}
+                            >
+                              <MapPin className="w-4 h-4 mr-1" />
+                              Localiser
+                            </Button>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">Surface: </span>
-                                <span className="font-medium">{parcelle.surface} m²</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Prix: </span>
-                                <span className="font-medium">
-                                  {parcelle.prix.toLocaleString()} USD
-                                </span>
-                              </div>
-                              {parcelle.payment_type === "partiel" && (
-                                <>
-                                  <div className="col-span-2">
-                                    <span className="text-muted-foreground">Payé: </span>
-                                    <span className="font-medium text-green-500">
-                                      {parcelle.amount_paid.toLocaleString()} USD
-                                    </span>
-                                  </div>
-                                  <div className="col-span-2">
-                                    <span className="text-muted-foreground">Restant: </span>
-                                    <span className="font-medium text-orange-500">
-                                      {parcelle.remaining_amount.toLocaleString()} USD
-                                    </span>
-                                  </div>
-                                </>
-                              )}
+                          <div className="grid grid-cols-2 gap-3 text-sm bg-muted/50 p-3 rounded-lg">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-xs mb-1">Surface</span>
+                              <span className="font-semibold">{parcelle.surface} m²</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-xs mb-1">Prix</span>
+                              <span className="font-semibold">
+                                {parcelle.prix.toLocaleString()} USD
+                              </span>
+                            </div>
+                            {parcelle.payment_type === "partiel" && (
+                              <>
+                                <div className="flex flex-col">
+                                  <span className="text-muted-foreground text-xs mb-1">Payé</span>
+                                  <span className="font-semibold text-green-600">
+                                    {parcelle.amount_paid.toLocaleString()} USD
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-muted-foreground text-xs mb-1">Restant</span>
+                                  <span className="font-semibold text-orange-600">
+                                    {parcelle.remaining_amount.toLocaleString()} USD
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {(parcelle.sale_date || parcelle.hectares?.location) && (
+                            <div className="flex flex-col gap-2 text-sm pt-2 border-t border-border">
                               {parcelle.sale_date && (
-                                <div className="col-span-2">
-                                  <span className="text-muted-foreground">Date: </span>
-                                  <span className="font-medium">
-                                    {new Date(parcelle.sale_date).toLocaleDateString()}
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground">
+                                    {new Date(parcelle.sale_date).toLocaleDateString('fr-FR', { 
+                                      year: 'numeric', 
+                                      month: 'long', 
+                                      day: 'numeric' 
+                                    })}
                                   </span>
                                 </div>
                               )}
                               {parcelle.hectares?.location && (
-                                <div className="col-span-2">
-                                  <span className="text-muted-foreground">Localisation: </span>
-                                  <span className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground">
                                     {parcelle.hectares.location}
                                   </span>
                                 </div>
                               )}
                             </div>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleLocaliser(parcelle.id)}
-                          >
-                            <MapPin className="w-4 h-4 mr-2" />
-                            Localiser
-                          </Button>
+                          )}
                         </div>
                       </Card>
                     ))}
@@ -731,63 +757,72 @@ const Acheteurs = () => {
 
         {/* Dialog Nouvel Acheteur */}
         <Dialog open={showNewBuyerDialog} onOpenChange={setShowNewBuyerDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Enregistrer un nouvel acheteur</DialogTitle>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card">
+            <DialogHeader className="border-b border-border pb-4">
+              <DialogTitle className="text-xl">Enregistrer un nouvel acheteur</DialogTitle>
             </DialogHeader>
 
-            <form onSubmit={handleNewBuyerSubmit} className="space-y-4">
+            <form onSubmit={handleNewBuyerSubmit} className="space-y-6 pt-4">
               {/* Informations acheteur */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-foreground">Informations de l'acheteur</h4>
+              <div className="space-y-4 p-4 rounded-lg bg-muted/50">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Informations de l'acheteur
+                </h4>
                 
                 <div>
-                  <Label>Nom complet *</Label>
+                  <Label className="text-sm font-medium">Nom complet *</Label>
                   <Input
                     value={newBuyerForm.buyer_name}
                     onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_name: e.target.value })}
                     placeholder="Nom complet de l'acheteur"
+                    className="mt-1.5 bg-background"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Téléphone</Label>
+                    <Label className="text-sm font-medium">Téléphone</Label>
                     <Input
                       value={newBuyerForm.buyer_phone}
                       onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
                       placeholder="+243..."
+                      className="mt-1.5 bg-background"
                     />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label className="text-sm font-medium">Email</Label>
                     <Input
                       type="email"
                       value={newBuyerForm.buyer_email}
                       onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
                       placeholder="email@example.com"
+                      className="mt-1.5 bg-background"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Type d'achat */}
-              <div className="space-y-3 border-t border-border pt-4">
-                <h4 className="font-semibold text-foreground">Détails de l'achat</h4>
+              <div className="space-y-4 p-4 rounded-lg bg-muted/50">
+                <h4 className="font-semibold text-foreground flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Détails de l'achat
+                </h4>
                 
                 <div>
-                  <Label>Type d'item *</Label>
+                  <Label className="text-sm font-medium">Type d'item *</Label>
                   <Select
                     value={newBuyerForm.item_type}
                     onValueChange={(value: "hectare" | "parcelle") => 
                       setNewBuyerForm({ ...newBuyerForm, item_type: value, selected_item: "" })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5 bg-background">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover z-50">
                       <SelectItem value="hectare">Hectare</SelectItem>
                       <SelectItem value="parcelle">Parcelle</SelectItem>
                     </SelectContent>
@@ -796,17 +831,17 @@ const Acheteurs = () => {
 
                 {/* Sélection de l'hectare ou parcelle */}
                 <div>
-                  <Label>
+                  <Label className="text-sm font-medium">
                     {newBuyerForm.item_type === "hectare" ? "Sélectionner un hectare *" : "Sélectionner une parcelle *"}
                   </Label>
                   <Select
                     value={newBuyerForm.selected_item}
                     onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5 bg-background">
                       <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover z-50 max-h-[300px]">
                       {newBuyerForm.item_type === "hectare" ? (
                         availableHectares.length > 0 ? (
                           availableHectares.map((h) => (
@@ -835,15 +870,15 @@ const Acheteurs = () => {
 
                 {/* Type d'achat (hectare/demi-hectare/parcelle) */}
                 <div>
-                  <Label>Type d'achat</Label>
+                  <Label className="text-sm font-medium">Type d'achat</Label>
                   <Select
                     value={newBuyerForm.purchase_type}
                     onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, purchase_type: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5 bg-background">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover z-50">
                       <SelectItem value="hectare">Hectare complet</SelectItem>
                       <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
                       <SelectItem value="parcelle">Parcelle</SelectItem>
@@ -851,17 +886,17 @@ const Acheteurs = () => {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Type de vente</Label>
+                    <Label className="text-sm font-medium">Type de vente</Label>
                     <Select
                       value={newBuyerForm.sale_type}
                       onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, sale_type: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1.5 bg-background">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-popover z-50">
                         <SelectItem value="normal">Vente normale</SelectItem>
                         <SelectItem value="onereux">À titre onéreux</SelectItem>
                       </SelectContent>
@@ -869,15 +904,15 @@ const Acheteurs = () => {
                   </div>
 
                   <div>
-                    <Label>Type de paiement</Label>
+                    <Label className="text-sm font-medium">Type de paiement</Label>
                     <Select
                       value={newBuyerForm.payment_type}
                       onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1.5 bg-background">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-popover z-50">
                         <SelectItem value="total">Paiement total</SelectItem>
                         <SelectItem value="partiel">Paiement partiel</SelectItem>
                       </SelectContent>
@@ -886,25 +921,30 @@ const Acheteurs = () => {
                 </div>
 
                 {newBuyerForm.payment_type === "partiel" && (
-                  <div>
-                    <Label>Montant de l'accompte *</Label>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <Label className="text-sm font-medium">Montant de l'accompte *</Label>
                     <Input
                       type="number"
                       step="0.01"
                       value={newBuyerForm.amount_paid}
                       onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
                       placeholder="Montant payé"
+                      className="mt-1.5 bg-background"
                       required
                     />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Le montant restant sera calculé automatiquement
+                    </p>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 border-t border-border">
                 <Button type="button" variant="outline" onClick={() => setShowNewBuyerDialog(false)} className="flex-1">
                   Annuler
                 </Button>
                 <Button type="submit" className="flex-1">
+                  <User className="w-4 h-4 mr-2" />
                   Enregistrer l'acheteur
                 </Button>
               </div>
