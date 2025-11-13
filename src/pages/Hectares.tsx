@@ -60,6 +60,9 @@ const Hectares = () => {
     buyer_email: "",
     sale_type: "normal",
     purchase_type: "hectare",
+    payment_type: "total",
+    amount_paid: "",
+    remaining_amount: "",
   });
 
   useEffect(() => {
@@ -95,34 +98,42 @@ const Hectares = () => {
     e.preventDefault();
     
     try {
+      // Déterminer si c'est une vente (si un nom d'acheteur est fourni)
+      const isVente = formData.buyer_name.trim() !== "";
+      const prix = parseFloat(formData.prix) || 0;
+      const amountPaid = parseFloat(formData.amount_paid) || (formData.payment_type === "total" ? prix : 0);
+      const remainingAmount = formData.payment_type === "partiel" ? prix - amountPaid : 0;
+      
+      const hectareData = {
+        name: formData.name,
+        surface: parseFloat(formData.surface),
+        location: formData.location,
+        status: isVente ? "vendu" : formData.status,
+        prix: prix,
+        rmb_number: formData.rmb_number || null,
+        buyer_name: isVente ? formData.buyer_name : null,
+        buyer_phone: isVente ? formData.buyer_phone || null : null,
+        buyer_email: isVente ? formData.buyer_email || null : null,
+        sale_type: isVente ? formData.sale_type : null,
+        purchase_type: isVente ? formData.purchase_type : null,
+        payment_type: isVente ? formData.payment_type : null,
+        amount_paid: isVente ? amountPaid : 0,
+        remaining_amount: isVente ? remainingAmount : 0,
+        sale_date: isVente ? new Date().toISOString() : null,
+      };
+      
       if (isEditMode && editingId) {
         // Mode édition
         const { error } = await supabase
           .from("hectares")
-          .update({
-            name: formData.name,
-            surface: parseFloat(formData.surface),
-            location: formData.location,
-            status: formData.status,
-            prix: parseFloat(formData.prix) || 0,
-            rmb_number: formData.rmb_number || null,
-          })
+          .update(hectareData)
           .eq("id", editingId);
 
         if (error) throw error;
         toast.success("Hectare modifié avec succès");
       } else {
         // Mode création
-        const { error } = await supabase.from("hectares").insert([
-          {
-            name: formData.name,
-            surface: parseFloat(formData.surface),
-            location: formData.location,
-            status: formData.status,
-            prix: parseFloat(formData.prix) || 0,
-            rmb_number: formData.rmb_number || null,
-          },
-        ]);
+        const { error } = await supabase.from("hectares").insert([hectareData]);
 
         if (error) throw error;
         toast.success("Hectare créé avec succès");
@@ -131,7 +142,7 @@ const Hectares = () => {
       setIsDialogOpen(false);
       setIsEditMode(false);
       setEditingId(null);
-      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare" });
+      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "" });
       fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
@@ -152,6 +163,9 @@ const Hectares = () => {
       buyer_email: hectare.buyer_email || "",
       sale_type: hectare.sale_type || "normal",
       purchase_type: hectare.purchase_type || "hectare",
+      payment_type: hectare.payment_type || "total",
+      amount_paid: hectare.amount_paid.toString(),
+      remaining_amount: hectare.remaining_amount.toString(),
     });
     setEditingId(hectare.id);
     setIsEditMode(true);
@@ -217,7 +231,7 @@ const Hectares = () => {
             if (!open) {
               setIsEditMode(false);
               setEditingId(null);
-              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare" });
+              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "" });
             }
           }}>
             <DialogTrigger asChild>
@@ -275,39 +289,79 @@ const Hectares = () => {
                   />
                 </div>
                 
-                {formData.status === "vendu" && (
+                <div className="col-span-2 border-t border-border pt-4">
+                  <h3 className="font-semibold mb-3">Informations de vente (optionnel)</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Remplissez ces informations pour marquer l'hectare comme vendu
+                  </p>
+                </div>
+                
+                <div>
+                  <Label>Nom de l'acheteur</Label>
+                  <Input
+                    value={formData.buyer_name}
+                    onChange={(e) => setFormData({ ...formData, buyer_name: e.target.value })}
+                    placeholder="Nom complet (optionnel)"
+                  />
+                </div>
+                
+                <div>
+                  <Label>Téléphone</Label>
+                  <Input
+                    value={formData.buyer_phone}
+                    onChange={(e) => setFormData({ ...formData, buyer_phone: e.target.value })}
+                    placeholder="+243..."
+                  />
+                </div>
+                
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={formData.buyer_email}
+                    onChange={(e) => setFormData({ ...formData, buyer_email: e.target.value })}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                
+                {formData.buyer_name && (
                   <>
-                    <div className="col-span-2 border-t border-border pt-4">
-                      <h3 className="font-semibold mb-3">Informations acheteur</h3>
+                    <div>
+                      <Label>Type d'achat</Label>
+                      <select
+                        value={formData.purchase_type}
+                        onChange={(e) => setFormData({ ...formData, purchase_type: e.target.value })}
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                      >
+                        <option value="hectare">Hectare complet</option>
+                        <option value="demi-hectare">Demi-hectare</option>
+                      </select>
                     </div>
                     
                     <div>
-                      <Label>Nom de l'acheteur</Label>
-                      <Input
-                        value={formData.buyer_name}
-                        onChange={(e) => setFormData({ ...formData, buyer_name: e.target.value })}
-                        placeholder="Nom complet"
-                      />
+                      <Label>Type de paiement</Label>
+                      <select
+                        value={formData.payment_type}
+                        onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                      >
+                        <option value="total">Paiement total</option>
+                        <option value="partiel">Paiement partiel</option>
+                      </select>
                     </div>
                     
-                    <div>
-                      <Label>Téléphone</Label>
-                      <Input
-                        value={formData.buyer_phone}
-                        onChange={(e) => setFormData({ ...formData, buyer_phone: e.target.value })}
-                        placeholder="+243..."
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={formData.buyer_email}
-                        onChange={(e) => setFormData({ ...formData, buyer_email: e.target.value })}
-                        placeholder="email@example.com"
-                      />
-                    </div>
+                    {formData.payment_type === "partiel" && (
+                      <div>
+                        <Label>Montant payé (accompte)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.amount_paid}
+                          onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
+                          placeholder="Montant déjà payé"
+                        />
+                      </div>
+                    )}
                     
                     <div>
                       <Label>Type de vente</Label>
