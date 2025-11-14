@@ -744,7 +744,7 @@ const Hectares = () => {
               <Card className="p-6 bg-muted/30">
                 <div className="grid grid-cols-5 gap-4">
                   {Array.from({ length: 15 }, (_, i) => {
-                    const parcelleNum = (i + 1).toString().padStart(2, '0');
+                    const parcelleNum = (i + 1).toString().padStart(3, '0');
                     const parcelle = parcelles.find(p => p.numero === parcelleNum);
                     const isVendu = parcelle?.status === 'vendu';
                     const isDisponible = !parcelle || parcelle?.status === 'disponible';
