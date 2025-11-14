@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -425,60 +427,87 @@ const Parcelles = () => {
                 Nouvelle Parcelle
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Créer une nouvelle parcelle</DialogTitle>
+                <DialogDescription>
+                  Remplissez les informations de base de la parcelle
+                </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>Hectare</Label>
-                  <Select
-                    value={formData.hectare_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, hectare_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un hectare" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {hectares.map((h) => (
-                        <SelectItem key={h.id} value={h.id}>
-                          {h.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium">Hectare *</Label>
+                    <Select
+                      value={formData.hectare_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, hectare_id: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Sélectionner un hectare" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hectares.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Grid3x3 className="w-4 h-4" />
+                        Numéro *
+                      </Label>
+                      <Input
+                        value={formData.numero}
+                        onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                        placeholder="Ex: 001"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Surface (m²) *</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.surface}
+                        onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
+                        placeholder="Ex: 400"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Prix (USD) *
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.prix}
+                      onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
+                      placeholder="Ex: 5000"
+                      required
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label>Numéro</Label>
-                  <Input
-                    value={formData.numero}
-                    onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
-                    required
-                  />
+
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button type="submit" className="flex-1">Créer la parcelle</Button>
                 </div>
-                <div>
-                  <Label>Surface (m²)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.surface}
-                    onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Prix (USD)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.prix}
-                    onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full">Créer</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -585,70 +614,92 @@ const Parcelles = () => {
 
         {/* Dialog Édition Parcelle */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 Modifier Parcelle {selectedParcelle?.numero}
               </DialogTitle>
+              <DialogDescription>
+                Modifiez les informations de la parcelle et de la vente
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleUpdateParcelle} className="space-y-4">
-              <div>
-                <Label>Statut *</Label>
-                <Select
-                  value={editFormData.status}
-                  onValueChange={(value) =>
-                    setEditFormData({ ...editFormData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="disponible">Disponible</SelectItem>
-                    <SelectItem value="reserve">Réservé</SelectItem>
-                    <SelectItem value="vendu">Vendu</SelectItem>
-                  </SelectContent>
-                </Select>
+            <form onSubmit={handleUpdateParcelle} className="space-y-6">
+              {/* Section: Informations de base */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Informations de base</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Statut *</Label>
+                    <Select
+                      value={editFormData.status}
+                      onValueChange={(value) =>
+                        setEditFormData({ ...editFormData, status: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Sélectionner un statut" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="disponible">Disponible</SelectItem>
+                        <SelectItem value="reserve">Réservé</SelectItem>
+                        <SelectItem value="vendu">Vendu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Prix (USD) *
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editFormData.prix}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, prix: e.target.value })
+                      }
+                      placeholder="Modifier le prix"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium">Type de vente</Label>
+                  <Select
+                    value={editFormData.sale_type}
+                    onValueChange={(value) =>
+                      setEditFormData({ ...editFormData, sale_type: value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Vente normale</SelectItem>
+                      <SelectItem value="onereux">À titre onéreux</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              
-              <div>
-                <Label>Prix (USD) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={editFormData.prix}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, prix: e.target.value })
-                  }
-                  placeholder="Modifier le prix"
-                />
-              </div>
-              
-              <div>
-                <Label>Type de vente</Label>
-                <Select
-                  value={editFormData.sale_type}
-                  onValueChange={(value) =>
-                    setEditFormData({ ...editFormData, sale_type: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Vente normale</SelectItem>
-                    <SelectItem value="onereux">À titre onéreux</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
+              <Separator />
 
               {editFormData.status === "vendu" && (
                 <>
-                  <div className="space-y-4 p-4 bg-muted rounded-lg">
-                    <h4 className="font-semibold text-sm">Informations Acheteur</h4>
+                  {/* Section: Informations Acheteur */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Informations Acheteur
+                    </h3>
                     
                     <div>
-                      <Label>Nom complet *</Label>
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <User className="w-3 h-3" />
+                        Nom complet *
+                      </Label>
                       <Input
                         value={editFormData.buyer_name}
                         onChange={(e) =>
@@ -656,78 +707,108 @@ const Parcelles = () => {
                         }
                         placeholder="Ex: Jean Dupont"
                         required
+                        className="mt-1"
                       />
                     </div>
 
-                    <div>
-                      <Label>Téléphone</Label>
-                      <Input
-                        value={editFormData.buyer_phone}
-                        onChange={(e) =>
-                          setEditFormData({ ...editFormData, buyer_phone: e.target.value })
-                        }
-                        placeholder="Ex: +243 123 456 789"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Phone className="w-3 h-3" />
+                          Téléphone
+                        </Label>
+                        <Input
+                          value={editFormData.buyer_phone}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, buyer_phone: e.target.value })
+                          }
+                          placeholder="+243 123 456 789"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Mail className="w-3 h-3" />
+                          Email
+                        </Label>
+                        <Input
+                          type="email"
+                          value={editFormData.buyer_email}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, buyer_email: e.target.value })
+                          }
+                          placeholder="email@exemple.com"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={editFormData.buyer_email}
-                        onChange={(e) =>
-                          setEditFormData({ ...editFormData, buyer_email: e.target.value })
-                        }
-                        placeholder="Ex: jean.dupont@email.com"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Date de vente</Label>
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Calendar className="w-3 h-3" />
+                        Date de vente
+                      </Label>
                       <Input
                         type="date"
                         value={editFormData.sale_date ? new Date(editFormData.sale_date).toISOString().split('T')[0] : ""}
                         onChange={(e) =>
                           setEditFormData({ ...editFormData, sale_date: e.target.value })
                         }
+                        className="mt-1"
                       />
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Section: Détails de paiement */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      Détails de paiement
+                    </h3>
                     
-                     <div>
-                      <Label>Type de paiement *</Label>
-                      <Select
-                        value={editFormData.payment_type}
-                        onValueChange={(value) =>
-                          setEditFormData({ ...editFormData, payment_type: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="total">Paiement total</SelectItem>
-                          <SelectItem value="partiel">Paiement partiel</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label>Type d'achat *</Label>
-                      <Select
-                        value={editFormData.purchase_type}
-                        onValueChange={(value) =>
-                          setEditFormData({ ...editFormData, purchase_type: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="parcelle">Parcelle</SelectItem>
-                          <SelectItem value="hectare">Hectare</SelectItem>
-                          <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Type de paiement *</Label>
+                        <Select
+                          value={editFormData.payment_type}
+                          onValueChange={(value) =>
+                            setEditFormData({ ...editFormData, payment_type: value })
+                          }
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="total">Paiement total</SelectItem>
+                            <SelectItem value="partiel">Paiement partiel</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Package className="w-3 h-3" />
+                          Type d'achat *
+                        </Label>
+                        <Select
+                          value={editFormData.purchase_type}
+                          onValueChange={(value) =>
+                            setEditFormData({ ...editFormData, purchase_type: value })
+                          }
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="parcelle">Parcelle</SelectItem>
+                            <SelectItem value="hectare">Hectare</SelectItem>
+                            <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     
                     {editFormData.payment_type === "partiel" && (
