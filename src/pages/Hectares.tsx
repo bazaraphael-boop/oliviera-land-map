@@ -635,40 +635,40 @@ const Hectares = () => {
               
               <div className="p-6 relative">
                 {/* Header with icon and actions */}
-                <div className="flex items-start justify-between mb-5">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg flex-shrink-0">
-                      <MapPin className="w-6 h-6 text-primary-foreground" />
+                <div className="flex items-start gap-3 mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg flex-shrink-0">
+                    <MapPin className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-2">
+                      <h3 className="font-bold text-base leading-tight line-clamp-2 mb-1">{hectare.name}</h3>
+                      {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
+                        <Badge variant="secondary" className="text-xs mt-1">Onéreux</Badge>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-bold text-lg text-foreground truncate">{hectare.name}</h3>
-                        {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
-                          <Badge variant="secondary" className="text-xs shrink-0">Onéreux</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-sm font-semibold">
-                          {hectare.surface} ha
-                        </Badge>
-                        {(() => {
-                          const count = parcelleCountByHectare[hectare.id] || 0;
-                          const percentage = Math.round((count / 15) * 100);
-                          const isNearFull = percentage >= 80;
-                          const isFull = percentage >= 100;
-                          return (
-                            <Badge 
-                              variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
-                              className="text-xs font-medium"
-                            >
-                              {count}/15 • {percentage}%
-                            </Badge>
-                          );
-                        })()}
-                      </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-sm font-semibold">
+                        {hectare.surface} ha
+                      </Badge>
+                      {(() => {
+                        const count = parcelleCountByHectare[hectare.id] || 0;
+                        const percentage = Math.round((count / 15) * 100);
+                        const isNearFull = percentage >= 80;
+                        const isFull = percentage >= 100;
+                        return (
+                          <Badge 
+                            variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
+                            className="text-xs font-medium"
+                          >
+                            {count}/15 • {percentage}%
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0 ml-2">
+                  
+                  <div className="flex gap-1 flex-shrink-0">
                     <Button 
                       variant="ghost" 
                       size="icon"
