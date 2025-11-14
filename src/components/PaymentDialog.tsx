@@ -19,6 +19,7 @@ interface PaymentDialogProps {
   totalPrice: number;
   remainingAmount: number;
   buyerName?: string;
+  rmbNumber?: string;
   onPaymentComplete: () => void;
 }
 
@@ -31,6 +32,7 @@ export const PaymentDialog = ({
   totalPrice,
   remainingAmount,
   buyerName,
+  rmbNumber,
   onPaymentComplete,
 }: PaymentDialogProps) => {
   const [amount, setAmount] = useState("");
@@ -56,56 +58,76 @@ export const PaymentDialog = ({
     const imgHeight = (img.height * imgWidth) / img.width;
     pdf.addImage(img, "JPEG", 0, 0, imgWidth, imgHeight);
     
-    let yPos = imgHeight + 20;
+    let yPos = imgHeight + 15;
     
-    pdf.setFontSize(18);
+    // Title
+    pdf.setFontSize(20);
     pdf.setFont("helvetica", "bold");
-    pdf.text(isFullPayment ? "FACTURE DE PAIEMENT TOTAL" : "FACTURE D'ACOMPTE", 105, yPos, { align: "center" });
+    pdf.text(isFullPayment ? "REÇU DE PAIEMENT TOTAL" : "REÇU D'ACOMPTE", 105, yPos, { align: "center" });
     
+    // RMB Number and Date
     yPos += 15;
     pdf.setFontSize(11);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`N° Facture: ${invoiceNumber}`, 20, yPos);
+    const displayRmbNumber = rmbNumber || invoiceNumber;
+    pdf.text(`N° RMB: ${displayRmbNumber}`, 20, yPos);
     pdf.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, 150, yPos);
     
-    yPos += 10;
-    pdf.text(`Type: ${itemType === "hectare" ? "Hectare" : "Parcelle"}`, 20, yPos);
-    pdf.text(`Nom: ${itemName}`, 20, yPos + 7);
+    // Client Info Section
+    yPos += 12;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(20, yPos - 5, 170, 25, "F");
+    pdf.text("INFORMATIONS CLIENT", 22, yPos);
+    
+    yPos += 7;
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Type: ${itemType === "hectare" ? "Hectare" : "Parcelle"}`, 22, yPos);
+    pdf.text(`Référence: ${itemName}`, 22, yPos + 7);
     if (buyerName) {
-      pdf.text(`Acheteur: ${buyerName}`, 20, yPos + 14);
+      pdf.text(`Acheteur: ${buyerName}`, 22, yPos + 14);
     }
     
+    // Table Header
     yPos += 30;
+    pdf.setFillColor(220, 220, 220);
+    pdf.rect(20, yPos - 5, 170, 10, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.text("DÉSIGNATION", 25, yPos);
+    pdf.text("MONTANT (USD)", 145, yPos);
+    
+    // Table border
     pdf.setDrawColor(0);
     pdf.setLineWidth(0.5);
-    pdf.line(20, yPos, 190, yPos);
+    pdf.rect(20, yPos - 5, 170, 10);
     
-    yPos += 10;
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Description", 25, yPos);
-    pdf.text("Montant", 155, yPos);
-    
-    yPos += 7;
-    pdf.line(20, yPos, 190, yPos);
-    
-    yPos += 10;
+    // Table Rows
+    yPos += 8;
     pdf.setFont("helvetica", "normal");
+    
+    // Row 1: Total Price
+    pdf.rect(20, yPos - 5, 170, 10);
     pdf.text(`Prix total ${itemType}`, 25, yPos);
-    pdf.text(`$${totalPrice.toLocaleString()}`, 155, yPos);
+    pdf.text(`$ ${totalPrice.toLocaleString()}`, 145, yPos);
     
-    yPos += 7;
+    // Row 2: Payment
+    yPos += 10;
+    pdf.rect(20, yPos - 5, 170, 10);
     pdf.text(isFullPayment ? "Paiement total" : "Acompte versé", 25, yPos);
-    pdf.text(`$${paymentAmount.toLocaleString()}`, 155, yPos);
+    pdf.text(`$ ${paymentAmount.toLocaleString()}`, 145, yPos);
     
+    // Row 3: Remaining (if applicable)
     if (!isFullPayment) {
-      yPos += 7;
+      yPos += 10;
+      pdf.setFillColor(255, 250, 240);
+      pdf.rect(20, yPos - 5, 170, 10, "F");
       pdf.setFont("helvetica", "bold");
       pdf.text("Reste à payer", 25, yPos);
-      pdf.text(`$${newRemainingAmount.toLocaleString()}`, 155, yPos);
+      pdf.text(`$ ${newRemainingAmount.toLocaleString()}`, 145, yPos);
+      pdf.rect(20, yPos - 5, 170, 10);
     }
     
-    yPos += 10;
-    pdf.line(20, yPos, 190, yPos);
+    yPos += 15;
     
     if (paymentMethod) {
       yPos += 10;
@@ -118,7 +140,7 @@ export const PaymentDialog = ({
       pdf.text(`Notes: ${notes}`, 25, yPos);
     }
     
-    pdf.save(`Facture_${invoiceNumber}_${itemName}.pdf`);
+    pdf.save(`Recu_${displayRmbNumber}_${itemName}.pdf`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

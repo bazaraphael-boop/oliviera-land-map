@@ -910,6 +910,7 @@ const Parcelles = () => {
             totalPrice={selectedParcelle.prix}
             remainingAmount={selectedParcelle.remaining_amount}
             buyerName={selectedParcelle.buyer_name || undefined}
+            rmbNumber={selectedParcelle.rmb_number || selectedParcelle.hectares?.rmb_number || undefined}
             onPaymentComplete={fetchParcelles}
           />
         )}
