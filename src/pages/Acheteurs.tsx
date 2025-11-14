@@ -91,6 +91,8 @@ const Acheteurs = () => {
     purchase_type: "hectare",
     item_type: "hectare" as "hectare" | "parcelle",
     selected_item: "",
+    selected_parcelles: [] as string[], // Pour la sélection multiple
+    merge_parcelles: false, // Pour fusionner visuellement
     sale_type: "normal",
     payment_type: "total",
     amount_paid: "",
@@ -365,48 +367,52 @@ const Acheteurs = () => {
   const handleNewBuyerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newBuyerForm.selected_item) {
-      toast.error("Veuillez sélectionner un hectare ou une parcelle");
+    // Vérifier si des items sont sélectionnés
+    const hasSelection = newBuyerForm.item_type === "hectare" 
+      ? newBuyerForm.selected_item 
+      : newBuyerForm.selected_parcelles.length > 0;
+
+    if (!hasSelection) {
+      toast.error("Veuillez sélectionner au moins un hectare ou une parcelle");
       return;
     }
 
     try {
-      const selectedItem = newBuyerForm.item_type === "hectare"
-        ? availableHectares.find(h => h.id === newBuyerForm.selected_item)
-        : availableParcelles.find(p => p.id === newBuyerForm.selected_item);
-
-      if (!selectedItem) {
-        toast.error("Item sélectionné introuvable");
-        return;
-      }
-
       // Concaténer les trois parties du nom
       const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
 
       // Pour les ventes à titre onéreux, pas de prix ni de paiements
       const isOnereux = newBuyerForm.sale_type === "onereux";
-      const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0));
-      const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
-        ? prix 
-        : Number(newBuyerForm.amount_paid));
-      const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
-
-      const updateData = {
-        buyer_name: fullName,
-        buyer_phone: newBuyerForm.buyer_phone || null,
-        buyer_email: newBuyerForm.buyer_email || null,
-        status: newBuyerForm.item_type === "hectare" ? "vendu" : undefined,
-        sale_date: new Date().toISOString(),
-        sale_type: newBuyerForm.sale_type,
-        purchase_type: newBuyerForm.purchase_type,
-        payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
-        amount_paid: amountPaid,
-        remaining_amount: remainingAmount,
-        rmb_number: newBuyerForm.rmb_number || null,
-        prix: prix,
-      };
 
       if (newBuyerForm.item_type === "hectare") {
+        const selectedItem = availableHectares.find(h => h.id === newBuyerForm.selected_item);
+        
+        if (!selectedItem) {
+          toast.error("Hectare sélectionné introuvable");
+          return;
+        }
+
+        const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0));
+        const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
+          ? prix 
+          : Number(newBuyerForm.amount_paid));
+        const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
+
+        const updateData = {
+          buyer_name: fullName,
+          buyer_phone: newBuyerForm.buyer_phone || null,
+          buyer_email: newBuyerForm.buyer_email || null,
+          status: "vendu",
+          sale_date: new Date().toISOString(),
+          sale_type: newBuyerForm.sale_type,
+          purchase_type: newBuyerForm.purchase_type,
+          payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
+          amount_paid: amountPaid,
+          remaining_amount: remainingAmount,
+          rmb_number: newBuyerForm.rmb_number || null,
+          prix: prix,
+        };
+
         const { error } = await supabase
           .from("hectares")
           .update(updateData)
@@ -414,12 +420,56 @@ const Acheteurs = () => {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("parcelles")
-          .update({ ...updateData, status: "vendu" })
-          .eq("id", newBuyerForm.selected_item);
+        // Traiter plusieurs parcelles
+        const selectedParcelles = availableParcelles.filter(p => 
+          newBuyerForm.selected_parcelles.includes(p.id)
+        );
 
-        if (error) throw error;
+        if (selectedParcelles.length === 0) {
+          toast.error("Parcelles sélectionnées introuvables");
+          return;
+        }
+
+        // Calculer le prix total
+        const prixTotal = selectedParcelles.reduce((sum, p) => sum + (p.prix || 0), 0);
+        const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : prixTotal);
+        const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
+          ? prix 
+          : Number(newBuyerForm.amount_paid));
+        const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
+
+        // Créer un ID de groupe si fusion demandée et plusieurs parcelles sélectionnées
+        const mergeGroupId = (newBuyerForm.merge_parcelles && selectedParcelles.length > 1) 
+          ? crypto.randomUUID() 
+          : null;
+
+        // Mettre à jour toutes les parcelles sélectionnées
+        for (let i = 0; i < selectedParcelles.length; i++) {
+          const parcelle = selectedParcelles[i];
+          const updateData = {
+            buyer_name: fullName,
+            buyer_phone: newBuyerForm.buyer_phone || null,
+            buyer_email: newBuyerForm.buyer_email || null,
+            status: "vendu",
+            sale_date: new Date().toISOString(),
+            sale_type: newBuyerForm.sale_type,
+            purchase_type: newBuyerForm.purchase_type,
+            payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
+            amount_paid: amountPaid / selectedParcelles.length, // Répartir le paiement
+            remaining_amount: remainingAmount / selectedParcelles.length,
+            rmb_number: newBuyerForm.rmb_number || null,
+            prix: prix / selectedParcelles.length, // Répartir le prix
+            merged_group_id: mergeGroupId,
+            is_merge_primary: i === 0, // La première parcelle est primaire
+          };
+
+          const { error } = await supabase
+            .from("parcelles")
+            .update(updateData)
+            .eq("id", parcelle.id);
+
+          if (error) throw error;
+        }
       }
 
       toast.success("Acheteur enregistré avec succès");
@@ -433,6 +483,8 @@ const Acheteurs = () => {
         purchase_type: "hectare",
         item_type: "hectare",
         selected_item: "",
+        selected_parcelles: [],
+        merge_parcelles: false,
         sale_type: "normal",
         payment_type: "total",
         amount_paid: "",
@@ -1038,6 +1090,8 @@ const Acheteurs = () => {
                               ...newBuyerForm, 
                               item_type: value, 
                               selected_item: "",
+                              selected_parcelles: [],
+                              merge_parcelles: false,
                               purchase_type: value // Définir automatiquement le type d'achat
                             })
                           }
@@ -1052,21 +1106,19 @@ const Acheteurs = () => {
                         </Select>
                       </div>
 
-                      {/* Sélection de l'hectare ou parcelle */}
-                      <div>
-                        <Label className="text-sm font-medium">
-                          {newBuyerForm.item_type === "hectare" ? "Sélectionner un hectare *" : "Sélectionner une parcelle *"}
-                        </Label>
-                        <Select
-                          value={newBuyerForm.selected_item}
-                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
-                        >
-                          <SelectTrigger className="mt-1.5 bg-background">
-                            <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
-                          </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
-                            {newBuyerForm.item_type === "hectare" ? (
-                              availableHectares.length > 0 ? (
+                      {/* Sélection de l'hectare ou parcelles */}
+                      {newBuyerForm.item_type === "hectare" ? (
+                        <div>
+                          <Label className="text-sm font-medium">Sélectionner un hectare *</Label>
+                          <Select
+                            value={newBuyerForm.selected_item}
+                            onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
+                          >
+                            <SelectTrigger className="mt-1.5 bg-background">
+                              <SelectValue placeholder="Choisir un hectare" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
+                              {availableHectares.length > 0 ? (
                                 availableHectares.map((h) => (
                                   <SelectItem key={h.id} value={h.id}>
                                     {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
@@ -1074,22 +1126,70 @@ const Acheteurs = () => {
                                 ))
                               ) : (
                                 <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
-                              )
-                            ) : (
-                              availableParcelles.length > 0 ? (
-                                availableParcelles.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium">Sélectionner des parcelles *</Label>
+                          {availableParcelles.length > 0 ? (
+                            <div className="max-h-[250px] overflow-y-auto border rounded-md p-3 space-y-2 bg-background">
+                              {availableParcelles.map((p) => (
+                                <label
+                                  key={p.id}
+                                  className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={newBuyerForm.selected_parcelles.includes(p.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setNewBuyerForm(prev => ({
+                                        ...prev,
+                                        selected_parcelles: checked
+                                          ? [...prev.selected_parcelles, p.id]
+                                          : prev.selected_parcelles.filter(id => id !== p.id)
+                                      }));
+                                    }}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                  />
+                                  <span className="text-sm flex-1">
                                     Parcelle {p.numero} - {p.surface} m² - ${p.prix.toLocaleString()}
-                                    {p.hectares && ` (${p.hectares.name})`}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="none" disabled>Aucune parcelle disponible</SelectItem>
-                              )
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                                    {p.hectares && <span className="text-muted-foreground ml-1">({p.hectares.name})</span>}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic py-2">Aucune parcelle disponible</p>
+                          )}
+                          
+                          {/* Option de fusion visuelle */}
+                          {newBuyerForm.selected_parcelles.length > 1 && (
+                            <label className="flex items-center gap-2 p-3 rounded-md bg-muted/30 border border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={newBuyerForm.merge_parcelles}
+                                onChange={(e) => setNewBuyerForm({ ...newBuyerForm, merge_parcelles: e.target.checked })}
+                                className="w-4 h-4 rounded border-gray-300"
+                              />
+                              <div>
+                                <span className="text-sm font-medium">Fusionner visuellement les parcelles</span>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Les parcelles seront affichées comme un seul bloc dans la grille tout en conservant leur nombre
+                                </p>
+                              </div>
+                            </label>
+                          )}
+                          
+                          {newBuyerForm.selected_parcelles.length > 0 && (
+                            <p className="text-sm text-primary font-medium">
+                              {newBuyerForm.selected_parcelles.length} parcelle(s) sélectionnée(s)
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Type d'achat (hectare/demi-hectare/parcelle) - Automatique selon le type d'item */}
 
@@ -1131,6 +1231,16 @@ const Acheteurs = () => {
                               className="mt-1.5 bg-background"
                               required={newBuyerForm.sale_type !== "onereux"}
                             />
+                            {newBuyerForm.item_type === "parcelle" && newBuyerForm.selected_parcelles.length > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Prix total des parcelles sélectionnées: ${
+                                  availableParcelles
+                                    .filter(p => newBuyerForm.selected_parcelles.includes(p.id))
+                                    .reduce((sum, p) => sum + (p.prix || 0), 0)
+                                    .toLocaleString()
+                                }
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>

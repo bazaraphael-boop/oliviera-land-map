@@ -135,6 +135,8 @@ export type Database = {
           created_at: string
           hectare_id: string | null
           id: string
+          is_merge_primary: boolean | null
+          merged_group_id: string | null
           numero: string
           payment_type: string | null
           prix: number
@@ -155,6 +157,8 @@ export type Database = {
           created_at?: string
           hectare_id?: string | null
           id?: string
+          is_merge_primary?: boolean | null
+          merged_group_id?: string | null
           numero: string
           payment_type?: string | null
           prix: number
@@ -175,6 +179,8 @@ export type Database = {
           created_at?: string
           hectare_id?: string | null
           id?: string
+          is_merge_primary?: boolean | null
+          merged_group_id?: string | null
           numero?: string
           payment_type?: string | null
           prix?: number
