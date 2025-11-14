@@ -69,6 +69,7 @@ export type Database = {
           rmb_number: string | null
           sale_date: string | null
           sale_type: string | null
+          site_id: string | null
           status: string | null
           surface: number
           updated_at: string
@@ -89,6 +90,7 @@ export type Database = {
           rmb_number?: string | null
           sale_date?: string | null
           sale_type?: string | null
+          site_id?: string | null
           status?: string | null
           surface: number
           updated_at?: string
@@ -109,11 +111,20 @@ export type Database = {
           rmb_number?: string | null
           sale_date?: string | null
           sale_type?: string | null
+          site_id?: string | null
           status?: string | null
           surface?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "hectares_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parcelles: {
         Row: {
@@ -129,6 +140,7 @@ export type Database = {
           prix: number
           purchase_type: string | null
           remaining_amount: number | null
+          rmb_number: string | null
           sale_date: string | null
           sale_type: string | null
           status: string | null
@@ -148,6 +160,7 @@ export type Database = {
           prix: number
           purchase_type?: string | null
           remaining_amount?: number | null
+          rmb_number?: string | null
           sale_date?: string | null
           sale_type?: string | null
           status?: string | null
@@ -167,6 +180,7 @@ export type Database = {
           prix?: number
           purchase_type?: string | null
           remaining_amount?: number | null
+          rmb_number?: string | null
           sale_date?: string | null
           sale_type?: string | null
           status?: string | null
@@ -264,6 +278,36 @@ export type Database = {
           phone?: string | null
           role?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sites: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          quota_percentage: number | null
+          surface_totale: number
+          surface_vendue: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          quota_percentage?: number | null
+          surface_totale: number
+          surface_vendue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          quota_percentage?: number | null
+          surface_totale?: number
+          surface_vendue?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
