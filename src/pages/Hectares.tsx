@@ -835,47 +835,47 @@ const Hectares = () => {
               
               <Card className="p-6 bg-muted/30">
                 <div className="grid grid-cols-5 gap-4">
-                  {Array.from({ length: 15 }, (_, i) => {
-                    const parcelleNum = (i + 1).toString().padStart(3, '0');
-                    const parcelle = parcelles.find(p => p.numero === parcelleNum);
-                    const isVendu = parcelle?.status === 'vendu';
-                    const isDisponible = !parcelle || parcelle?.status === 'disponible';
-                    const duplicateRMBs = getDuplicateRMBs();
-                    const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
-                    
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => handleParcelleClick(parcelleNum)}
-                        className={`
-                          relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center
-                          font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
-                          ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
-                          ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
-                          ${hasDuplicateRMB ? 'ring-4 ring-red-600 ring-offset-2' : ''}
-                        `}
-                        title={
-                          hasDuplicateRMB 
-                            ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
-                            : isVendu 
-                              ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` 
-                              : 'Disponible - Cliquez pour voir'
-                        }
-                      >
-                        <span className="text-2xl">{parcelleNum}</span>
-                        {isVendu && (
-                          <div className="absolute top-1 right-1">
-                            <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                          </div>
-                        )}
-                        {hasDuplicateRMB && (
-                          <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                            !
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {parcelles
+                    .sort((a, b) => a.numero.localeCompare(b.numero))
+                    .map((parcelle) => {
+                      const isVendu = parcelle?.status === 'vendu';
+                      const isDisponible = parcelle?.status === 'disponible';
+                      const duplicateRMBs = getDuplicateRMBs();
+                      const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
+                      
+                      return (
+                        <div
+                          key={parcelle.id}
+                          onClick={() => handleParcelleClick(parcelle.numero)}
+                          className={`
+                            relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center
+                            font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
+                            ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
+                            ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
+                            ${hasDuplicateRMB ? 'ring-4 ring-red-600 ring-offset-2' : ''}
+                          `}
+                          title={
+                            hasDuplicateRMB 
+                              ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
+                              : isVendu 
+                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` 
+                                : 'Disponible - Cliquez pour voir'
+                          }
+                        >
+                          <span className="text-2xl">{parcelle.numero}</span>
+                          {isVendu && (
+                            <div className="absolute top-1 right-1">
+                              <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                            </div>
+                          )}
+                          {hasDuplicateRMB && (
+                            <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                              !
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               </Card>
             </div>
