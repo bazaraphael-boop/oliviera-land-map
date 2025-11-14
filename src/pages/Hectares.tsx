@@ -231,7 +231,7 @@ const Hectares = () => {
             if (!open) {
               setIsEditMode(false);
               setEditingId(null);
-              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
+              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "" });
             }
           }}>
             <DialogTrigger asChild>
@@ -298,26 +298,6 @@ const Hectares = () => {
                         placeholder="Ex: RMB-2024-001"
                         className="mt-1"
                       />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">Site *</Label>
-                      <Select
-                        value={formData.site_id}
-                        onValueChange={(value) => setFormData({ ...formData, site_id: value })}
-                        required
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Sélectionner un site" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sites.map((site) => (
-                            <SelectItem key={site.id} value={site.id}>
-                              {site.name} ({site.surface_totale} ha)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                   
@@ -468,7 +448,6 @@ const Hectares = () => {
                         payment_type: "total",
                         amount_paid: "",
                         remaining_amount: "",
-                        site_id: "",
                       });
                     }}
                   >
