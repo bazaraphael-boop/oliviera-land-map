@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ interface Hectare {
 
 const Parcelles = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [parcelles, setParcelles] = useState<Parcelle[]>([]);
   const [hectares, setHectares] = useState<Hectare[]>([]);
@@ -182,6 +184,7 @@ const Parcelles = () => {
       setIsDialogOpen(false);
       setFormData({ numero: "", surface: "", prix: "", hectare_id: selectedHectare, rmb_number: "" });
       fetchParcelles();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la création");
@@ -197,6 +200,7 @@ const Parcelles = () => {
 
       toast.success("Parcelle supprimée");
       fetchParcelles();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression");
@@ -284,6 +288,7 @@ const Parcelles = () => {
       setIsEditDialogOpen(false);
       setSelectedParcelle(null);
       fetchParcelles();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la mise à jour");
@@ -911,7 +916,10 @@ const Parcelles = () => {
             remainingAmount={selectedParcelle.remaining_amount}
             buyerName={selectedParcelle.buyer_name || undefined}
             rmbNumber={selectedParcelle.rmb_number || selectedParcelle.hectares?.rmb_number || undefined}
-            onPaymentComplete={fetchParcelles}
+            onPaymentComplete={() => {
+              fetchParcelles();
+              queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+            }}
           />
         )}
       </div>

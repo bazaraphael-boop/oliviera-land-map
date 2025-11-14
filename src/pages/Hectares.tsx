@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ interface Hectare {
 
 const Hectares = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [hectares, setHectares] = useState<Hectare[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,6 +207,7 @@ const Hectares = () => {
       setEditingId(null);
       setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
       fetchHectares();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error(isEditMode ? "Erreur lors de la modification" : "Erreur lors de la création");
@@ -248,6 +251,7 @@ const Hectares = () => {
 
       toast.success("Hectare supprimé");
       fetchHectares();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression");
@@ -713,7 +717,10 @@ const Hectares = () => {
           remainingAmount={selectedHectare.remaining_amount}
           buyerName={selectedHectare.buyer_name || undefined}
           rmbNumber={selectedHectare.rmb_number || undefined}
-          onPaymentComplete={fetchHectares}
+          onPaymentComplete={() => {
+            fetchHectares();
+            queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+          }}
         />
       )}
 
