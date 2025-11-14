@@ -65,11 +65,20 @@ const Rapports = () => {
 
       if (parcellesError) throw parcellesError;
 
+      // Récupérer tous les hectares vendus
+      const { data: hectares, error: hectaresError } = await supabase
+        .from("hectares")
+        .select("*");
+
+      if (hectaresError) throw hectaresError;
+
       // Calculer les statistiques globales
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
+      const soldHectares = hectares?.filter(h => h.status === "sold") || [];
       
-      const totalRevenue = soldParcelles.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0);
+      const totalRevenue = soldParcelles.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0) +
+                          soldHectares.reduce((sum, h) => sum + Number(h.amount_paid || h.prix), 0);
       const averagePrice = parcelles && parcelles.length > 0 
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / parcelles.length 
         : 0;
@@ -79,20 +88,14 @@ const Rapports = () => {
 
       setStats({
         totalRevenue,
-        salesCount: soldParcelles.length,
+        salesCount: soldParcelles.length + soldHectares.length,
         availableCount: availableParcelles.length,
-        soldCount: soldParcelles.length,
+        soldCount: soldParcelles.length + soldHectares.length,
         averagePrice,
         salesRate,
       });
 
       // Calculer les statistiques par hectare
-      const { data: hectares, error: hectaresError } = await supabase
-        .from("hectares")
-        .select("*");
-
-      if (hectaresError) throw hectaresError;
-
       const hectareStatsData = hectares?.map(hectare => {
         const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
         const soldInHectare = hectareParcelles.filter(p => p.status === "vendu");
@@ -317,13 +320,125 @@ const Rapports = () => {
         pdf.text(status.count.toString(), statusTableStartX + statusColWidth + 2, yPos + 5.5);
         pdf.text(`${status.percent}%`, statusTableStartX + statusColWidth * 2 + 2, yPos + 5.5);
         
-        yPos += 8;
+      yPos += 8;
       });
       
+      yPos += 10;
+      
+      // Liste des acheteurs
+      if (yPos > 220) {
+        pdf.addPage();
+        yPos = 20;
+      }
+      
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("LISTE DES ACHETEURS", 20, yPos);
+      yPos += 10;
+      
+      // Récupérer les acheteurs depuis les parcelles et hectares
+      const { data: parcellesWithBuyers } = await supabase
+        .from("parcelles")
+        .select("*, hectares(name)")
+        .eq("status", "vendu")
+        .not("buyer_name", "is", null);
+      
+      const { data: hectaresWithBuyers } = await supabase
+        .from("hectares")
+        .select("*")
+        .eq("status", "sold")
+        .not("buyer_name", "is", null);
+      
+      const buyers: Array<{
+        name: string;
+        phone: string;
+        email: string;
+        type: string;
+        property: string;
+        amount: number;
+      }> = [];
+      
+      // Ajouter les acheteurs de parcelles
+      parcellesWithBuyers?.forEach(p => {
+        buyers.push({
+          name: p.buyer_name || "N/A",
+          phone: p.buyer_phone || "N/A",
+          email: p.buyer_email || "N/A",
+          type: "Parcelle",
+          property: `${(p.hectares as any)?.name || "N/A"} - ${p.numero}`,
+          amount: Number(p.amount_paid || p.prix)
+        });
+      });
+      
+      // Ajouter les acheteurs d'hectares
+      hectaresWithBuyers?.forEach(h => {
+        buyers.push({
+          name: h.buyer_name || "N/A",
+          phone: h.buyer_phone || "N/A",
+          email: h.buyer_email || "N/A",
+          type: "Hectare",
+          property: h.name,
+          amount: Number(h.amount_paid || h.prix)
+        });
+      });
+      
+      if (buyers.length === 0) {
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Aucun acheteur enregistré", 25, yPos);
+        yPos += 10;
+      } else {
+        // Tableau des acheteurs
+        pdf.setFontSize(8);
+        
+        buyers.forEach((buyer, index) => {
+          if (yPos > 260) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          const isEven = index % 2 === 0;
+          if (isEven) {
+            pdf.setFillColor(250, 250, 250);
+          } else {
+            pdf.setFillColor(255, 255, 255);
+          }
+          
+          // Carte d'acheteur
+          pdf.rect(20, yPos, 170, 25, 'FD');
+          pdf.setDrawColor(200, 200, 200);
+          pdf.rect(20, yPos, 170, 25, 'S');
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(10);
+          pdf.text(buyer.name, 25, yPos + 6);
+          
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.text(`Tel: ${buyer.phone}`, 25, yPos + 12);
+          pdf.text(`Email: ${buyer.email}`, 25, yPos + 18);
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.text(`${buyer.type}:`, 110, yPos + 6);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(buyer.property.substring(0, 30), 110, yPos + 12);
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(9);
+          pdf.text(`${buyer.amount.toLocaleString()} USD`, 110, yPos + 20);
+          
+          yPos += 28;
+        });
+      }
+      
       // Footer
-      pdf.setFontSize(8);
-      pdf.setFont("helvetica", "italic");
-      pdf.text("Rapport généré automatiquement", 105, 285, { align: "center" });
+      const pageCount = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "italic");
+        pdf.text("Rapport généré automatiquement", 105, 285, { align: "center" });
+      }
       
       // Télécharger le PDF
       pdf.save(`rapport-${new Date().toISOString().split('T')[0]}.pdf`);
