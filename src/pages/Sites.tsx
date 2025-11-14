@@ -27,9 +27,15 @@ interface Site {
   created_at: string;
 }
 
+interface SiteStats {
+  hectares_count: number;
+  surface_vendue: number;
+}
+
 const Sites = () => {
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
+  const [siteStats, setSiteStats] = useState<Record<string, SiteStats>>({});
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -43,6 +49,7 @@ const Sites = () => {
   useEffect(() => {
     checkAuth();
     fetchSites();
+    fetchSiteStats();
   }, []);
 
   const checkAuth = async () => {
@@ -66,6 +73,39 @@ const Sites = () => {
       toast.error("Erreur lors du chargement des sites");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSiteStats = async () => {
+    try {
+      const { data: hectares, error } = await (supabase as any)
+        .from("hectares")
+        .select("site_id, surface, status");
+
+      if (error) throw error;
+
+      const stats: Record<string, SiteStats> = {};
+      
+      hectares?.forEach((hectare: any) => {
+        if (!hectare.site_id) return;
+        
+        if (!stats[hectare.site_id]) {
+          stats[hectare.site_id] = {
+            hectares_count: 0,
+            surface_vendue: 0,
+          };
+        }
+        
+        stats[hectare.site_id].hectares_count += 1;
+        
+        if (hectare.status === "vendu") {
+          stats[hectare.site_id].surface_vendue += parseFloat(hectare.surface || 0);
+        }
+      });
+
+      setSiteStats(stats);
+    } catch (error) {
+      console.error("Erreur:", error);
     }
   };
 
@@ -99,6 +139,7 @@ const Sites = () => {
       setIsDialogOpen(false);
       resetForm();
       fetchSites();
+      fetchSiteStats();
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de l'enregistrement du site");
@@ -128,6 +169,7 @@ const Sites = () => {
       if (error) throw error;
       toast.success("Site supprimé avec succès");
       fetchSites();
+      fetchSiteStats();
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression du site");
@@ -255,10 +297,11 @@ const Sites = () => {
           {/* Sites Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {sites.map((site) => {
+              const stats = siteStats[site.id] || { hectares_count: 0, surface_vendue: 0 };
               const percentageVendu = site.surface_totale > 0 
-                ? (site.surface_vendue / site.surface_totale) * 100 
+                ? (stats.surface_vendue / site.surface_totale) * 100 
                 : 0;
-              const remainingSurface = site.surface_totale - site.surface_vendue;
+              const remainingSurface = site.surface_totale - stats.surface_vendue;
               const quotaUsed = site.quota_percentage > 0 
                 ? (percentageVendu / site.quota_percentage) * 100 
                 : 0;
@@ -298,9 +341,18 @@ const Sites = () => {
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Surface occupée</span>
+                        <span className="text-foreground font-medium">
+                          {stats.hectares_count} hectare{stats.hectares_count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
                         <span className="text-muted-foreground">Surface vendue</span>
                         <span className={getQuotaColor(percentageVendu)}>
-                          {site.surface_vendue.toFixed(2)} ha ({percentageVendu.toFixed(1)}%)
+                          {stats.surface_vendue.toFixed(2)} ha ({percentageVendu.toFixed(1)}%)
                         </span>
                       </div>
                       <Progress value={percentageVendu} className="h-2" />
@@ -309,7 +361,7 @@ const Sites = () => {
                     {site.quota_percentage > 0 && (
                       <div>
                         <div className="flex justify-between text-sm mb-2">
-                          <span className="text-muted-foreground">Quota utilisé</span>
+                          <span className="text-muted-foreground">Quota vendu</span>
                           <span className={getQuotaColor(quotaUsed)}>
                             {quotaUsed.toFixed(1)}% / {site.quota_percentage}%
                           </span>
