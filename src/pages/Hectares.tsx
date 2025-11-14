@@ -17,6 +17,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Site {
+  id: string;
+  name: string;
+  surface_totale: number;
+}
 
 interface Hectare {
   id: string;
@@ -36,11 +49,13 @@ interface Hectare {
   remaining_amount: number;
   sale_type: string | null;
   purchase_type: string | null;
+  site_id: string | null;
 }
 
 const Hectares = () => {
   const navigate = useNavigate();
   const [hectares, setHectares] = useState<Hectare[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -63,10 +78,12 @@ const Hectares = () => {
     payment_type: "total",
     amount_paid: "",
     remaining_amount: "",
+    site_id: "",
   });
 
   useEffect(() => {
     checkAuth();
+    fetchSites();
     fetchHectares();
   }, []);
 
@@ -74,6 +91,21 @@ const Hectares = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       navigate("/login");
+    }
+  };
+
+  const fetchSites = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id, name, surface_totale")
+        .order("name");
+
+      if (error) throw error;
+      setSites(data || []);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors du chargement des sites");
     }
   };
 
@@ -120,6 +152,7 @@ const Hectares = () => {
         amount_paid: isVente ? amountPaid : 0,
         remaining_amount: isVente ? remainingAmount : 0,
         sale_date: isVente ? new Date().toISOString() : null,
+        site_id: formData.site_id || null,
       };
       
       if (isEditMode && editingId) {
@@ -142,7 +175,7 @@ const Hectares = () => {
       setIsDialogOpen(false);
       setIsEditMode(false);
       setEditingId(null);
-      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "" });
+      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
       fetchHectares();
     } catch (error) {
       console.error("Erreur:", error);
@@ -166,6 +199,7 @@ const Hectares = () => {
       payment_type: hectare.payment_type || "total",
       amount_paid: hectare.amount_paid.toString(),
       remaining_amount: hectare.remaining_amount.toString(),
+      site_id: hectare.site_id || "",
     });
     setEditingId(hectare.id);
     setIsEditMode(true);
@@ -231,7 +265,7 @@ const Hectares = () => {
             if (!open) {
               setIsEditMode(false);
               setEditingId(null);
-              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "" });
+              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
             }
           }}>
             <DialogTrigger asChild>
@@ -298,6 +332,26 @@ const Hectares = () => {
                         placeholder="Ex: RMB-2024-001"
                         className="mt-1"
                       />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">Site *</Label>
+                      <Select
+                        value={formData.site_id}
+                        onValueChange={(value) => setFormData({ ...formData, site_id: value })}
+                        required
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Sélectionner un site" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sites.map((site) => (
+                            <SelectItem key={site.id} value={site.id}>
+                              {site.name} ({site.surface_totale} ha)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   
@@ -448,6 +502,7 @@ const Hectares = () => {
                         payment_type: "total",
                         amount_paid: "",
                         remaining_amount: "",
+                        site_id: "",
                       });
                     }}
                   >
