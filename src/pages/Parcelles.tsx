@@ -368,28 +368,31 @@ const Parcelles = () => {
       }
       yPos += 10;
       
-      // Détails financiers
-      pdf.setFontSize(14);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("DÉTAILS FINANCIERS", 20, yPos);
-      yPos += 8;
-      pdf.setFontSize(12);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Prix total: $${saleData.prix.toLocaleString()}`, 20, yPos);
-      yPos += 7;
-      pdf.text(`Type de paiement: ${saleData.payment_type === "partiel" ? "Paiement partiel" : "Paiement total"}`, 20, yPos);
-      yPos += 7;
-      
-      if (saleData.payment_type === "partiel") {
-        pdf.text(`Montant payé: $${saleData.amount_paid.toLocaleString()}`, 20, yPos);
+      // Détails financiers (sauf pour les ventes à titre onéreux)
+      if (saleData.sale_type !== "onéreux" && saleData.sale_type !== "onereux") {
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("DÉTAILS FINANCIERS", 20, yPos);
+        yPos += 8;
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`Prix total: $${saleData.prix.toLocaleString()}`, 20, yPos);
         yPos += 7;
-        pdf.setFont("helvetica", "bold");
-        pdf.text(`Montant restant: $${saleData.remaining_amount.toLocaleString()}`, 20, yPos);
-        pdf.setFont("helvetica", "normal");
-      } else {
-        pdf.setFont("helvetica", "bold");
-        pdf.text("PAYÉ INTÉGRALEMENT", 20, yPos);
-        pdf.setFont("helvetica", "normal");
+        pdf.text(`Type de paiement: ${saleData.payment_type === "partiel" ? "Paiement partiel" : "Paiement total"}`, 20, yPos);
+        yPos += 7;
+        
+        if (saleData.payment_type === "partiel") {
+          pdf.text(`Montant payé: $${saleData.amount_paid.toLocaleString()}`, 20, yPos);
+          yPos += 7;
+          pdf.setFont("helvetica", "bold");
+          pdf.text(`Montant restant: $${saleData.remaining_amount.toLocaleString()}`, 20, yPos);
+          pdf.setFont("helvetica", "normal");
+        } else {
+          pdf.setFont("helvetica", "bold");
+          pdf.text("PAYÉ INTÉGRALEMENT", 20, yPos);
+          pdf.setFont("helvetica", "normal");
+        }
+        yPos += 10;
       }
       
       // Pied de page
@@ -609,10 +612,12 @@ const Parcelles = () => {
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Prix:</span>
-                  <span className="text-sm font-semibold">${parcelle.prix.toLocaleString()}</span>
-                </div>
+                {parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Prix:</span>
+                    <span className="text-sm font-semibold">${parcelle.prix.toLocaleString()}</span>
+                  </div>
+                )}
                 
                 <div className="flex gap-2 flex-wrap">
                   <div className={`text-xs px-2 py-1 rounded ${getStatusBadge(parcelle.status)}`}>
@@ -635,7 +640,7 @@ const Parcelles = () => {
                 {parcelle.buyer_name && (
                   <div className="text-xs text-muted-foreground pt-2 border-t border-border">
                     <div>Acheteur: {parcelle.buyer_name}</div>
-                    {parcelle.payment_type === "partiel" && (
+                    {parcelle.payment_type === "partiel" && parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
                       <div className="mt-1">
                         <div>Payé: ${parcelle.amount_paid.toLocaleString()}</div>
                         <div className="font-semibold text-destructive">
@@ -646,7 +651,7 @@ const Parcelles = () => {
                   </div>
                 )}
                 
-                {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && (
+                {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -731,22 +736,24 @@ const Parcelles = () => {
                     </Select>
                   </div>
                   
-                  <div>
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
-                      Prix (USD) *
-                    </Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editFormData.prix}
-                      onChange={(e) =>
-                        setEditFormData({ ...editFormData, prix: e.target.value })
-                      }
-                      placeholder="Modifier le prix"
-                      className="mt-1"
-                    />
-                  </div>
+                  {editFormData.sale_type !== "onéreux" && editFormData.sale_type !== "onereux" && (
+                    <div>
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        Prix (USD) *
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editFormData.prix}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, prix: e.target.value })
+                        }
+                        placeholder="Modifier le prix"
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div>
@@ -859,75 +866,77 @@ const Parcelles = () => {
                   <Separator />
 
                   {/* Section: Détails de paiement */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <CreditCard className="w-4 h-4" />
-                      Détails de paiement
-                    </h3>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium">Type de paiement *</Label>
-                        <Select
-                          value={editFormData.payment_type}
-                          onValueChange={(value) =>
-                            setEditFormData({ ...editFormData, payment_type: value })
-                          }
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="total">Paiement total</SelectItem>
-                            <SelectItem value="partiel">Paiement partiel</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  {editFormData.sale_type !== "onéreux" && editFormData.sale_type !== "onereux" && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Détails de paiement
+                      </h3>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Type de paiement *</Label>
+                          <Select
+                            value={editFormData.payment_type}
+                            onValueChange={(value) =>
+                              setEditFormData({ ...editFormData, payment_type: value })
+                            }
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="total">Paiement total</SelectItem>
+                              <SelectItem value="partiel">Paiement partiel</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <Package className="w-3 h-3" />
+                            Type d'achat *
+                          </Label>
+                          <Select
+                            value={editFormData.purchase_type}
+                            onValueChange={(value) =>
+                              setEditFormData({ ...editFormData, purchase_type: value })
+                            }
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="parcelle">Parcelle</SelectItem>
+                              <SelectItem value="hectare">Hectare</SelectItem>
+                              <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
-                      <div>
-                        <Label className="text-sm font-medium flex items-center gap-2">
-                          <Package className="w-3 h-3" />
-                          Type d'achat *
-                        </Label>
-                        <Select
-                          value={editFormData.purchase_type}
-                          onValueChange={(value) =>
-                            setEditFormData({ ...editFormData, purchase_type: value })
-                          }
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="parcelle">Parcelle</SelectItem>
-                            <SelectItem value="hectare">Hectare</SelectItem>
-                            <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {editFormData.payment_type === "partiel" && (
+                        <div>
+                          <Label>Montant payé (USD) *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editFormData.amount_paid}
+                            onChange={(e) =>
+                              setEditFormData({ ...editFormData, amount_paid: e.target.value })
+                            }
+                            placeholder="Montant déjà payé"
+                            required
+                          />
+                          {editFormData.amount_paid && editFormData.prix && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Restant: ${(parseFloat(editFormData.prix) - parseFloat(editFormData.amount_paid)).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    
-                    {editFormData.payment_type === "partiel" && (
-                      <div>
-                        <Label>Montant payé (USD) *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editFormData.amount_paid}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, amount_paid: e.target.value })
-                          }
-                          placeholder="Montant déjà payé"
-                          required
-                        />
-                        {editFormData.amount_paid && editFormData.prix && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Restant: ${(parseFloat(editFormData.prix) - parseFloat(editFormData.amount_paid)).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </>
               )}
 
