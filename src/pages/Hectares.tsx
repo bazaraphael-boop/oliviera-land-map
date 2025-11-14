@@ -689,7 +689,7 @@ const Hectares = () => {
                 </div>
 
                 {/* Price */}
-                {hectare.prix > 0 && (
+                {hectare.prix > 0 && hectare.sale_type !== "onéreux" && (
                   <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-5 h-5 text-primary" />
@@ -736,7 +736,7 @@ const Hectares = () => {
                       {hectare.buyer_phone && (
                         <p className="text-xs text-muted-foreground ml-6">{hectare.buyer_phone}</p>
                       )}
-                      {hectare.payment_type === "partiel" && (
+                      {hectare.payment_type === "partiel" && hectare.sale_type !== "onéreux" && (
                         <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
                           <div className="flex justify-between items-center mb-1">
                             <span className="text-xs text-muted-foreground">Montant payé</span>
@@ -758,7 +758,7 @@ const Hectares = () => {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 pt-4 border-t-2 border-border">
-                  {hectare.status === "vendu" && hectare.remaining_amount > 0 && (
+                  {hectare.status === "vendu" && hectare.remaining_amount > 0 && hectare.sale_type !== "onéreux" && (
                     <Button
                       variant="default"
                       size="sm"
