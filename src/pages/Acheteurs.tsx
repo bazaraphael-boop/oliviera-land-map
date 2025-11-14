@@ -66,6 +66,7 @@ interface Acheteur {
 const Acheteurs = () => {
   const navigate = useNavigate();
   const [acheteurs, setAcheteurs] = useState<Acheteur[]>([]);
+  const [rmbList, setRmbList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAcheteur, setSelectedAcheteur] = useState<Acheteur | null>(null);
@@ -88,6 +89,7 @@ const Acheteurs = () => {
   useEffect(() => {
     checkAuth();
     loadAcheteurs();
+    loadRmbList();
   }, []);
 
   useEffect(() => {
@@ -100,6 +102,29 @@ const Acheteurs = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       navigate("/login");
+    }
+  };
+
+  const loadRmbList = async () => {
+    try {
+      const { data: hectares, error } = await supabase
+        .from("hectares")
+        .select("rmb_number")
+        .eq("status", "vendu")
+        .not("rmb_number", "is", null)
+        .order("rmb_number");
+
+      if (error) throw error;
+
+      const rmbNumbers = hectares
+        ?.map(h => h.rmb_number)
+        .filter((rmb): rmb is string => rmb !== null)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) || [];
+      
+      setRmbList(rmbNumbers);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors du chargement des numéros RMB");
     }
   };
 
@@ -440,6 +465,31 @@ const Acheteurs = () => {
             </div>
           </Card>
         </div>
+
+        {/* Liste RMB */}
+        {rmbList.length > 0 && (
+          <Card className="p-6 mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Badge className="w-5 h-5 text-purple-500" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Numéros RMB ({rmbList.length})
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {rmbList.map((rmb, index) => (
+                <Badge 
+                  key={index} 
+                  variant="outline"
+                  className="text-sm font-medium bg-purple-500/5 hover:bg-purple-500/10 border-purple-500/20 text-foreground"
+                >
+                  {rmb}
+                </Badge>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Acheteurs List */}
         <div className="grid grid-cols-1 gap-4">
