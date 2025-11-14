@@ -155,14 +155,18 @@ const Rapports = () => {
       const startX = 20;
       
       // Données du tableau 3x2
+      const formatPrice = (price: number) => {
+        return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      };
+      
       const statsData = [
         [
-          { label: "Revenus Total", value: `${stats.totalRevenue.toLocaleString()} USD` },
+          { label: "Revenus Total", value: `${formatPrice(stats.totalRevenue)} USD` },
           { label: "Ventes réalisées", value: `${stats.salesCount}` }
         ],
         [
           { label: "Taux de vente", value: `${stats.salesRate.toFixed(1)}%` },
-          { label: "Prix moyen", value: `${Math.round(stats.averagePrice).toLocaleString()} USD` }
+          { label: "Prix moyen", value: `${formatPrice(Math.round(stats.averagePrice))} USD` }
         ],
         [
           { label: "Parcelles disponibles", value: `${stats.availableCount}` },
@@ -255,7 +259,7 @@ const Rapports = () => {
           pdf.text(hectare.name.substring(0, 20), tableStartX + 2, yPos + 5.5);
           pdf.text(`${hectare.soldParcelles}/${hectare.totalParcelles}`, tableStartX + colWidths[0] + 2, yPos + 5.5);
           pdf.text(`${hectare.salesRate.toFixed(1)}%`, tableStartX + colWidths[0] + colWidths[1] + 2, yPos + 5.5);
-          pdf.text(hectare.revenue.toLocaleString(), tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + 2, yPos + 5.5);
+          pdf.text(formatPrice(hectare.revenue), tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + 2, yPos + 5.5);
           
           yPos += 8;
         });
@@ -425,7 +429,7 @@ const Rapports = () => {
           
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(9);
-          pdf.text(`${buyer.amount.toLocaleString()} USD`, 110, yPos + 20);
+          pdf.text(`${formatPrice(buyer.amount)} USD`, 110, yPos + 20);
           
           yPos += 28;
         });
