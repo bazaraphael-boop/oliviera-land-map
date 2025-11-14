@@ -79,6 +79,7 @@ const Acheteurs = () => {
   const [selectedAcheteur, setSelectedAcheteur] = useState<Acheteur | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showNewBuyerDialog, setShowNewBuyerDialog] = useState(false);
+  const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
   const [availableHectares, setAvailableHectares] = useState<any[]>([]);
   const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
   const [newBuyerForm, setNewBuyerForm] = useState({
@@ -95,6 +96,11 @@ const Acheteurs = () => {
     amount_paid: "",
     rmb_number: "",
     prix: "",
+  });
+  const [editBuyerForm, setEditBuyerForm] = useState({
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
   });
 
   useEffect(() => {
@@ -250,6 +256,51 @@ const Acheteurs = () => {
   const handleShowDetails = (acheteur: Acheteur) => {
     setSelectedAcheteur(acheteur);
     setShowDetails(true);
+  };
+
+  const handleEditBuyer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedAcheteur) return;
+    
+    try {
+      // Mettre à jour toutes les parcelles de cet acheteur
+      const parcelleIds = selectedAcheteur.parcelles.map(p => p.id);
+      if (parcelleIds.length > 0) {
+        const { error: parcellesError } = await supabase
+          .from("parcelles")
+          .update({
+            buyer_name: editBuyerForm.buyer_name,
+            buyer_phone: editBuyerForm.buyer_phone || null,
+            buyer_email: editBuyerForm.buyer_email || null,
+          })
+          .in("id", parcelleIds);
+
+        if (parcellesError) throw parcellesError;
+      }
+
+      // Mettre à jour tous les hectares de cet acheteur
+      const hectareIds = selectedAcheteur.hectares.map(h => h.id);
+      if (hectareIds.length > 0) {
+        const { error: hectaresError } = await supabase
+          .from("hectares")
+          .update({
+            buyer_name: editBuyerForm.buyer_name,
+            buyer_phone: editBuyerForm.buyer_phone || null,
+            buyer_email: editBuyerForm.buyer_email || null,
+          })
+          .in("id", hectareIds);
+
+        if (hectaresError) throw hectaresError;
+      }
+
+      toast.success("Acheteur modifié avec succès");
+      setShowEditBuyerDialog(false);
+      loadAcheteurs(); // Recharger la liste
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors de la modification de l'acheteur");
+    }
   };
 
   const handleLocaliser = (parcelleId: string) => {
@@ -536,9 +587,25 @@ const Acheteurs = () => {
                   </div>
                 </div>
 
-                <Button onClick={() => handleShowDetails(acheteur)}>
-                  Voir Détails
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedAcheteur(acheteur);
+                      setEditBuyerForm({
+                        buyer_name: acheteur.buyer_name,
+                        buyer_phone: acheteur.buyer_phone || "",
+                        buyer_email: acheteur.buyer_email || "",
+                      });
+                      setShowEditBuyerDialog(true);
+                    }}
+                  >
+                    Modifier
+                  </Button>
+                  <Button onClick={() => handleShowDetails(acheteur)}>
+                    Voir Détails
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
@@ -796,6 +863,58 @@ const Acheteurs = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Modifier Acheteur */}
+        <Dialog open={showEditBuyerDialog} onOpenChange={setShowEditBuyerDialog}>
+          <DialogContent className="max-w-md bg-card">
+            <DialogHeader className="border-b border-border pb-4">
+              <DialogTitle className="text-xl">Modifier l'acheteur</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleEditBuyer} className="space-y-4 pt-4">
+              <div>
+                <Label className="text-sm font-medium">Nom complet *</Label>
+                <Input
+                  value={editBuyerForm.buyer_name}
+                  onChange={(e) => setEditBuyerForm({ ...editBuyerForm, buyer_name: e.target.value })}
+                  placeholder="Nom complet"
+                  className="mt-1.5 bg-background"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Téléphone</Label>
+                <Input
+                  value={editBuyerForm.buyer_phone}
+                  onChange={(e) => setEditBuyerForm({ ...editBuyerForm, buyer_phone: e.target.value })}
+                  placeholder="Numéro de téléphone"
+                  className="mt-1.5 bg-background"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Email</Label>
+                <Input
+                  type="email"
+                  value={editBuyerForm.buyer_email}
+                  onChange={(e) => setEditBuyerForm({ ...editBuyerForm, buyer_email: e.target.value })}
+                  placeholder="Adresse email"
+                  className="mt-1.5 bg-background"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => setShowEditBuyerDialog(false)} className="flex-1">
+                  Annuler
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Enregistrer
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
 
