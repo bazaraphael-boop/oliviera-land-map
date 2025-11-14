@@ -258,6 +258,17 @@ const Hectares = () => {
     setParcelleDetailsOpen(true);
   };
 
+  // Détecter les RMB en double
+  const getDuplicateRMBs = () => {
+    const rmbCounts: { [key: string]: number } = {};
+    parcelles.forEach(p => {
+      if (p.rmb_number) {
+        rmbCounts[p.rmb_number] = (rmbCounts[p.rmb_number] || 0) + 1;
+      }
+    });
+    return Object.keys(rmbCounts).filter(rmb => rmbCounts[rmb] > 1);
+  };
+
   const filteredHectares = hectares.filter((h) =>
     h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     h.location?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -688,6 +699,34 @@ const Hectares = () => {
           </DialogHeader>
           
           <div className="py-6 space-y-6">
+            {/* Alerte pour les RMB dupliqués */}
+            {(() => {
+              const duplicateRMBs = getDuplicateRMBs();
+              if (duplicateRMBs.length > 0) {
+                return (
+                  <div className="bg-red-500/10 border-2 border-red-500 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-red-500/20 rounded-lg">
+                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-red-700 mb-1">⚠️ Numéros RMB dupliqués détectés</h4>
+                        <p className="text-sm text-red-600">
+                          Les parcelles avec les numéros RMB suivants sont en double : {duplicateRMBs.join(', ')}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          Ces parcelles sont marquées avec un indicateur rouge dans le tableau.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Statistiques */}
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-4 bg-green-500/5 border-green-500/20">
@@ -756,6 +795,8 @@ const Hectares = () => {
                     const parcelle = parcelles.find(p => p.numero === parcelleNum);
                     const isVendu = parcelle?.status === 'vendu';
                     const isDisponible = !parcelle || parcelle?.status === 'disponible';
+                    const duplicateRMBs = getDuplicateRMBs();
+                    const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
                     
                     return (
                       <div
@@ -766,13 +807,25 @@ const Hectares = () => {
                           font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
                           ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
                           ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
+                          ${hasDuplicateRMB ? 'ring-4 ring-red-600 ring-offset-2' : ''}
                         `}
-                        title={isVendu ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` : 'Disponible - Cliquez pour voir'}
+                        title={
+                          hasDuplicateRMB 
+                            ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
+                            : isVendu 
+                              ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` 
+                              : 'Disponible - Cliquez pour voir'
+                        }
                       >
                         <span className="text-2xl">{parcelleNum}</span>
                         {isVendu && (
                           <div className="absolute top-1 right-1">
                             <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                          </div>
+                        )}
+                        {hasDuplicateRMB && (
+                          <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                            !
                           </div>
                         )}
                       </div>
@@ -826,6 +879,31 @@ const Hectares = () => {
           <div className="space-y-4 py-4">
             {selectedParcelle?.status === 'vendu' ? (
               <>
+                {/* Alerte RMB dupliqué */}
+                {(() => {
+                  const duplicateRMBs = getDuplicateRMBs();
+                  const hasDuplicateRMB = selectedParcelle?.rmb_number && duplicateRMBs.includes(selectedParcelle.rmb_number);
+                  
+                  if (hasDuplicateRMB) {
+                    return (
+                      <div className="bg-red-500/10 border-2 border-red-500 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-bold">
+                            !
+                          </div>
+                          <div>
+                            <div className="font-semibold text-red-700 text-sm">Numéro RMB en double</div>
+                            <div className="text-xs text-red-600">
+                              Le RMB {selectedParcelle.rmb_number} est utilisé plusieurs fois
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
                     <User className="w-5 h-5 text-muted-foreground mt-0.5" />
