@@ -65,6 +65,8 @@ const Hectares = () => {
   const [selectedHectare, setSelectedHectare] = useState<Hectare | null>(null);
   const [parcellesDialogOpen, setParcellesDialogOpen] = useState(false);
   const [parcelles, setParcelles] = useState<any[]>([]);
+  const [selectedParcelle, setSelectedParcelle] = useState<any | null>(null);
+  const [parcelleDetailsOpen, setParcelleDetailsOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -248,6 +250,12 @@ const Hectares = () => {
     setSelectedHectare(hectare);
     await fetchParcelles(hectare.id);
     setParcellesDialogOpen(true);
+  };
+
+  const handleParcelleClick = (parcelleNum: string) => {
+    const parcelle = parcelles.find(p => p.numero === parcelleNum);
+    setSelectedParcelle(parcelle || { numero: parcelleNum, status: 'disponible' });
+    setParcelleDetailsOpen(true);
   };
 
   const filteredHectares = hectares.filter((h) =>
@@ -752,13 +760,14 @@ const Hectares = () => {
                     return (
                       <div
                         key={i}
+                        onClick={() => handleParcelleClick(parcelleNum)}
                         className={`
                           relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center
                           font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
                           ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
                           ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
                         `}
-                        title={isVendu ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` : 'Disponible'}
+                        title={isVendu ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` : 'Disponible - Cliquez pour voir'}
                       >
                         <span className="text-2xl">{parcelleNum}</span>
                         {isVendu && (
@@ -790,6 +799,137 @@ const Hectares = () => {
                 Gérer les parcelles
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog des détails de parcelle */}
+      <Dialog open={parcelleDetailsOpen} onOpenChange={setParcelleDetailsOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-2xl flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${selectedParcelle?.status === 'vendu' ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
+                <MapPin className={`w-6 h-6 ${selectedParcelle?.status === 'vendu' ? 'text-red-600' : 'text-green-600'}`} />
+              </div>
+              <div>
+                <div className="text-xl font-bold">Parcelle {selectedParcelle?.numero}</div>
+                <Badge 
+                  variant={selectedParcelle?.status === 'vendu' ? 'destructive' : 'default'}
+                  className="mt-1"
+                >
+                  {selectedParcelle?.status === 'vendu' ? 'Vendue' : 'Disponible'}
+                </Badge>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {selectedParcelle?.status === 'vendu' ? (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                    <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-xs text-muted-foreground">Acheteur</div>
+                      <div className="font-semibold">{selectedParcelle?.buyer_name || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  {selectedParcelle?.buyer_phone && (
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="text-xs text-muted-foreground">Téléphone</div>
+                      <div className="font-medium">{selectedParcelle.buyer_phone}</div>
+                    </div>
+                  )}
+
+                  {selectedParcelle?.buyer_email && (
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="text-xs text-muted-foreground">Email</div>
+                      <div className="font-medium">{selectedParcelle.buyer_email}</div>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-xs text-muted-foreground">Prix de vente</div>
+                      <div className="font-semibold">{selectedParcelle?.prix?.toLocaleString('fr-FR')} USD</div>
+                    </div>
+                  </div>
+
+                  {selectedParcelle?.surface && (
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <div className="text-xs text-muted-foreground">Surface</div>
+                        <div className="font-semibold">{selectedParcelle.surface} m²</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedParcelle?.rmb_number && (
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="text-xs text-muted-foreground">Numéro RMB</div>
+                      <div className="font-medium">{selectedParcelle.rmb_number}</div>
+                    </div>
+                  )}
+
+                  {selectedParcelle?.sale_date && (
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="text-xs text-muted-foreground">Date de vente</div>
+                      <div className="font-medium">
+                        {new Date(selectedParcelle.sale_date).toLocaleDateString('fr-FR')}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedParcelle?.payment_type === 'partiel' && (
+                    <div className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                      <CreditCard className="w-5 h-5 text-yellow-600 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="text-xs text-muted-foreground">Paiement partiel</div>
+                        <div className="font-semibold text-yellow-700">
+                          Payé: {selectedParcelle?.amount_paid?.toLocaleString('fr-FR')} USD
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Reste: {selectedParcelle?.remaining_amount?.toLocaleString('fr-FR')} USD
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Parcelle disponible</h3>
+                <p className="text-sm text-muted-foreground">
+                  Cette parcelle est disponible à la vente.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="outline"
+              onClick={() => setParcelleDetailsOpen(false)}
+            >
+              Fermer
+            </Button>
+            {selectedParcelle?.id && (
+              <Button
+                onClick={() => {
+                  setParcelleDetailsOpen(false);
+                  setParcellesDialogOpen(false);
+                  navigate(`/parcelles?parcelle=${selectedParcelle.id}`);
+                }}
+              >
+                Voir détails complets
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
