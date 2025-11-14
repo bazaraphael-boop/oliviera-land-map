@@ -81,7 +81,9 @@ const Acheteurs = () => {
   const [availableHectares, setAvailableHectares] = useState<any[]>([]);
   const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
   const [newBuyerForm, setNewBuyerForm] = useState({
-    buyer_name: "",
+    nom: "",
+    post_nom: "",
+    prenom: "",
     buyer_phone: "",
     buyer_email: "",
     purchase_type: "hectare",
@@ -330,8 +332,11 @@ const Acheteurs = () => {
         : Number(newBuyerForm.amount_paid);
       const remainingAmount = prix - amountPaid;
 
+      // Concaténer les trois parties du nom
+      const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
+
       const updateData = {
-        buyer_name: newBuyerForm.buyer_name,
+        buyer_name: fullName,
         buyer_phone: newBuyerForm.buyer_phone || null,
         buyer_email: newBuyerForm.buyer_email || null,
         status: newBuyerForm.item_type === "hectare" ? "vendu" : undefined,
@@ -362,7 +367,9 @@ const Acheteurs = () => {
       toast.success("Acheteur enregistré avec succès");
       setShowNewBuyerDialog(false);
       setNewBuyerForm({
-        buyer_name: "",
+        nom: "",
+        post_nom: "",
+        prenom: "",
         buyer_phone: "",
         buyer_email: "",
         purchase_type: "hectare",
@@ -830,15 +837,37 @@ const Acheteurs = () => {
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-4">
                     <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium">Nom complet *</Label>
-                        <Input
-                          value={newBuyerForm.buyer_name}
-                          onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_name: e.target.value })}
-                          placeholder="Nom de l'acheteur"
-                          className="mt-1.5 bg-background"
-                          required
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Nom *</Label>
+                          <Input
+                            value={newBuyerForm.nom}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, nom: e.target.value })}
+                            placeholder="Nom"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Post Nom *</Label>
+                          <Input
+                            value={newBuyerForm.post_nom}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, post_nom: e.target.value })}
+                            placeholder="Post Nom"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Prénom *</Label>
+                          <Input
+                            value={newBuyerForm.prenom}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prenom: e.target.value })}
+                            placeholder="Prénom"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
