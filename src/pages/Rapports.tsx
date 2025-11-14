@@ -140,66 +140,127 @@ const Rapports = () => {
       pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
       yPos += 15;
       
-      // Statistiques globales
+      // Statistiques globales - Grille
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
       pdf.text("STATISTIQUES GLOBALES", 20, yPos);
-      yPos += 8;
+      yPos += 10;
       
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      const globalStats = [
-        `Revenus Total: ${stats.totalRevenue.toLocaleString()} USD`,
-        `Ventes réalisées: ${stats.salesCount}`,
-        `Taux de vente: ${stats.salesRate.toFixed(1)}%`,
-        `Prix moyen par parcelle: ${Math.round(stats.averagePrice).toLocaleString()} USD`,
-        `Parcelles disponibles: ${stats.availableCount}`,
-        `Parcelles vendues: ${stats.soldCount}`,
+      // Dessiner le tableau des statistiques globales
+      const colWidth = 85;
+      const rowHeight = 10;
+      const startX = 20;
+      
+      // Données du tableau 3x2
+      const statsData = [
+        [
+          { label: "Revenus Total", value: `${stats.totalRevenue.toLocaleString()} USD` },
+          { label: "Ventes réalisées", value: `${stats.salesCount}` }
+        ],
+        [
+          { label: "Taux de vente", value: `${stats.salesRate.toFixed(1)}%` },
+          { label: "Prix moyen", value: `${Math.round(stats.averagePrice).toLocaleString()} USD` }
+        ],
+        [
+          { label: "Parcelles disponibles", value: `${stats.availableCount}` },
+          { label: "Parcelles vendues", value: `${stats.soldCount}` }
+        ]
       ];
       
-      globalStats.forEach(stat => {
-        pdf.text(`• ${stat}`, 25, yPos);
-        yPos += 6;
+      pdf.setFontSize(9);
+      
+      statsData.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const x = startX + (colIndex * colWidth);
+          const y = yPos + (rowIndex * rowHeight * 2);
+          
+          // Bordure de la cellule
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setFillColor(245, 247, 250);
+          pdf.rect(x, y, colWidth, rowHeight * 2, 'FD');
+          
+          // Label
+          pdf.setFont("helvetica", "bold");
+          pdf.text(cell.label, x + 3, y + 5);
+          
+          // Valeur
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(11);
+          pdf.text(cell.value, x + 3, y + 12);
+          pdf.setFontSize(9);
+        });
       });
       
-      yPos += 5;
+      yPos += (statsData.length * rowHeight * 2) + 15;
       
-      // Performance par hectare
+      // Performance par hectare - Grille
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
       pdf.text("PERFORMANCE PAR HECTARE", 20, yPos);
-      yPos += 8;
-      
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
+      yPos += 10;
       
       if (hectareStats.length === 0) {
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
         pdf.text("Aucune donnée disponible", 25, yPos);
-        yPos += 6;
+        yPos += 10;
       } else {
-        hectareStats.forEach(hectare => {
+        // En-tête du tableau
+        const tableStartX = 20;
+        const colWidths = [50, 35, 30, 45];
+        const headers = ["Hectare", "Parcelles", "Taux", "Revenus (USD)"];
+        
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(66, 135, 245);
+        pdf.setTextColor(255, 255, 255);
+        
+        let currentX = tableStartX;
+        headers.forEach((header, i) => {
+          pdf.rect(currentX, yPos, colWidths[i], 8, 'F');
+          pdf.text(header, currentX + 2, yPos + 5.5);
+          currentX += colWidths[i];
+        });
+        
+        yPos += 8;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+        
+        // Lignes de données
+        hectareStats.forEach((hectare, index) => {
           if (yPos > 270) {
             pdf.addPage();
             yPos = 20;
           }
           
-          pdf.setFont("helvetica", "bold");
-          pdf.text(hectare.name, 25, yPos);
-          yPos += 6;
+          const isEven = index % 2 === 0;
+          if (isEven) {
+            pdf.setFillColor(250, 250, 250);
+          } else {
+            pdf.setFillColor(255, 255, 255);
+          }
           
-          pdf.setFont("helvetica", "normal");
-          pdf.text(`  Parcelles: ${hectare.soldParcelles}/${hectare.totalParcelles}`, 25, yPos);
-          yPos += 5;
-          pdf.text(`  Taux de vente: ${hectare.salesRate.toFixed(1)}%`, 25, yPos);
-          yPos += 5;
-          pdf.text(`  Revenus: ${hectare.revenue.toLocaleString()} USD`, 25, yPos);
+          currentX = tableStartX;
+          
+          // Dessiner les cellules
+          colWidths.forEach((width) => {
+            pdf.rect(currentX, yPos, width, 8, 'FD');
+            currentX += width;
+          });
+          
+          // Ajouter les données
+          pdf.text(hectare.name.substring(0, 20), tableStartX + 2, yPos + 5.5);
+          pdf.text(`${hectare.soldParcelles}/${hectare.totalParcelles}`, tableStartX + colWidths[0] + 2, yPos + 5.5);
+          pdf.text(`${hectare.salesRate.toFixed(1)}%`, tableStartX + colWidths[0] + colWidths[1] + 2, yPos + 5.5);
+          pdf.text(hectare.revenue.toLocaleString(), tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + 2, yPos + 5.5);
+          
           yPos += 8;
         });
       }
       
-      yPos += 5;
+      yPos += 10;
       
-      // Répartition par statut
+      // Répartition par statut - Grille
       if (yPos > 240) {
         pdf.addPage();
         yPos = 20;
@@ -208,19 +269,55 @@ const Rapports = () => {
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
       pdf.text("RÉPARTITION PAR STATUT", 20, yPos);
-      yPos += 8;
+      yPos += 10;
       
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      const statusStats = [
-        `Disponibles: ${stats.availableCount} (${((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%)`,
-        `Vendues: ${stats.soldCount} (${stats.salesRate.toFixed(1)}%)`,
-        `Réservées: 0 (0%)`,
+      // Tableau de répartition
+      const statusTableStartX = 20;
+      const statusColWidth = 60;
+      const statusData = [
+        { label: "Disponibles", count: stats.availableCount, percent: ((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1) },
+        { label: "Vendues", count: stats.soldCount, percent: stats.salesRate.toFixed(1) },
+        { label: "Réservées", count: 0, percent: "0" }
       ];
       
-      statusStats.forEach(stat => {
-        pdf.text(`• ${stat}`, 25, yPos);
-        yPos += 6;
+      pdf.setFontSize(9);
+      
+      // En-tête
+      pdf.setFont("helvetica", "bold");
+      pdf.setFillColor(66, 135, 245);
+      pdf.setTextColor(255, 255, 255);
+      
+      pdf.rect(statusTableStartX, yPos, statusColWidth, 8, 'F');
+      pdf.text("Statut", statusTableStartX + 2, yPos + 5.5);
+      
+      pdf.rect(statusTableStartX + statusColWidth, yPos, statusColWidth, 8, 'F');
+      pdf.text("Nombre", statusTableStartX + statusColWidth + 2, yPos + 5.5);
+      
+      pdf.rect(statusTableStartX + statusColWidth * 2, yPos, statusColWidth, 8, 'F');
+      pdf.text("Pourcentage", statusTableStartX + statusColWidth * 2 + 2, yPos + 5.5);
+      
+      yPos += 8;
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+      
+      // Lignes de données
+      statusData.forEach((status, index) => {
+        const isEven = index % 2 === 0;
+        if (isEven) {
+          pdf.setFillColor(250, 250, 250);
+        } else {
+          pdf.setFillColor(255, 255, 255);
+        }
+        
+        pdf.rect(statusTableStartX, yPos, statusColWidth, 8, 'FD');
+        pdf.rect(statusTableStartX + statusColWidth, yPos, statusColWidth, 8, 'FD');
+        pdf.rect(statusTableStartX + statusColWidth * 2, yPos, statusColWidth, 8, 'FD');
+        
+        pdf.text(status.label, statusTableStartX + 2, yPos + 5.5);
+        pdf.text(status.count.toString(), statusTableStartX + statusColWidth + 2, yPos + 5.5);
+        pdf.text(`${status.percent}%`, statusTableStartX + statusColWidth * 2 + 2, yPos + 5.5);
+        
+        yPos += 8;
       });
       
       // Footer
