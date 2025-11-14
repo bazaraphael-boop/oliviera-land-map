@@ -39,6 +39,12 @@ export const PaymentDialog = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastPaymentData, setLastPaymentData] = useState<{
+    invoiceNumber: string;
+    paymentAmount: number;
+    isFullPayment: boolean;
+    newRemainingAmount: number;
+  } | null>(null);
 
   const generateInvoice = async (
     invoiceNumber: string,
@@ -207,12 +213,16 @@ export const PaymentDialog = ({
       
       if (updateError) throw updateError;
       
-      // Générer la facture
-      await generateInvoice(invoiceNumber, paymentAmount, isFullPayment, newRemainingAmount);
+      // Stocker les données du paiement pour permettre la génération de facture
+      setLastPaymentData({
+        invoiceNumber,
+        paymentAmount,
+        isFullPayment,
+        newRemainingAmount,
+      });
       
       toast.success(isFullPayment ? "Paiement total effectué !" : "Acompte enregistré !");
       onPaymentComplete();
-      onOpenChange(false);
       setAmount("");
       setPaymentMethod("");
       setNotes("");
@@ -225,72 +235,121 @@ export const PaymentDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        setLastPaymentData(null);
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Enregistrer un paiement</DialogTitle>
+          <DialogTitle>
+            {lastPaymentData ? "Paiement enregistré" : "Enregistrer un paiement"}
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div className="bg-muted p-4 rounded-lg space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Prix total:</span>
-              <span className="font-semibold">${totalPrice.toLocaleString()}</span>
+        {lastPaymentData ? (
+          <div className="space-y-4">
+            <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+              <p className="text-sm text-foreground">
+                Le paiement de <span className="font-bold">${lastPaymentData.paymentAmount.toLocaleString()}</span> a été enregistré avec succès.
+              </p>
+              {!lastPaymentData.isFullPayment && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Reste à payer: <span className="font-semibold">${lastPaymentData.newRemainingAmount.toLocaleString()}</span>
+                </p>
+              )}
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Déjà payé:</span>
-              <span className="font-semibold">${(totalPrice - remainingAmount).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm border-t border-border pt-2">
-              <span className="text-muted-foreground">Reste à payer:</span>
-              <span className="font-bold text-primary">${remainingAmount.toLocaleString()}</span>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setLastPaymentData(null);
+                  onOpenChange(false);
+                }}
+              >
+                Fermer
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={async () => {
+                  await generateInvoice(
+                    lastPaymentData.invoiceNumber,
+                    lastPaymentData.paymentAmount,
+                    lastPaymentData.isFullPayment,
+                    lastPaymentData.newRemainingAmount
+                  );
+                  toast.success("Facture générée avec succès");
+                }}
+              >
+                Générer facture
+              </Button>
             </div>
           </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Montant du paiement (USD)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Entrez le montant"
-                required
-                max={remainingAmount}
-              />
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Prix total:</span>
+                <span className="font-semibold">${totalPrice.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Déjà payé:</span>
+                <span className="font-semibold">${(totalPrice - remainingAmount).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-border pt-2">
+                <span className="text-muted-foreground">Reste à payer:</span>
+                <span className="font-bold text-primary">${remainingAmount.toLocaleString()}</span>
+              </div>
             </div>
             
-            <div>
-              <Label>Mode de paiement</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="especes">Espèces</SelectItem>
-                  <SelectItem value="virement">Virement bancaire</SelectItem>
-                  <SelectItem value="cheque">Chèque</SelectItem>
-                  <SelectItem value="mobile">Mobile Money</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Notes (optionnel)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Informations complémentaires..."
-                rows={3}
-              />
-            </div>
-            
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Enregistrement..." : "Enregistrer le paiement"}
-            </Button>
-          </form>
-        </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Montant du paiement (USD)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Entrez le montant"
+                  required
+                  max={remainingAmount}
+                />
+              </div>
+              
+              <div>
+                <Label>Mode de paiement</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="especes">Espèces</SelectItem>
+                    <SelectItem value="virement">Virement bancaire</SelectItem>
+                    <SelectItem value="cheque">Chèque</SelectItem>
+                    <SelectItem value="mobile">Mobile Money</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Notes (optionnel)</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Informations complémentaires..."
+                  rows={3}
+                />
+              </div>
+              
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Enregistrement..." : "Enregistrer le paiement"}
+              </Button>
+            </form>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
