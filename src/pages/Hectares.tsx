@@ -1042,17 +1042,6 @@ const Hectares = () => {
             >
               Fermer
             </Button>
-            {selectedParcelle?.id && (
-              <Button
-                onClick={() => {
-                  setParcelleDetailsOpen(false);
-                  setParcellesDialogOpen(false);
-                  navigate(`/parcelles?parcelle=${selectedParcelle.id}`);
-                }}
-              >
-                Voir détails complets
-              </Button>
-            )}
           </div>
         </DialogContent>
       </Dialog>
