@@ -663,45 +663,132 @@ const Hectares = () => {
 
       {/* Dialog du tableau de parcelles */}
       <Dialog open={parcellesDialogOpen} onOpenChange={setParcellesDialogOpen}>
-        <DialogContent className="max-w-4xl bg-card">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <Package className="w-6 h-6 text-primary" />
-              Parcelles de {selectedHectare?.name}
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-card">
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-2xl flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Package className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">Parcelles - {selectedHectare?.name}</div>
+                <div className="text-sm text-muted-foreground font-normal mt-1">
+                  {selectedHectare?.location && `${selectedHectare.location} • `}
+                  {parcelles.filter(p => p.status === 'vendu').length} vendue(s) sur 15
+                </div>
+              </div>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-6">
-            <div className="grid grid-cols-5 gap-3">
-              {Array.from({ length: 15 }, (_, i) => {
-                const parcelleNum = (i + 1).toString().padStart(2, '0');
-                const parcelle = parcelles.find(p => p.numero === parcelleNum);
-                const isVendu = parcelle?.status === 'vendu';
-                const isDisponible = !parcelle || parcelle?.status === 'disponible';
-                
-                return (
-                  <div
-                    key={i}
-                    className={`
-                      aspect-square rounded-lg border-2 flex items-center justify-center
-                      font-semibold text-lg transition-all hover:scale-105 cursor-pointer
-                      ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700' : ''}
-                      ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700' : ''}
-                    `}
-                  >
-                    {parcelleNum}
+          
+          <div className="py-6 space-y-6">
+            {/* Statistiques */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="p-4 bg-green-500/5 border-green-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <MapPin className="w-5 h-5 text-green-600" />
                   </div>
-                );
-              })}
+                  <div>
+                    <div className="text-2xl font-bold text-green-700">
+                      {15 - parcelles.filter(p => p.status === 'vendu').length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Disponibles</div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-4 bg-red-500/5 border-red-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-500/10 rounded-lg">
+                    <User className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-red-700">
+                      {parcelles.filter(p => p.status === 'vendu').length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Vendues</div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-4 bg-primary/5 border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-primary">
+                      {Math.round((parcelles.filter(p => p.status === 'vendu').length / 15) * 100)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">Taux de vente</div>
+                  </div>
+                </div>
+              </Card>
             </div>
-            <div className="mt-6 flex items-center justify-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-500/20 border-2 border-green-500 rounded"></div>
-                <span className="text-sm text-muted-foreground">Disponible</span>
+
+            {/* Grille des parcelles */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Plan des parcelles</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500/30 border-2 border-green-500 rounded"></div>
+                    <span className="text-xs text-muted-foreground">Disponible</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500/30 border-2 border-red-500 rounded"></div>
+                    <span className="text-xs text-muted-foreground">Vendue</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500/20 border-2 border-red-500 rounded"></div>
-                <span className="text-sm text-muted-foreground">Vendu</span>
-              </div>
+              
+              <Card className="p-6 bg-muted/30">
+                <div className="grid grid-cols-5 gap-4">
+                  {Array.from({ length: 15 }, (_, i) => {
+                    const parcelleNum = (i + 1).toString().padStart(2, '0');
+                    const parcelle = parcelles.find(p => p.numero === parcelleNum);
+                    const isVendu = parcelle?.status === 'vendu';
+                    const isDisponible = !parcelle || parcelle?.status === 'disponible';
+                    
+                    return (
+                      <div
+                        key={i}
+                        className={`
+                          relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center
+                          font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
+                          ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
+                          ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
+                        `}
+                        title={isVendu ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` : 'Disponible'}
+                      >
+                        <span className="text-2xl">{parcelleNum}</span>
+                        {isVendu && (
+                          <div className="absolute top-1 right-1">
+                            <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button
+                variant="outline"
+                onClick={() => setParcellesDialogOpen(false)}
+              >
+                Fermer
+              </Button>
+              <Button
+                onClick={() => {
+                  setParcellesDialogOpen(false);
+                  navigate(`/parcelles?hectare=${selectedHectare?.id}`);
+                }}
+              >
+                Gérer les parcelles
+              </Button>
             </div>
           </div>
         </DialogContent>
