@@ -3,12 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Download } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
 import { jsPDF } from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Stats {
   totalRevenue: number;
@@ -41,6 +48,8 @@ const Rapports = () => {
   });
   const [hectareStats, setHectareStats] = useState<HectareStats[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("all");
+  const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
+  const [allParcelles, setAllParcelles] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -64,6 +73,8 @@ const Rapports = () => {
         .select("*, hectares(id, name)");
 
       if (parcellesError) throw parcellesError;
+      
+      setAllParcelles(parcelles || []);
 
       // Récupérer tous les hectares vendus
       const { data: hectares, error: hectaresError } = await supabase
@@ -122,6 +133,36 @@ const Rapports = () => {
       setLoading(false);
     }
   };
+
+  const getDuplicateRMBs = () => {
+    const rmbCounts = new Map<string, number>();
+    
+    allParcelles.forEach(parcelle => {
+      if (parcelle.rmb_number) {
+        const count = rmbCounts.get(parcelle.rmb_number) || 0;
+        rmbCounts.set(parcelle.rmb_number, count + 1);
+      }
+    });
+    
+    return Array.from(rmbCounts.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([rmb]) => rmb);
+  };
+
+  const getDuplicateRMBDetails = () => {
+    const duplicateRMBs = getDuplicateRMBs();
+    const details = new Map<string, any[]>();
+    
+    duplicateRMBs.forEach(rmb => {
+      const parcelles = allParcelles.filter(p => p.rmb_number === rmb);
+      details.set(rmb, parcelles);
+    });
+    
+    return details;
+  };
+
+  const duplicateRMBs = getDuplicateRMBs();
+  const duplicateRMBDetails = getDuplicateRMBDetails();
 
   const exportToPDF = async () => {
     try {
@@ -595,6 +636,37 @@ const Rapports = () => {
           </Card>
         </div>
 
+        {/* Rapport des Doublons RMB */}
+        {duplicateRMBs.length > 0 && (
+          <Card className="p-6 mb-8 border-red-200 bg-red-50/50">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Doublons RMB Détectés
+                  </h3>
+                  <Alert variant="destructive" className="mb-3">
+                    <AlertDescription>
+                      {duplicateRMBs.length} numéro(s) RMB utilisé(s) plusieurs fois : {duplicateRMBs.join(", ")}
+                    </AlertDescription>
+                  </Alert>
+                  <p className="text-sm text-muted-foreground">
+                    Ces numéros RMB apparaissent sur plusieurs parcelles. Cliquez sur le bouton pour voir le détail complet.
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="destructive"
+                onClick={() => setDuplicatesReportOpen(true)}
+                className="whitespace-nowrap"
+              >
+                Voir le rapport complet
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Détails par Statut */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">
@@ -636,6 +708,85 @@ const Rapports = () => {
           </div>
         </Card>
       </div>
+
+      {/* Dialog pour le rapport des doublons RMB */}
+      <Dialog open={duplicatesReportOpen} onOpenChange={setDuplicatesReportOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Rapport des Doublons RMB
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <Alert variant="destructive">
+              <AlertDescription>
+                {duplicateRMBs.length} numéro(s) RMB sont utilisés plusieurs fois. Chaque numéro RMB devrait être unique.
+              </AlertDescription>
+            </Alert>
+
+            {Array.from(duplicateRMBDetails.entries()).map(([rmb, parcelles]) => (
+              <Card key={rmb} className="p-4 border-red-200">
+                <div className="mb-3 pb-3 border-b">
+                  <h3 className="font-semibold text-lg text-red-600">
+                    RMB: {rmb}
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      ({parcelles.length} parcelles)
+                    </span>
+                  </h3>
+                </div>
+                
+                <div className="space-y-4">
+                  {parcelles.map((parcelle) => (
+                    <div key={parcelle.id} className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">
+                            Parcelle: {parcelle.numero}
+                            <span className="ml-2 text-sm text-muted-foreground">
+                              Hectare: {parcelle.hectares?.name || "N/A"}
+                            </span>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {parcelle.surface} m² • {parcelle.prix?.toLocaleString()} USD
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                          parcelle.status === "vendu" 
+                            ? "bg-green-500/20 text-green-700" 
+                            : "bg-blue-500/20 text-blue-700"
+                        }`}>
+                          {parcelle.status === "vendu" ? "Vendu" : "Disponible"}
+                        </span>
+                      </div>
+                      
+                      {parcelle.status === "vendu" && (
+                        <div className="mt-2 pt-2 border-t border-border/50">
+                          <p className="text-sm font-medium text-foreground">
+                            Acheteur: {parcelle.buyer_name || "Non renseigné"}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 mt-1 text-xs text-muted-foreground">
+                            <p>📞 {parcelle.buyer_phone || "N/A"}</p>
+                            <p>📧 {parcelle.buyer_email || "N/A"}</p>
+                            <p>📅 {parcelle.sale_date ? new Date(parcelle.sale_date).toLocaleDateString() : "N/A"}</p>
+                            <p>
+                              💰 {parcelle.amount_paid?.toLocaleString() || 0} USD payés
+                              {parcelle.remaining_amount && parcelle.remaining_amount > 0 && (
+                                <span className="text-orange-600"> • {parcelle.remaining_amount.toLocaleString()} USD restants</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
