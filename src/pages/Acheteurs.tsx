@@ -92,6 +92,8 @@ const Acheteurs = () => {
     sale_type: "normal",
     payment_type: "total",
     amount_paid: "",
+    rmb_number: "",
+    prix: "",
   });
 
   useEffect(() => {
@@ -326,14 +328,14 @@ const Acheteurs = () => {
         return;
       }
 
-      const prix = Number(selectedItem.prix);
+      // Concaténer les trois parties du nom
+      const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
+
+      const prix = newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0);
       const amountPaid = newBuyerForm.payment_type === "total" 
         ? prix 
         : Number(newBuyerForm.amount_paid);
       const remainingAmount = prix - amountPaid;
-
-      // Concaténer les trois parties du nom
-      const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
 
       const updateData = {
         buyer_name: fullName,
@@ -346,6 +348,8 @@ const Acheteurs = () => {
         payment_type: newBuyerForm.payment_type,
         amount_paid: amountPaid,
         remaining_amount: remainingAmount,
+        rmb_number: newBuyerForm.rmb_number || null,
+        prix: prix,
       };
 
       if (newBuyerForm.item_type === "hectare") {
@@ -378,6 +382,8 @@ const Acheteurs = () => {
         sale_type: "normal",
         payment_type: "total",
         amount_paid: "",
+        rmb_number: "",
+        prix: "",
       });
       loadAcheteurs();
     } catch (error) {
@@ -995,6 +1001,30 @@ const Acheteurs = () => {
                             <SelectItem value="onereux">À titre onéreux</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Numéro RMB</Label>
+                          <Input
+                            value={newBuyerForm.rmb_number}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, rmb_number: e.target.value })}
+                            placeholder="ex: RMB-001"
+                            className="mt-1.5 bg-background"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Montant d'achat (USD) *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={newBuyerForm.prix}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prix: e.target.value })}
+                            placeholder="Montant en USD"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
                       </div>
                     </div>
                   </AccordionContent>
