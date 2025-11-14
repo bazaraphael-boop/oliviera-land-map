@@ -46,6 +46,7 @@ interface Acheteur {
     remaining_amount: number;
     sale_type: string;
     purchase_type: string | null;
+    rmb_number: string | null;
     hectares?: {
       name: string;
       location: string;
@@ -63,6 +64,7 @@ interface Acheteur {
     remaining_amount: number;
     sale_type: string;
     purchase_type: string | null;
+    rmb_number: string | null;
   }[];
   totalAchat: number;
   nombreParcelles: number;
@@ -174,6 +176,7 @@ const Acheteurs = () => {
           remaining_amount: parcelle.remaining_amount || 0,
           sale_type: parcelle.sale_type,
           purchase_type: parcelle.purchase_type,
+          rmb_number: parcelle.rmb_number,
           hectares: parcelle.hectares,
         });
         acheteur.totalAchat += Number(parcelle.amount_paid || parcelle.prix);
@@ -218,6 +221,7 @@ const Acheteurs = () => {
           remaining_amount: hectare.remaining_amount || 0,
           sale_type: hectare.sale_type,
           purchase_type: hectare.purchase_type,
+          rmb_number: hectare.rmb_number,
         });
         acheteur.totalAchat += Number(hectare.amount_paid || hectare.prix);
         acheteur.nombreHectares += 1;
@@ -473,6 +477,22 @@ const Acheteurs = () => {
 
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
+                      {(() => {
+                        const rmbNumbers = new Set<string>();
+                        acheteur.parcelles.forEach(p => {
+                          if (p.rmb_number) rmbNumbers.add(p.rmb_number);
+                        });
+                        acheteur.hectares.forEach(h => {
+                          if (h.rmb_number) rmbNumbers.add(h.rmb_number);
+                        });
+                        const rmbList = Array.from(rmbNumbers);
+                        
+                        return rmbList.length > 0 && (
+                          <span className="text-sm font-medium text-primary">
+                            RMB {rmbList.join(', ')} -
+                          </span>
+                        );
+                      })()}
                       <h3 className="text-lg font-semibold text-foreground">
                         {acheteur.buyer_name}
                       </h3>
