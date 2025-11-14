@@ -383,11 +383,13 @@ const Acheteurs = () => {
       // Concaténer les trois parties du nom
       const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
 
-      const prix = newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0);
-      const amountPaid = newBuyerForm.payment_type === "total" 
+      // Pour les ventes à titre onéreux, pas de prix ni de paiements
+      const isOnereux = newBuyerForm.sale_type === "onereux";
+      const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0));
+      const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
         ? prix 
-        : Number(newBuyerForm.amount_paid);
-      const remainingAmount = prix - amountPaid;
+        : Number(newBuyerForm.amount_paid));
+      const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
 
       const updateData = {
         buyer_name: fullName,
@@ -397,7 +399,7 @@ const Acheteurs = () => {
         sale_date: new Date().toISOString(),
         sale_type: newBuyerForm.sale_type,
         purchase_type: newBuyerForm.purchase_type,
-        payment_type: newBuyerForm.payment_type,
+        payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
         amount_paid: amountPaid,
         remaining_amount: remainingAmount,
         rmb_number: newBuyerForm.rmb_number || null,
@@ -1032,7 +1034,12 @@ const Acheteurs = () => {
                         <Select
                           value={newBuyerForm.item_type}
                           onValueChange={(value: "hectare" | "parcelle") => 
-                            setNewBuyerForm({ ...newBuyerForm, item_type: value, selected_item: "" })
+                            setNewBuyerForm({ 
+                              ...newBuyerForm, 
+                              item_type: value, 
+                              selected_item: "",
+                              purchase_type: value // Définir automatiquement le type d'achat
+                            })
                           }
                         >
                           <SelectTrigger className="mt-1.5 bg-background">
@@ -1084,23 +1091,7 @@ const Acheteurs = () => {
                         </Select>
                       </div>
 
-                      {/* Type d'achat (hectare/demi-hectare/parcelle) */}
-                      <div>
-                        <Label className="text-sm font-medium">Type d'achat</Label>
-                        <Select
-                          value={newBuyerForm.purchase_type}
-                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, purchase_type: value })}
-                        >
-                          <SelectTrigger className="mt-1.5 bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
-                            <SelectItem value="hectare">Hectare complet</SelectItem>
-                            <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
-                            <SelectItem value="parcelle">Parcelle</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {/* Type d'achat (hectare/demi-hectare/parcelle) - Automatique selon le type d'item */}
 
                       <div>
                         <Label className="text-sm font-medium">Type de vente</Label>
@@ -1128,70 +1119,74 @@ const Acheteurs = () => {
                             className="mt-1.5 bg-background"
                           />
                         </div>
-                        <div>
-                          <Label className="text-sm font-medium">Montant d'achat (USD) *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={newBuyerForm.prix}
-                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prix: e.target.value })}
-                            placeholder="Montant en USD"
-                            className="mt-1.5 bg-background"
-                            required
-                          />
-                        </div>
+                        {newBuyerForm.sale_type !== "onereux" && (
+                          <div>
+                            <Label className="text-sm font-medium">Montant d'achat (USD) *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newBuyerForm.prix}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prix: e.target.value })}
+                              placeholder="Montant en USD"
+                              className="mt-1.5 bg-background"
+                              required={newBuyerForm.sale_type !== "onereux"}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
 
                 {/* Section 3: Paiement */}
-                <AccordionItem value="paiement" className="border rounded-lg bg-muted/30 px-4">
-                  <AccordionTrigger className="hover:no-underline py-4">
-                    <div className="flex items-center gap-2 text-base font-semibold">
-                      <DollarSign className="w-5 h-5 text-primary" />
-                      Paiement
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-4">
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium">Type de paiement *</Label>
-                        <Select
-                          value={newBuyerForm.payment_type}
-                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
-                        >
-                          <SelectTrigger className="mt-1.5 bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
-                            <SelectItem value="total">Paiement total</SelectItem>
-                            <SelectItem value="partiel">Paiement partiel</SelectItem>
-                          </SelectContent>
-                        </Select>
+                {newBuyerForm.sale_type !== "onereux" && (
+                  <AccordionItem value="paiement" className="border rounded-lg bg-muted/30 px-4">
+                    <AccordionTrigger className="hover:no-underline py-4">
+                      <div className="flex items-center gap-2 text-base font-semibold">
+                        <DollarSign className="w-5 h-5 text-primary" />
+                        Paiement
                       </div>
-
-                      {newBuyerForm.payment_type === "partiel" && (
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-3">
-                          <Label className="text-sm font-medium">Montant de l'acompte *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={newBuyerForm.amount_paid}
-                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
-                            placeholder="Montant payé en USD"
-                            className="bg-background"
-                            required
-                          />
-                          <p className="text-xs text-muted-foreground flex items-start gap-2">
-                            <span className="text-amber-600">ℹ️</span>
-                            Le montant restant sera calculé automatiquement
-                          </p>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2 pb-4">
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-sm font-medium">Type de paiement *</Label>
+                          <Select
+                            value={newBuyerForm.payment_type}
+                            onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
+                          >
+                            <SelectTrigger className="mt-1.5 bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
+                              <SelectItem value="total">Paiement total</SelectItem>
+                              <SelectItem value="partiel">Paiement partiel</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+
+                        {newBuyerForm.payment_type === "partiel" && (
+                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-3">
+                            <Label className="text-sm font-medium">Montant de l'acompte *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newBuyerForm.amount_paid}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
+                              placeholder="Montant payé en USD"
+                              className="bg-background"
+                              required
+                            />
+                            <p className="text-xs text-muted-foreground flex items-start gap-2">
+                              <span className="text-amber-600">ℹ️</span>
+                              Le montant restant sera calculé automatiquement
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
               </Accordion>
 
               <div className="flex gap-3 pt-4 border-t border-border">
