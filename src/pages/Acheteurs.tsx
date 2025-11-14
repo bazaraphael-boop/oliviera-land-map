@@ -240,9 +240,30 @@ const Acheteurs = () => {
         }
       });
 
-      const acheteursArray = Array.from(acheteursMap.values()).sort(
-        (a, b) => b.totalAchat - a.totalAchat
-      );
+      const acheteursArray = Array.from(acheteursMap.values()).sort((a, b) => {
+        // Extraire tous les numéros RMB de l'acheteur
+        const getRmbNumbers = (acheteur: Acheteur) => {
+          const rmbNumbers: number[] = [];
+          acheteur.parcelles.forEach(p => {
+            if (p.rmb_number) {
+              const num = parseInt(p.rmb_number.replace(/\D/g, '')) || 0;
+              rmbNumbers.push(num);
+            }
+          });
+          acheteur.hectares.forEach(h => {
+            if (h.rmb_number) {
+              const num = parseInt(h.rmb_number.replace(/\D/g, '')) || 0;
+              rmbNumbers.push(num);
+            }
+          });
+          return rmbNumbers.length > 0 ? Math.min(...rmbNumbers) : Infinity;
+        };
+
+        const rmbA = getRmbNumbers(a);
+        const rmbB = getRmbNumbers(b);
+        
+        return rmbA - rmbB;
+      });
 
       setAcheteurs(acheteursArray);
     } catch (error) {
