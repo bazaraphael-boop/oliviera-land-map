@@ -70,6 +70,7 @@ const Hectares = () => {
   const [selectedParcelle, setSelectedParcelle] = useState<any | null>(null);
   const [parcelleDetailsOpen, setParcelleDetailsOpen] = useState(false);
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
+  const [parcelleCountByHectare, setParcelleCountByHectare] = useState<{ [key: string]: number }>({});
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -148,6 +149,23 @@ const Hectares = () => {
 
       if (error) throw error;
       setHectares((data as any) || []);
+
+      // Récupérer le nombre de parcelles par hectare
+      if (data && data.length > 0) {
+        const { data: parcellesData, error: parcellesError } = await supabase
+          .from("parcelles")
+          .select("hectare_id");
+
+        if (!parcellesError && parcellesData) {
+          const countMap: { [key: string]: number } = {};
+          parcellesData.forEach((p) => {
+            if (p.hectare_id) {
+              countMap[p.hectare_id] = (countMap[p.hectare_id] || 0) + 1;
+            }
+          });
+          setParcelleCountByHectare(countMap);
+        }
+      }
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors du chargement des hectares");
@@ -616,7 +634,23 @@ const Hectares = () => {
                         <Badge variant="secondary" className="text-xs">À titre onéreux</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
+                      {(() => {
+                        const count = parcelleCountByHectare[hectare.id] || 0;
+                        const percentage = Math.round((count / 15) * 100);
+                        const isNearFull = percentage >= 80;
+                        const isFull = percentage >= 100;
+                        return (
+                          <Badge 
+                            variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
+                            className="text-xs"
+                          >
+                            {count}/15 ({percentage}%)
+                          </Badge>
+                        );
+                      })()}
+                    </div>
                     {hectare.prix > 0 && (
                       <p className="text-sm font-semibold text-primary">${hectare.prix.toLocaleString()}</p>
                     )}
