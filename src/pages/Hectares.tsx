@@ -932,14 +932,29 @@ const Hectares = () => {
               </div>
               
               <Card className="p-6 bg-muted/30">
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-5 gap-4" style={{ gridAutoRows: '1fr' }}>
                   {parcelles
                     .sort((a, b) => a.numero.localeCompare(b.numero))
                     .map((parcelle) => {
+                      // Ne pas afficher les parcelles secondaires d'un groupe fusionné
+                      if (parcelle?.merged_group_id && !parcelle?.is_merge_primary) {
+                        return null;
+                      }
+
                       const isVendu = parcelle?.status === 'vendu';
                       const isDisponible = parcelle?.status === 'disponible';
                       const duplicateRMBs = getDuplicateRMBs();
                       const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
+                      
+                      // Calculer la taille du groupe fusionné
+                      let mergedCount = 1;
+                      if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
+                        mergedCount = parcelles.filter(p => p?.merged_group_id === parcelle.merged_group_id).length;
+                      }
+                      
+                      // Déterminer le nombre de colonnes et lignes à occuper
+                      const colSpan = Math.min(mergedCount, 5);
+                      const rowSpan = Math.ceil(mergedCount / 5);
                       
                       return (
                         <div
@@ -952,15 +967,22 @@ const Hectares = () => {
                             ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
                             ${hasDuplicateRMB ? 'ring-4 ring-red-600 ring-offset-2' : ''}
                           `}
+                          style={{
+                            gridColumn: `span ${colSpan}`,
+                            gridRow: `span ${rowSpan}`,
+                          }}
                           title={
                             hasDuplicateRMB 
                               ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
                               : isVendu 
-                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}` 
+                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}${mergedCount > 1 ? ` (${mergedCount} parcelles)` : ''}` 
                                 : 'Disponible - Cliquez pour voir'
                           }
                         >
                           <span className="text-2xl">{parcelle.numero}</span>
+                          {mergedCount > 1 && (
+                            <span className="text-sm mt-1">({mergedCount} parcelles)</span>
+                          )}
                           {isVendu && (
                             <div className="absolute top-1 right-1">
                               <div className="w-2 h-2 bg-red-600 rounded-full"></div>
