@@ -485,7 +485,11 @@ const Acheteurs = () => {
                         acheteur.hectares.forEach(h => {
                           if (h.rmb_number) rmbNumbers.add(h.rmb_number);
                         });
-                        const rmbList = Array.from(rmbNumbers);
+                        const rmbList = Array.from(rmbNumbers).sort((a, b) => {
+                          const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                          const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                          return numA - numB;
+                        });
                         
                         return rmbList.length > 0 && (
                           <span className="text-sm font-medium text-primary">
