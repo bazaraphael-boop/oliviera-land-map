@@ -93,6 +93,7 @@ const Parcelles = () => {
     prix: "",
     purchase_type: "parcelle",
     rmb_number: "",
+    hectare_id: "",
   });
 
   useEffect(() => {
@@ -217,6 +218,7 @@ const Parcelles = () => {
       sale_date: parcelle.sale_date || "",
       payment_type: parcelle.payment_type || "total",
       amount_paid: parcelle.amount_paid?.toString() || "",
+      hectare_id: parcelle.hectare_id || "",
       sale_type: parcelle.sale_type || "normal",
       prix: parcelle.prix?.toString() || "",
       purchase_type: parcelle.purchase_type || "parcelle",
@@ -242,6 +244,7 @@ const Parcelles = () => {
         sale_type: editFormData.sale_type,
         purchase_type: editFormData.purchase_type,
         rmb_number: editFormData.rmb_number || null,
+        hectare_id: editFormData.hectare_id || selectedParcelle.hectare_id,
       };
 
       if (editFormData.status === "vendu") {
@@ -668,6 +671,28 @@ const Parcelles = () => {
               {/* Section: Informations de base */}
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-foreground">Informations de base</h3>
+                
+                <div>
+                  <Label className="text-sm font-medium">Hectare *</Label>
+                  <Select
+                    value={editFormData.hectare_id}
+                    onValueChange={(value) =>
+                      setEditFormData({ ...editFormData, hectare_id: value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Sélectionner un hectare" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hectares.map((h) => (
+                        <SelectItem key={h.id} value={h.id}>
+                          {h.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Statut *</Label>
