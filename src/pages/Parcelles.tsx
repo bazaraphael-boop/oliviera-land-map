@@ -238,13 +238,31 @@ const Parcelles = () => {
     if (!selectedParcelle) return;
 
     try {
+      // Vérifier si on change d'hectare et si le nouvel hectare a déjà 15 parcelles
+      const newHectareId = editFormData.hectare_id || selectedParcelle.hectare_id;
+      if (newHectareId !== selectedParcelle.hectare_id) {
+        const { data: existingParcelles, error: countError } = await supabase
+          .from("parcelles")
+          .select("id", { count: "exact" })
+          .eq("hectare_id", newHectareId);
+
+        if (countError) throw countError;
+
+        const parcelleCount = existingParcelles?.length || 0;
+
+        if (parcelleCount >= 15) {
+          toast.error("Limite atteinte : l'hectare sélectionné contient déjà 15 parcelles maximum");
+          return;
+        }
+      }
+
       const updateData: any = {
         status: editFormData.status,
         prix: parseFloat(editFormData.prix) || selectedParcelle.prix,
         sale_type: editFormData.sale_type,
         purchase_type: editFormData.purchase_type,
         rmb_number: editFormData.rmb_number || null,
-        hectare_id: editFormData.hectare_id || selectedParcelle.hectare_id,
+        hectare_id: newHectareId,
       };
 
       if (editFormData.status === "vendu") {
