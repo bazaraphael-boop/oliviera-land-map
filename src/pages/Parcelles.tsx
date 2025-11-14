@@ -45,11 +45,16 @@ interface Parcelle {
   remaining_amount: number;
   sale_type: string;
   purchase_type: string | null;
+  hectares?: {
+    name: string;
+    rmb_number: string | null;
+  };
 }
 
 interface Hectare {
   id: string;
   name: string;
+  rmb_number: string | null;
 }
 
 const Parcelles = () => {
@@ -102,7 +107,7 @@ const Parcelles = () => {
     try {
       const { data, error } = await supabase
         .from("hectares")
-        .select("id, name")
+        .select("id, name, rmb_number")
         .order("name");
 
       if (error) throw error;
@@ -114,7 +119,13 @@ const Parcelles = () => {
 
   const fetchParcelles = async () => {
     try {
-      let query = supabase.from("parcelles").select("*");
+      let query = supabase.from("parcelles").select(`
+        *,
+        hectares (
+          name,
+          rmb_number
+        )
+      `);
       
       if (selectedHectare && selectedHectare !== "all") {
         query = query.eq("hectare_id", selectedHectare);
@@ -547,6 +558,15 @@ const Parcelles = () => {
               </div>
 
               <div className="space-y-2">
+                {parcelle.hectares?.rmb_number && (
+                  <div className="flex items-center justify-between pb-2 border-b border-border">
+                    <span className="text-xs text-muted-foreground">RMB:</span>
+                    <Badge variant="outline" className="text-xs font-medium bg-purple-500/5 border-purple-500/20 text-foreground">
+                      {parcelle.hectares.rmb_number}
+                    </Badge>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Prix:</span>
                   <span className="text-sm font-semibold">${parcelle.prix.toLocaleString()}</span>
