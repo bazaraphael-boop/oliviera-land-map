@@ -346,19 +346,21 @@ const Hectares = () => {
       <DashboardSidebar />
 
       <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Gestion des Hectares</h1>
-          <p className="text-muted-foreground">Gérez vos terrains et leurs parcelles</p>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Gestion des Hectares
+          </h1>
+          <p className="text-muted-foreground text-lg">Gérez vos hectares et parcelles de manière efficace</p>
         </div>
 
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-8">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Rechercher un hectare..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-12 h-12 text-base border-2"
             />
           </div>
 
@@ -619,109 +621,154 @@ const Hectares = () => {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredHectares.map((hectare) => (
-            <Card key={hectare.id} className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-primary" />
+            <Card 
+              key={hectare.id} 
+              className="group relative overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-elegant)] hover:-translate-y-1 border-2"
+              style={{ boxShadow: 'var(--shadow-card)' }}
+            >
+              {/* Gradient overlay for sold items */}
+              {hectare.status === "vendu" && (
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-secondary/10 to-transparent rounded-bl-[100px]" />
+              )}
+              
+              <div className="p-6 relative">
+                {/* Header with icon and actions */}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg flex-shrink-0">
+                      <MapPin className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-bold text-lg text-foreground truncate">{hectare.name}</h3>
+                        {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
+                          <Badge variant="secondary" className="text-xs shrink-0">Onéreux</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-sm font-semibold">
+                          {hectare.surface} ha
+                        </Badge>
+                        {(() => {
+                          const count = parcelleCountByHectare[hectare.id] || 0;
+                          const percentage = Math.round((count / 15) * 100);
+                          const isNearFull = percentage >= 80;
+                          const isFull = percentage >= 100;
+                          return (
+                            <Badge 
+                              variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
+                              className="text-xs font-medium"
+                            >
+                              {count}/15 • {percentage}%
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </div>
-                  <div>
+                  <div className="flex gap-1 shrink-0 ml-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-9 w-9 hover:bg-primary/10 hover:text-primary transition-colors"
+                      onClick={() => handleEdit(hectare)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      onClick={() => handleDelete(hectare.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Price */}
+                {hectare.prix > 0 && (
+                  <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{hectare.name}</h3>
-                      {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
-                        <Badge variant="secondary" className="text-xs">À titre onéreux</Badge>
+                      <DollarSign className="w-5 h-5 text-primary" />
+                      <span className="text-xl font-bold text-primary">
+                        ${hectare.prix.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Details */}
+                <div className="space-y-3 mb-4">
+                  {hectare.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{hectare.location}</span>
+                    </div>
+                  )}
+                  {hectare.rmb_number && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                        RMB: {hectare.rmb_number}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Buyer info */}
+                  {hectare.status === "vendu" && hectare.buyer_name && (
+                    <div className="pt-3 mt-3 border-t-2 border-border space-y-2">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-secondary" />
+                        <p className="text-sm font-semibold text-foreground">{hectare.buyer_name}</p>
+                      </div>
+                      {hectare.buyer_phone && (
+                        <p className="text-xs text-muted-foreground ml-6">{hectare.buyer_phone}</p>
+                      )}
+                      {hectare.payment_type === "partiel" && (
+                        <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs text-muted-foreground">Montant payé</span>
+                            <span className="text-sm font-semibold text-foreground">
+                              ${hectare.amount_paid.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-muted-foreground">Reste à payer</span>
+                            <span className="text-sm font-bold text-destructive">
+                              ${hectare.remaining_amount.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">{hectare.surface} ha</p>
-                      {(() => {
-                        const count = parcelleCountByHectare[hectare.id] || 0;
-                        const percentage = Math.round((count / 15) * 100);
-                        const isNearFull = percentage >= 80;
-                        const isFull = percentage >= 100;
-                        return (
-                          <Badge 
-                            variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
-                            className="text-xs"
-                          >
-                            {count}/15 ({percentage}%)
-                          </Badge>
-                        );
-                      })()}
-                    </div>
-                    {hectare.prix > 0 && (
-                      <p className="text-sm font-semibold text-primary">${hectare.prix.toLocaleString()}</p>
-                    )}
-                  </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(hectare)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(hectare.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
 
-              <div className="space-y-1 mb-3">
-                {hectare.location && (
-                  <p className="text-sm text-muted-foreground">
-                    📍 {hectare.location}
-                  </p>
-                )}
-                {hectare.rmb_number && (
-                  <p className="text-sm text-muted-foreground">
-                    RMB: {hectare.rmb_number}
-                  </p>
-                )}
-                
-                {hectare.status === "vendu" && hectare.buyer_name && (
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-sm font-semibold text-foreground">{hectare.buyer_name}</p>
-                    {hectare.buyer_phone && (
-                      <p className="text-xs text-muted-foreground">{hectare.buyer_phone}</p>
-                    )}
-                    {hectare.payment_type === "partiel" && (
-                      <div className="mt-2 p-2 bg-muted rounded">
-                        <p className="text-xs">
-                          Payé: <span className="font-semibold">${hectare.amount_paid.toLocaleString()}</span>
-                        </p>
-                        <p className="text-xs text-destructive">
-                          Reste: <span className="font-semibold">${hectare.remaining_amount.toLocaleString()}</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
-                {hectare.status === "vendu" && hectare.remaining_amount > 0 && (
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 pt-4 border-t-2 border-border">
+                  {hectare.status === "vendu" && hectare.remaining_amount > 0 && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleAddPayment(hectare)}
+                      className="flex-1 gap-2 font-semibold"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Paiement
+                    </Button>
+                  )}
                   <Button
-                    variant="outline"
+                    variant={hectare.status === "vendu" && hectare.remaining_amount > 0 ? "outline" : "default"}
                     size="sm"
-                    onClick={() => handleAddPayment(hectare)}
-                    className="flex-1"
+                    onClick={() => handleOpenParcelles(hectare)}
+                    className="flex-1 gap-2 font-semibold"
                   >
-                    <DollarSign className="w-4 h-4 mr-1" />
-                    Paiement
+                    <Package className="w-4 h-4" />
+                    Parcelles
                   </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOpenParcelles(hectare)}
-                  className="flex-1"
-                >
-                  Parcelles
-                </Button>
+                </div>
               </div>
             </Card>
           ))}
