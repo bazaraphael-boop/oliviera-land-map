@@ -127,10 +127,22 @@ const Rapports = () => {
     try {
       const pdf = new jsPDF();
       
-      // Ajouter l'en-tête image avec proportions originales
-      pdf.addImage(headerImage, 'JPEG', 0, 0, 210, 30);
+      // Charger l'image pour obtenir ses dimensions réelles
+      const img = new Image();
+      img.src = headerImage;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
       
-      let yPos = 40;
+      // Calculer les dimensions pour garder les proportions originales
+      const pdfWidth = 210; // largeur A4 en mm
+      const imgRatio = img.height / img.width;
+      const headerHeight = pdfWidth * imgRatio;
+      
+      // Ajouter l'en-tête avec proportions originales
+      pdf.addImage(headerImage, 'JPEG', 0, 0, pdfWidth, headerHeight);
+      
+      let yPos = headerHeight + 10;
       
       // Titre du rapport
       pdf.setFontSize(16);
