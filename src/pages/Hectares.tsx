@@ -90,7 +90,30 @@ const Hectares = () => {
     checkAuth();
     fetchSites();
     fetchHectares();
-  }, []);
+
+    // Écouter les changements en temps réel sur la table parcelles
+    const channel = supabase
+      .channel('parcelles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'parcelles'
+        },
+        () => {
+          // Recharger les parcelles si un dialog est ouvert
+          if (parcellesDialogOpen && selectedHectare) {
+            fetchParcelles(selectedHectare.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [parcellesDialogOpen, selectedHectare]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -249,8 +272,9 @@ const Hectares = () => {
 
   const handleOpenParcelles = async (hectare: Hectare) => {
     setSelectedHectare(hectare);
-    await fetchParcelles(hectare.id);
     setParcellesDialogOpen(true);
+    // Toujours recharger les parcelles pour avoir les données les plus récentes
+    await fetchParcelles(hectare.id);
   };
 
   const handleParcelleClick = (parcelleNum: string) => {
