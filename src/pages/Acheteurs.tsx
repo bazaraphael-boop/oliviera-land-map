@@ -22,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface Acheteur {
   id: string;
@@ -813,181 +819,206 @@ const Acheteurs = () => {
             </DialogHeader>
 
             <form onSubmit={handleNewBuyerSubmit} className="space-y-6 pt-4">
-              {/* Informations acheteur */}
-              <div className="space-y-4 p-4 rounded-lg bg-muted/50">
-                <h4 className="font-semibold text-foreground flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Informations de l'acheteur
-                </h4>
-                
-                <div>
-                  <Label className="text-sm font-medium">Nom complet *</Label>
-                  <Input
-                    value={newBuyerForm.buyer_name}
-                    onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_name: e.target.value })}
-                    placeholder="Nom complet de l'acheteur"
-                    className="mt-1.5 bg-background"
-                    required
-                  />
-                </div>
+              <Accordion type="multiple" defaultValue={["acheteur", "achat", "paiement"]} className="space-y-2">
+                {/* Section 1: Informations acheteur */}
+                <AccordionItem value="acheteur" className="border rounded-lg bg-muted/30 px-4">
+                  <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex items-center gap-2 text-base font-semibold">
+                      <User className="w-5 h-5 text-primary" />
+                      Informations de l'acheteur
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-4">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">Nom complet *</Label>
+                        <Input
+                          value={newBuyerForm.buyer_name}
+                          onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_name: e.target.value })}
+                          placeholder="Nom de l'acheteur"
+                          className="mt-1.5 bg-background"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Téléphone</Label>
+                          <Input
+                            value={newBuyerForm.buyer_phone}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
+                            placeholder="+243 XXX XXX XXX"
+                            className="mt-1.5 bg-background"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label className="text-sm font-medium">Email</Label>
+                          <Input
+                            type="email"
+                            value={newBuyerForm.buyer_email}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
+                            placeholder="email@example.com"
+                            className="mt-1.5 bg-background"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Téléphone</Label>
-                    <Input
-                      value={newBuyerForm.buyer_phone}
-                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
-                      placeholder="+243..."
-                      className="mt-1.5 bg-background"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Email</Label>
-                    <Input
-                      type="email"
-                      value={newBuyerForm.buyer_email}
-                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
-                      placeholder="email@example.com"
-                      className="mt-1.5 bg-background"
-                    />
-                  </div>
-                </div>
-              </div>
+                {/* Section 2: Détails de l'achat */}
+                <AccordionItem value="achat" className="border rounded-lg bg-muted/30 px-4">
+                  <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex items-center gap-2 text-base font-semibold">
+                      <MapPin className="w-5 h-5 text-primary" />
+                      Détails de l'achat
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-4">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">Type d'item *</Label>
+                        <Select
+                          value={newBuyerForm.item_type}
+                          onValueChange={(value: "hectare" | "parcelle") => 
+                            setNewBuyerForm({ ...newBuyerForm, item_type: value, selected_item: "" })
+                          }
+                        >
+                          <SelectTrigger className="mt-1.5 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="hectare">Hectare</SelectItem>
+                            <SelectItem value="parcelle">Parcelle</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-              {/* Type d'achat */}
-              <div className="space-y-4 p-4 rounded-lg bg-muted/50">
-                <h4 className="font-semibold text-foreground flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Détails de l'achat
-                </h4>
-                
-                <div>
-                  <Label className="text-sm font-medium">Type d'item *</Label>
-                  <Select
-                    value={newBuyerForm.item_type}
-                    onValueChange={(value: "hectare" | "parcelle") => 
-                      setNewBuyerForm({ ...newBuyerForm, item_type: value, selected_item: "" })
-                    }
-                  >
-                    <SelectTrigger className="mt-1.5 bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      <SelectItem value="hectare">Hectare</SelectItem>
-                      <SelectItem value="parcelle">Parcelle</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                      {/* Sélection de l'hectare ou parcelle */}
+                      <div>
+                        <Label className="text-sm font-medium">
+                          {newBuyerForm.item_type === "hectare" ? "Sélectionner un hectare *" : "Sélectionner une parcelle *"}
+                        </Label>
+                        <Select
+                          value={newBuyerForm.selected_item}
+                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
+                        >
+                          <SelectTrigger className="mt-1.5 bg-background">
+                            <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50 max-h-[300px]">
+                            {newBuyerForm.item_type === "hectare" ? (
+                              availableHectares.length > 0 ? (
+                                availableHectares.map((h) => (
+                                  <SelectItem key={h.id} value={h.id}>
+                                    {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
+                              )
+                            ) : (
+                              availableParcelles.length > 0 ? (
+                                availableParcelles.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    Parcelle {p.numero} - {p.surface} m² - ${p.prix.toLocaleString()}
+                                    {p.hectares && ` (${p.hectares.name})`}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="none" disabled>Aucune parcelle disponible</SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                {/* Sélection de l'hectare ou parcelle */}
-                <div>
-                  <Label className="text-sm font-medium">
-                    {newBuyerForm.item_type === "hectare" ? "Sélectionner un hectare *" : "Sélectionner une parcelle *"}
-                  </Label>
-                  <Select
-                    value={newBuyerForm.selected_item}
-                    onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
-                  >
-                    <SelectTrigger className="mt-1.5 bg-background">
-                      <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50 max-h-[300px]">
-                      {newBuyerForm.item_type === "hectare" ? (
-                        availableHectares.length > 0 ? (
-                          availableHectares.map((h) => (
-                            <SelectItem key={h.id} value={h.id}>
-                              {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
-                        )
-                      ) : (
-                        availableParcelles.length > 0 ? (
-                          availableParcelles.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              Parcelle {p.numero} - {p.surface} m² - ${p.prix.toLocaleString()}
-                              {p.hectares && ` (${p.hectares.name})`}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none" disabled>Aucune parcelle disponible</SelectItem>
-                        )
+                      {/* Type d'achat (hectare/demi-hectare/parcelle) */}
+                      <div>
+                        <Label className="text-sm font-medium">Type d'achat</Label>
+                        <Select
+                          value={newBuyerForm.purchase_type}
+                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, purchase_type: value })}
+                        >
+                          <SelectTrigger className="mt-1.5 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="hectare">Hectare complet</SelectItem>
+                            <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
+                            <SelectItem value="parcelle">Parcelle</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium">Type de vente</Label>
+                        <Select
+                          value={newBuyerForm.sale_type}
+                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, sale_type: value })}
+                        >
+                          <SelectTrigger className="mt-1.5 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="normal">Vente normale</SelectItem>
+                            <SelectItem value="onereux">À titre onéreux</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Section 3: Paiement */}
+                <AccordionItem value="paiement" className="border rounded-lg bg-muted/30 px-4">
+                  <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex items-center gap-2 text-base font-semibold">
+                      <DollarSign className="w-5 h-5 text-primary" />
+                      Paiement
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-4">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">Type de paiement *</Label>
+                        <Select
+                          value={newBuyerForm.payment_type}
+                          onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
+                        >
+                          <SelectTrigger className="mt-1.5 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="total">Paiement total</SelectItem>
+                            <SelectItem value="partiel">Paiement partiel</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {newBuyerForm.payment_type === "partiel" && (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-3">
+                          <Label className="text-sm font-medium">Montant de l'acompte *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={newBuyerForm.amount_paid}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
+                            placeholder="Montant payé en USD"
+                            className="bg-background"
+                            required
+                          />
+                          <p className="text-xs text-muted-foreground flex items-start gap-2">
+                            <span className="text-amber-600">ℹ️</span>
+                            Le montant restant sera calculé automatiquement
+                          </p>
+                        </div>
                       )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Type d'achat (hectare/demi-hectare/parcelle) */}
-                <div>
-                  <Label className="text-sm font-medium">Type d'achat</Label>
-                  <Select
-                    value={newBuyerForm.purchase_type}
-                    onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, purchase_type: value })}
-                  >
-                    <SelectTrigger className="mt-1.5 bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      <SelectItem value="hectare">Hectare complet</SelectItem>
-                      <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
-                      <SelectItem value="parcelle">Parcelle</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Type de vente</Label>
-                    <Select
-                      value={newBuyerForm.sale_type}
-                      onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, sale_type: value })}
-                    >
-                      <SelectTrigger className="mt-1.5 bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
-                        <SelectItem value="normal">Vente normale</SelectItem>
-                        <SelectItem value="onereux">À titre onéreux</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium">Type de paiement</Label>
-                    <Select
-                      value={newBuyerForm.payment_type}
-                      onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, payment_type: value })}
-                    >
-                      <SelectTrigger className="mt-1.5 bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
-                        <SelectItem value="total">Paiement total</SelectItem>
-                        <SelectItem value="partiel">Paiement partiel</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {newBuyerForm.payment_type === "partiel" && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <Label className="text-sm font-medium">Montant de l'accompte *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newBuyerForm.amount_paid}
-                      onChange={(e) => setNewBuyerForm({ ...newBuyerForm, amount_paid: e.target.value })}
-                      placeholder="Montant payé"
-                      className="mt-1.5 bg-background"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Le montant restant sera calculé automatiquement
-                    </p>
-                  </div>
-                )}
-              </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <div className="flex gap-3 pt-4 border-t border-border">
                 <Button type="button" variant="outline" onClick={() => setShowNewBuyerDialog(false)} className="flex-1">
