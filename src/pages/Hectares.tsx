@@ -632,6 +632,7 @@ const Hectares = () => {
           totalPrice={selectedHectare.prix}
           remainingAmount={selectedHectare.remaining_amount}
           buyerName={selectedHectare.buyer_name || undefined}
+          rmbNumber={selectedHectare.rmb_number || undefined}
           onPaymentComplete={fetchHectares}
         />
       )}
