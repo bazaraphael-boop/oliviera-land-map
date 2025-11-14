@@ -1,9 +1,10 @@
-import { MapPin, Home, Map, Grid3x3, Navigation, BarChart3, FileText, Settings, Users, ShoppingCart } from "lucide-react";
+import { MapPin, Home, Map, Grid3x3, Navigation, BarChart3, FileText, Settings, Users, ShoppingCart, Building2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
   { icon: Home, label: "Tableau de Bord", path: "/dashboard" },
+  { icon: Building2, label: "Sites", path: "/sites" },
   { icon: Map, label: "Hectares", path: "/hectares" },
   { icon: Grid3x3, label: "Parcelles", path: "/parcelles" },
   { icon: ShoppingCart, label: "Acheteurs", path: "/acheteurs" },
