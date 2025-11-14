@@ -702,6 +702,16 @@ const Hectares = () => {
 
                 {/* Details */}
                 <div className="space-y-3 mb-4">
+                  {hectare.site_id && (() => {
+                    const site = sites.find(s => s.id === hectare.site_id);
+                    return site ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-medium">
+                          📍 {site.name}
+                        </Badge>
+                      </div>
+                    ) : null;
+                  })()}
                   {hectare.location && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="w-4 h-4 shrink-0" />
