@@ -917,7 +917,7 @@ const Acheteurs = () => {
                           <SelectTrigger className="mt-1.5 bg-background">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
+                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="hectare">Hectare</SelectItem>
                             <SelectItem value="parcelle">Parcelle</SelectItem>
                           </SelectContent>
@@ -936,7 +936,7 @@ const Acheteurs = () => {
                           <SelectTrigger className="mt-1.5 bg-background">
                             <SelectValue placeholder={`Choisir ${newBuyerForm.item_type === "hectare" ? "un hectare" : "une parcelle"}`} />
                           </SelectTrigger>
-                          <SelectContent className="bg-popover z-50 max-h-[300px]">
+                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
                             {newBuyerForm.item_type === "hectare" ? (
                               availableHectares.length > 0 ? (
                                 availableHectares.map((h) => (
@@ -973,7 +973,7 @@ const Acheteurs = () => {
                           <SelectTrigger className="mt-1.5 bg-background">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
+                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="hectare">Hectare complet</SelectItem>
                             <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
                             <SelectItem value="parcelle">Parcelle</SelectItem>
@@ -990,7 +990,7 @@ const Acheteurs = () => {
                           <SelectTrigger className="mt-1.5 bg-background">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
+                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="normal">Vente normale</SelectItem>
                             <SelectItem value="onereux">À titre onéreux</SelectItem>
                           </SelectContent>
@@ -1019,7 +1019,7 @@ const Acheteurs = () => {
                           <SelectTrigger className="mt-1.5 bg-background">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
+                          <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="total">Paiement total</SelectItem>
                             <SelectItem value="partiel">Paiement partiel</SelectItem>
                           </SelectContent>
