@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, MapPin, DollarSign } from "lucide-react";
+import { Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, Package } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
@@ -240,146 +240,223 @@ const Hectares = () => {
                 Nouvel Hectare
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{isEditMode ? "Modifier l'hectare" : "Créer un nouvel hectare"}</DialogTitle>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card">
+              <DialogHeader className="border-b border-border pb-4">
+                <DialogTitle className="text-2xl flex items-center gap-2">
+                  <Package className="w-6 h-6 text-primary" />
+                  {isEditMode ? "Modifier l'hectare" : "Créer un nouvel hectare"}
+                </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>Nom</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Surface (hectares)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.surface}
-                    onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Localisation</Label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Prix (USD)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.prix}
-                    onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
-                    placeholder="Prix total de l'hectare"
-                  />
-                </div>
-                <div>
-                  <Label>Numéro RMB</Label>
-                  <Input
-                    value={formData.rmb_number}
-                    onChange={(e) => setFormData({ ...formData, rmb_number: e.target.value })}
-                    placeholder="Ex: RMB-2024-001"
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+                {/* Informations générales */}
+                <div className="bg-muted/50 p-4 rounded-lg space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold text-lg">Informations générales</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Nom</Label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ex: Hectare A1"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Surface (hectares)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.surface}
+                        onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
+                        placeholder="1.00"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Localisation</Label>
+                      <Input
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        placeholder="Ex: Zone Nord"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Numéro RMB</Label>
+                      <Input
+                        value={formData.rmb_number}
+                        onChange={(e) => setFormData({ ...formData, rmb_number: e.target.value })}
+                        placeholder="Ex: RMB-2024-001"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Prix (USD)
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.prix}
+                      onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
+                      placeholder="Prix total de l'hectare"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
                 
-                <div className="col-span-2 border-t border-border pt-4">
-                  <h3 className="font-semibold mb-3">Informations de vente (optionnel)</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
+                {/* Informations acheteur */}
+                <div className="bg-blue-500/5 p-4 rounded-lg border-l-4 border-l-blue-500 space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <User className="w-5 h-5 text-blue-500" />
+                    <h3 className="font-semibold text-lg">Informations acheteur</h3>
+                    <Badge variant="outline" className="ml-auto text-xs">Optionnel</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
                     Remplissez ces informations pour marquer l'hectare comme vendu
                   </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-medium">Nom de l'acheteur</Label>
+                      <Input
+                        value={formData.buyer_name}
+                        onChange={(e) => setFormData({ ...formData, buyer_name: e.target.value })}
+                        placeholder="Nom complet (optionnel)"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Téléphone</Label>
+                      <Input
+                        value={formData.buyer_phone}
+                        onChange={(e) => setFormData({ ...formData, buyer_phone: e.target.value })}
+                        placeholder="+243..."
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Email</Label>
+                      <Input
+                        type="email"
+                        value={formData.buyer_email}
+                        onChange={(e) => setFormData({ ...formData, buyer_email: e.target.value })}
+                        placeholder="email@example.com"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
-                  <Label>Nom de l'acheteur</Label>
-                  <Input
-                    value={formData.buyer_name}
-                    onChange={(e) => setFormData({ ...formData, buyer_name: e.target.value })}
-                    placeholder="Nom complet (optionnel)"
-                  />
-                </div>
-                
-                <div>
-                  <Label>Téléphone</Label>
-                  <Input
-                    value={formData.buyer_phone}
-                    onChange={(e) => setFormData({ ...formData, buyer_phone: e.target.value })}
-                    placeholder="+243..."
-                  />
-                </div>
-                
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={formData.buyer_email}
-                    onChange={(e) => setFormData({ ...formData, buyer_email: e.target.value })}
-                    placeholder="email@example.com"
-                  />
-                </div>
-                
+                {/* Détails de la vente - affiché seulement si acheteur renseigné */}
                 {formData.buyer_name && (
-                  <>
-                    <div>
-                      <Label>Type d'achat</Label>
-                      <select
-                        value={formData.purchase_type}
-                        onChange={(e) => setFormData({ ...formData, purchase_type: e.target.value })}
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                      >
-                        <option value="hectare">Hectare complet</option>
-                        <option value="demi-hectare">Demi-hectare</option>
-                      </select>
+                  <div className="bg-green-500/5 p-4 rounded-lg border-l-4 border-l-green-500 space-y-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CreditCard className="w-5 h-5 text-green-500" />
+                      <h3 className="font-semibold text-lg">Détails de la vente</h3>
                     </div>
                     
-                    <div>
-                      <Label>Type de paiement</Label>
-                      <select
-                        value={formData.payment_type}
-                        onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                      >
-                        <option value="total">Paiement total</option>
-                        <option value="partiel">Paiement partiel</option>
-                      </select>
-                    </div>
-                    
-                    {formData.payment_type === "partiel" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label>Montant payé (accompte)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.amount_paid}
-                          onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
-                          placeholder="Montant déjà payé"
-                        />
+                        <Label className="text-sm font-medium">Type d'achat</Label>
+                        <select
+                          value={formData.purchase_type}
+                          onChange={(e) => setFormData({ ...formData, purchase_type: e.target.value })}
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
+                        >
+                          <option value="hectare">Hectare complet</option>
+                          <option value="demi-hectare">Demi-hectare</option>
+                        </select>
                       </div>
-                    )}
-                    
-                    <div>
-                      <Label>Type de vente</Label>
-                      <select
-                        value={formData.sale_type}
-                        onChange={(e) => setFormData({ ...formData, sale_type: e.target.value })}
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                      >
-                        <option value="normal">Vente normale</option>
-                        <option value="onereux">À titre onéreux</option>
-                      </select>
+                      
+                      <div>
+                        <Label className="text-sm font-medium">Type de vente</Label>
+                        <select
+                          value={formData.sale_type}
+                          onChange={(e) => setFormData({ ...formData, sale_type: e.target.value })}
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
+                        >
+                          <option value="normal">Vente normale</option>
+                          <option value="onereux">À titre onéreux</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm font-medium">Type de paiement</Label>
+                        <select
+                          value={formData.payment_type}
+                          onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
+                        >
+                          <option value="total">Paiement total</option>
+                          <option value="partiel">Paiement partiel</option>
+                        </select>
+                      </div>
+                      
+                      {formData.payment_type === "partiel" && (
+                        <div>
+                          <Label className="text-sm font-medium">Montant payé (accompte)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.amount_paid}
+                            onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
+                            placeholder="Montant déjà payé"
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
                     </div>
-                  </>
+                  </div>
                 )}
                 
-                <Button type="submit" className="w-full col-span-2">
-                  {isEditMode ? "Modifier" : "Créer"}
-                </Button>
+                <div className="flex gap-3 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      setIsEditMode(false);
+                      setEditingId(null);
+                      setFormData({
+                        name: "",
+                        surface: "",
+                        location: "",
+                        status: "available",
+                        prix: "",
+                        rmb_number: "",
+                        buyer_name: "",
+                        buyer_phone: "",
+                        buyer_email: "",
+                        sale_type: "normal",
+                        purchase_type: "hectare",
+                        payment_type: "total",
+                        amount_paid: "",
+                        remaining_amount: "",
+                      });
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    {isEditMode ? "Modifier" : "Créer"}
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>
