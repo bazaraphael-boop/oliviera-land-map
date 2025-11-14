@@ -45,6 +45,7 @@ interface Parcelle {
   remaining_amount: number;
   sale_type: string;
   purchase_type: string | null;
+  rmb_number: string | null;
   hectares?: {
     name: string;
     rmb_number: string | null;
@@ -76,6 +77,7 @@ const Parcelles = () => {
     surface: "",
     prix: "",
     hectare_id: searchParams.get("hectare") || "",
+    rmb_number: "",
   });
   const [editFormData, setEditFormData] = useState({
     status: "",
@@ -88,6 +90,7 @@ const Parcelles = () => {
     sale_type: "normal",
     prix: "",
     purchase_type: "parcelle",
+    rmb_number: "",
   });
 
   useEffect(() => {
@@ -134,7 +137,7 @@ const Parcelles = () => {
       const { data, error } = await query.order("numero");
 
       if (error) throw error;
-      setParcelles(data || []);
+      setParcelles((data as any) || []);
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors du chargement des parcelles");
@@ -169,6 +172,7 @@ const Parcelles = () => {
           prix: parseFloat(formData.prix),
           hectare_id: formData.hectare_id,
           status: "disponible",
+          rmb_number: formData.rmb_number || null,
         },
       ]);
 
@@ -176,7 +180,7 @@ const Parcelles = () => {
 
       toast.success("Parcelle créée avec succès");
       setIsDialogOpen(false);
-      setFormData({ numero: "", surface: "", prix: "", hectare_id: selectedHectare });
+      setFormData({ numero: "", surface: "", prix: "", hectare_id: selectedHectare, rmb_number: "" });
       fetchParcelles();
     } catch (error) {
       console.error("Erreur:", error);
@@ -212,6 +216,7 @@ const Parcelles = () => {
       sale_type: parcelle.sale_type || "normal",
       prix: parcelle.prix?.toString() || "",
       purchase_type: parcelle.purchase_type || "parcelle",
+      rmb_number: parcelle.rmb_number || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -232,6 +237,7 @@ const Parcelles = () => {
         prix: parseFloat(editFormData.prix) || selectedParcelle.prix,
         sale_type: editFormData.sale_type,
         purchase_type: editFormData.purchase_type,
+        rmb_number: editFormData.rmb_number || null,
       };
 
       if (editFormData.status === "vendu") {
@@ -511,6 +517,16 @@ const Parcelles = () => {
                       className="mt-1"
                     />
                   </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Numéro RMB</Label>
+                    <Input
+                      value={formData.rmb_number}
+                      onChange={(e) => setFormData({ ...formData, rmb_number: e.target.value })}
+                      placeholder="Ex: RMB-001"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
@@ -558,11 +574,11 @@ const Parcelles = () => {
               </div>
 
               <div className="space-y-2">
-                {parcelle.hectares?.rmb_number && (
+                {(parcelle.rmb_number || parcelle.hectares?.rmb_number) && (
                   <div className="flex items-center justify-between pb-2 border-b border-border">
                     <span className="text-xs text-muted-foreground">RMB:</span>
                     <Badge variant="outline" className="text-xs font-medium bg-purple-500/5 border-purple-500/20 text-foreground">
-                      {parcelle.hectares.rmb_number}
+                      {parcelle.rmb_number || parcelle.hectares?.rmb_number}
                     </Badge>
                   </div>
                 )}
@@ -701,6 +717,18 @@ const Parcelles = () => {
                       <SelectItem value="onereux">À titre onéreux</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium">Numéro RMB</Label>
+                  <Input
+                    value={editFormData.rmb_number}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, rmb_number: e.target.value })
+                    }
+                    placeholder="Ex: RMB-001"
+                    className="mt-1"
+                  />
                 </div>
               </div>
 
