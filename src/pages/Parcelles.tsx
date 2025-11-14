@@ -80,6 +80,7 @@ const Parcelles = () => {
     prix: "",
     hectare_id: searchParams.get("hectare") || "",
     rmb_number: "",
+    sale_type: "normal",
   });
   const [editFormData, setEditFormData] = useState({
     status: "",
@@ -151,9 +152,14 @@ const Parcelles = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!formData.hectare_id) {
+      toast.error("Veuillez sélectionner un hectare");
+      return;
+    }
+
     try {
-      // Vérifier combien de parcelles existent déjà pour cet hectare
+      // Vérifier combien de parcelles existent déjà dans cet hectare
       const { data: existingParcelles, error: countError } = await supabase
         .from("parcelles")
         .select("id", { count: "exact" })
@@ -163,19 +169,24 @@ const Parcelles = () => {
 
       const parcelleCount = existingParcelles?.length || 0;
 
+      // Un hectare ne peut avoir que 15 parcelles maximum
       if (parcelleCount >= 15) {
         toast.error("Limite atteinte : un hectare ne peut contenir que 15 parcelles maximum");
         return;
       }
 
+      const isOnereux = formData.sale_type === "onereux";
+      const prix = isOnereux ? 0 : parseFloat(formData.prix);
+
       const { error } = await supabase.from("parcelles").insert([
         {
           numero: formData.numero,
           surface: parseFloat(formData.surface),
-          prix: parseFloat(formData.prix),
+          prix: prix,
           hectare_id: formData.hectare_id,
           status: "disponible",
           rmb_number: formData.rmb_number || null,
+          sale_type: formData.sale_type,
         },
       ]);
 
@@ -183,7 +194,14 @@ const Parcelles = () => {
 
       toast.success("Parcelle créée avec succès");
       setIsDialogOpen(false);
-      setFormData({ numero: "", surface: "", prix: "", hectare_id: selectedHectare, rmb_number: "" });
+      setFormData({ 
+        numero: "", 
+        surface: "", 
+        prix: "", 
+        hectare_id: selectedHectare, 
+        rmb_number: "",
+        sale_type: "normal"
+      });
       fetchParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
@@ -503,6 +521,24 @@ const Parcelles = () => {
                     </Select>
                   </div>
                   
+                  <div>
+                    <Label className="text-sm font-medium">Type de vente *</Label>
+                    <Select
+                      value={formData.sale_type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, sale_type: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Sélectionner le type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Vente normale</SelectItem>
+                        <SelectItem value="onereux">Titre onéreux</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium flex items-center gap-2">
@@ -531,21 +567,23 @@ const Parcelles = () => {
                     </div>
                   </div>
                   
-                  <div>
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <DollarSign className="w-4 h-4" />
-                      Prix (USD) *
-                    </Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.prix}
-                      onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
-                      placeholder="Ex: 5000"
-                      required
-                      className="mt-1"
-                    />
-                  </div>
+                  {formData.sale_type !== "onereux" && (
+                    <div>
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        Prix (USD) *
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.prix}
+                        onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
+                        placeholder="Ex: 5000"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
                   
                   <div>
                     <Label className="text-sm font-medium">Numéro RMB</Label>
