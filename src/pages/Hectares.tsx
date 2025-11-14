@@ -67,6 +67,7 @@ const Hectares = () => {
   const [parcelles, setParcelles] = useState<any[]>([]);
   const [selectedParcelle, setSelectedParcelle] = useState<any | null>(null);
   const [parcelleDetailsOpen, setParcelleDetailsOpen] = useState(false);
+  const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -267,6 +268,18 @@ const Hectares = () => {
       }
     });
     return Object.keys(rmbCounts).filter(rmb => rmbCounts[rmb] > 1);
+  };
+
+  // Obtenir les détails complets des doublons RMB
+  const getDuplicateRMBDetails = () => {
+    const duplicateRMBs = getDuplicateRMBs();
+    const details: { [key: string]: any[] } = {};
+    
+    duplicateRMBs.forEach(rmb => {
+      details[rmb] = parcelles.filter(p => p.rmb_number === rmb);
+    });
+    
+    return details;
   };
 
   const filteredHectares = hectares.filter((h) =>
@@ -719,6 +732,14 @@ const Hectares = () => {
                         <p className="text-xs text-red-600 mt-1">
                           Ces parcelles sont marquées avec un indicateur rouge dans le tableau.
                         </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setDuplicatesReportOpen(true)}
+                          className="mt-3 border-red-500 text-red-700 hover:bg-red-500/10"
+                        >
+                          Voir le rapport complet
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1008,6 +1029,142 @@ const Hectares = () => {
                 Voir détails complets
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog du rapport des doublons RMB */}
+      <Dialog open={duplicatesReportOpen} onOpenChange={setDuplicatesReportOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card">
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Rapport des numéros RMB dupliqués
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              {selectedHectare?.name} - Liste complète des parcelles avec doublons
+            </p>
+          </DialogHeader>
+          
+          <div className="py-6 space-y-6">
+            {(() => {
+              const duplicateDetails = getDuplicateRMBDetails();
+              const rmbNumbers = Object.keys(duplicateDetails).sort();
+              
+              if (rmbNumbers.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Aucun doublon détecté</p>
+                  </div>
+                );
+              }
+              
+              return rmbNumbers.map(rmb => {
+                const parcelles = duplicateDetails[rmb];
+                return (
+                  <div key={rmb} className="border-2 border-red-500 rounded-lg overflow-hidden">
+                    <div className="bg-red-500/10 px-4 py-3 border-b border-red-500">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="font-mono">
+                            RMB {rmb}
+                          </Badge>
+                          <span className="text-sm text-red-700 font-semibold">
+                            {parcelles.length} parcelles avec ce numéro
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="divide-y divide-border bg-background">
+                      {parcelles.map((parcelle, idx) => (
+                        <div key={parcelle.id} className="p-4 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                                <span className="text-sm font-bold text-red-700">
+                                  {parcelle.numero}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="font-semibold">Parcelle #{parcelle.numero}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {parcelle.surface} m² • {parcelle.prix?.toLocaleString()} FCFA
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant={parcelle.status === 'vendu' ? 'destructive' : 'default'}>
+                              {parcelle.status === 'vendu' ? 'Vendu' : 'Disponible'}
+                            </Badge>
+                          </div>
+                          
+                          {parcelle.status === 'vendu' && parcelle.buyer_name && (
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-primary" />
+                                <span className="font-semibold text-sm">Informations acheteur</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Nom:</span>
+                                  <span className="ml-2 font-medium">{parcelle.buyer_name}</span>
+                                </div>
+                                {parcelle.buyer_phone && (
+                                  <div>
+                                    <span className="text-muted-foreground">Téléphone:</span>
+                                    <span className="ml-2 font-medium">{parcelle.buyer_phone}</span>
+                                  </div>
+                                )}
+                                {parcelle.buyer_email && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Email:</span>
+                                    <span className="ml-2 font-medium">{parcelle.buyer_email}</span>
+                                  </div>
+                                )}
+                                {parcelle.sale_date && (
+                                  <div>
+                                    <span className="text-muted-foreground">Date vente:</span>
+                                    <span className="ml-2 font-medium">
+                                      {new Date(parcelle.sale_date).toLocaleDateString('fr-FR')}
+                                    </span>
+                                  </div>
+                                )}
+                                {parcelle.payment_type && (
+                                  <div>
+                                    <span className="text-muted-foreground">Paiement:</span>
+                                    <span className="ml-2 font-medium">
+                                      {parcelle.payment_type === 'total' ? 'Total' : 'Partiel'}
+                                    </span>
+                                  </div>
+                                )}
+                                {parcelle.payment_type === 'partiel' && (
+                                  <>
+                                    <div>
+                                      <span className="text-muted-foreground">Payé:</span>
+                                      <span className="ml-2 font-medium text-green-600">
+                                        {parcelle.amount_paid?.toLocaleString()} FCFA
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Restant:</span>
+                                      <span className="ml-2 font-medium text-orange-600">
+                                        {parcelle.remaining_amount?.toLocaleString()} FCFA
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </DialogContent>
       </Dialog>
