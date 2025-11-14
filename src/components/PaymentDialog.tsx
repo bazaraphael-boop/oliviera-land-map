@@ -60,11 +60,13 @@ export const PaymentDialog = ({
       img.onload = resolve;
     });
     
+    // Limiter la hauteur de l'en-tête à 40mm maximum
     const imgWidth = 210;
-    const imgHeight = (img.height * imgWidth) / img.width;
+    const calculatedHeight = (img.height * imgWidth) / img.width;
+    const imgHeight = Math.min(calculatedHeight, 40);
     pdf.addImage(img, "JPEG", 0, 0, imgWidth, imgHeight);
     
-    let yPos = imgHeight + 15;
+    let yPos = imgHeight + 10;
     
     // Title
     pdf.setFontSize(20);
@@ -96,41 +98,46 @@ export const PaymentDialog = ({
     
     // Table Header
     yPos += 30;
-    pdf.setFillColor(220, 220, 220);
-    pdf.rect(20, yPos - 5, 170, 10, "F");
-    pdf.setFont("helvetica", "bold");
-    pdf.text("DÉSIGNATION", 25, yPos);
-    pdf.text("MONTANT (USD)", 145, yPos);
-    
-    // Table border
     pdf.setDrawColor(0);
-    pdf.setLineWidth(0.5);
-    pdf.rect(20, yPos - 5, 170, 10);
+    pdf.setLineWidth(0.8);
+    pdf.setFillColor(230, 230, 230);
+    pdf.rect(20, yPos - 7, 130, 12, "FD");
+    pdf.rect(150, yPos - 7, 40, 12, "FD");
+    
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("DÉSIGNATION", 25, yPos);
+    pdf.text("MONTANT (USD)", 155, yPos);
     
     // Table Rows
-    yPos += 8;
+    yPos += 12;
     pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
     
     // Row 1: Total Price
-    pdf.rect(20, yPos - 5, 170, 10);
+    pdf.setLineWidth(0.5);
+    pdf.rect(20, yPos - 7, 130, 10, "D");
+    pdf.rect(150, yPos - 7, 40, 10, "D");
     pdf.text(`Prix total ${itemType}`, 25, yPos);
-    pdf.text(`$ ${totalPrice.toLocaleString()}`, 145, yPos);
+    pdf.text(`$ ${totalPrice.toLocaleString()}`, 155, yPos);
     
     // Row 2: Payment
     yPos += 10;
-    pdf.rect(20, yPos - 5, 170, 10);
+    pdf.rect(20, yPos - 7, 130, 10, "D");
+    pdf.rect(150, yPos - 7, 40, 10, "D");
     pdf.text(isFullPayment ? "Paiement total" : "Acompte versé", 25, yPos);
-    pdf.text(`$ ${paymentAmount.toLocaleString()}`, 145, yPos);
+    pdf.text(`$ ${paymentAmount.toLocaleString()}`, 155, yPos);
     
     // Row 3: Remaining (if applicable)
     if (!isFullPayment) {
       yPos += 10;
-      pdf.setFillColor(255, 250, 240);
-      pdf.rect(20, yPos - 5, 170, 10, "F");
+      pdf.setFillColor(255, 250, 230);
+      pdf.rect(20, yPos - 7, 130, 10, "FD");
+      pdf.rect(150, yPos - 7, 40, 10, "FD");
       pdf.setFont("helvetica", "bold");
       pdf.text("Reste à payer", 25, yPos);
-      pdf.text(`$ ${newRemainingAmount.toLocaleString()}`, 145, yPos);
-      pdf.rect(20, yPos - 5, 170, 10);
+      pdf.text(`$ ${newRemainingAmount.toLocaleString()}`, 155, yPos);
+      pdf.setFont("helvetica", "normal");
     }
     
     yPos += 15;
