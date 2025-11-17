@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [canViewRevenue, setCanViewRevenue] = useState(false);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     salesRate: 0,
@@ -39,6 +40,13 @@ const Dashboard = () => {
       }
 
       setUser(user);
+
+      // Vérifier la permission de voir les revenus
+      const { data: hasPermission } = await supabase.rpc("has_permission", {
+        _user_id: user.id,
+        _permission_code: "view_total_revenue",
+      });
+      setCanViewRevenue(hasPermission || false);
 
       // Récupérer le profil
       const { data: profileData, error: profileError } = await supabase
@@ -121,14 +129,22 @@ const Dashboard = () => {
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      const statsData = [
-        `Revenus Total: ${stats.totalRevenue.toFixed(0)} USD`,
-        `Ventes réalisées: ${stats.soldParcelles}`,
-        `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
-        `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
-        `Parcelles disponibles: ${stats.available}`,
-        `Total parcelles: ${stats.totalParcelles}`,
-      ];
+      const statsData = canViewRevenue
+        ? [
+            `Revenus Total: ${stats.totalRevenue.toFixed(0)} USD`,
+            `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
+            `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
+            `Parcelles Disponibles: ${stats.available}`,
+            `Total Parcelles: ${stats.totalParcelles}`,
+            `Parcelles Vendues: ${stats.soldParcelles}`,
+          ]
+        : [
+            `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
+            `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
+            `Parcelles Disponibles: ${stats.available}`,
+            `Total Parcelles: ${stats.totalParcelles}`,
+            `Parcelles Vendues: ${stats.soldParcelles}`,
+          ];
       
       statsData.forEach(stat => {
         pdf.text(`• ${stat}`, 25, yPos);
@@ -247,13 +263,15 @@ const Dashboard = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatsCard
-              title="Revenus Total"
-              value={`${stats.totalRevenue.toFixed(0)} USD`}
-              subtitle={`${stats.soldParcelles} ventes réalisées`}
-              icon={DollarSign}
-              colorClass="bg-[hsl(160,84%,39%)]"
-            />
+            {canViewRevenue && (
+              <StatsCard
+                title="Revenus Total"
+                value={`${stats.totalRevenue.toFixed(0)} USD`}
+                subtitle={`${stats.soldParcelles} ventes réalisées`}
+                icon={DollarSign}
+                colorClass="bg-[hsl(160,84%,39%)]"
+              />
+            )}
             <StatsCard
               title="Taux de Vente"
               value={`${stats.salesRate.toFixed(1)}%`}
