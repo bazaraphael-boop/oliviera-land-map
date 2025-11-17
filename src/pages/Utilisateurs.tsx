@@ -57,6 +57,14 @@ const Utilisateurs = () => {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: "",
+    full_name: "",
+    phone: "",
+    organization: "",
+    role: "user" as "admin" | "moderator" | "user",
+  });
 
   // Définition des permissions par rôle
   const rolePermissions = {
@@ -203,6 +211,52 @@ const Utilisateurs = () => {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.full_name) {
+      toast.error("Email et nom complet sont requis");
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Session expirée");
+        return;
+      }
+
+      const response = await supabase.functions.invoke("create-user", {
+        body: {
+          email: newUser.email,
+          full_name: newUser.full_name,
+          phone: newUser.phone,
+          organization: newUser.organization,
+          role: newUser.role,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      toast.success("Utilisateur créé avec succès");
+      setShowAddUserDialog(false);
+      setNewUser({
+        email: "",
+        full_name: "",
+        phone: "",
+        organization: "",
+        role: "user",
+      });
+      await loadUsers();
+    } catch (error: any) {
+      console.error("Erreur création utilisateur:", error);
+      toast.error(error.message || "Erreur lors de la création de l'utilisateur");
+    }
+  };
+
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
       // Supprimer tous les rôles existants
@@ -309,13 +363,88 @@ const Utilisateurs = () => {
               Gérez les utilisateurs et leurs permissions
             </p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Shield className="h-4 w-4" />
-                Voir les permissions
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Ajouter un utilisateur
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Ajouter un nouvel utilisateur</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      placeholder="utilisateur@exemple.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="full_name">Nom complet *</Label>
+                    <Input
+                      id="full_name"
+                      value={newUser.full_name}
+                      onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                      placeholder="Jean Dupont"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Téléphone</Label>
+                    <Input
+                      id="phone"
+                      value={newUser.phone}
+                      onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                      placeholder="+243 123 456 789"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="organization">Organisation</Label>
+                    <Input
+                      id="organization"
+                      value={newUser.organization}
+                      onChange={(e) => setNewUser({ ...newUser, organization: e.target.value })}
+                      placeholder="Nom de l'organisation"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">Rôle</Label>
+                    <Select
+                      value={newUser.role}
+                      onValueChange={(value: "admin" | "moderator" | "user") =>
+                        setNewUser({ ...newUser, role: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">Utilisateur</SelectItem>
+                        <SelectItem value="moderator">Modérateur</SelectItem>
+                        <SelectItem value="admin">Administrateur</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleAddUser} className="w-full">
+                    Créer l'utilisateur
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Shield className="h-4 w-4" />
+                  Voir les permissions
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Matrice des Permissions par Rôle</DialogTitle>
@@ -360,6 +489,7 @@ const Utilisateurs = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 mb-6">
