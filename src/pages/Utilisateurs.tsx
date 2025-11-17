@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus, Shield, User, Mail, Calendar } from "lucide-react";
+import { Search, UserPlus, Shield, User, Mail, Calendar, Eye, Edit, Trash, FileText, MapPin, Users, Settings, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import {
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,6 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
@@ -40,6 +48,61 @@ const Utilisateurs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  // Définition des permissions par rôle
+  const rolePermissions = {
+    admin: {
+      label: "Administrateur",
+      style: "bg-red-500/10 text-red-500 border-red-500/20",
+      icon: Shield,
+      description: "Accès complet à toutes les fonctionnalités",
+      permissions: [
+        { action: "Gérer les utilisateurs", allowed: true },
+        { action: "Créer/Modifier/Supprimer des hectares", allowed: true },
+        { action: "Créer/Modifier/Supprimer des parcelles", allowed: true },
+        { action: "Gérer les sites", allowed: true },
+        { action: "Voir tous les acheteurs", allowed: true },
+        { action: "Gérer les paiements", allowed: true },
+        { action: "Générer des rapports", allowed: true },
+        { action: "Voir les documents", allowed: true },
+        { action: "Accéder aux paramètres", allowed: true },
+      ],
+    },
+    moderator: {
+      label: "Modérateur",
+      style: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+      icon: User,
+      description: "Accès à la plupart des fonctionnalités sauf la gestion des utilisateurs",
+      permissions: [
+        { action: "Gérer les utilisateurs", allowed: false },
+        { action: "Créer/Modifier/Supprimer des hectares", allowed: true },
+        { action: "Créer/Modifier/Supprimer des parcelles", allowed: true },
+        { action: "Gérer les sites", allowed: true },
+        { action: "Voir tous les acheteurs", allowed: true },
+        { action: "Gérer les paiements", allowed: true },
+        { action: "Générer des rapports", allowed: true },
+        { action: "Voir les documents", allowed: true },
+        { action: "Accéder aux paramètres", allowed: false },
+      ],
+    },
+    user: {
+      label: "Utilisateur",
+      style: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+      icon: User,
+      description: "Accès en lecture seule",
+      permissions: [
+        { action: "Gérer les utilisateurs", allowed: false },
+        { action: "Créer/Modifier/Supprimer des hectares", allowed: false },
+        { action: "Créer/Modifier/Supprimer des parcelles", allowed: false },
+        { action: "Gérer les sites", allowed: false },
+        { action: "Voir tous les acheteurs", allowed: true },
+        { action: "Gérer les paiements", allowed: false },
+        { action: "Générer des rapports", allowed: true },
+        { action: "Voir les documents", allowed: true },
+        { action: "Accéder aux paramètres", allowed: false },
+      ],
+    },
+  };
 
   useEffect(() => {
     checkAuthAndLoadUsers();
@@ -139,19 +202,11 @@ const Utilisateurs = () => {
   };
 
   const getRoleBadge = (role: string) => {
-    const styles = {
-      admin: "bg-red-500/10 text-red-500 border-red-500/20",
-      moderator: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      user: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-    };
-    const labels = {
-      admin: "Administrateur",
-      moderator: "Modérateur",
-      user: "Utilisateur",
-    };
+    const roleConfig = rolePermissions[role as keyof typeof rolePermissions] || rolePermissions.user;
     return {
-      style: styles[role as keyof typeof styles] || styles.user,
-      label: labels[role as keyof typeof labels] || "Utilisateur",
+      style: roleConfig.style,
+      label: roleConfig.label,
+      icon: roleConfig.icon,
     };
   };
 
@@ -179,13 +234,66 @@ const Utilisateurs = () => {
       <DashboardSidebar />
 
       <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Gestion des Utilisateurs
-          </h1>
-          <p className="text-muted-foreground">
-            Gérez les utilisateurs et leurs permissions
-          </p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Gestion des Utilisateurs
+            </h1>
+            <p className="text-muted-foreground">
+              Gérez les utilisateurs et leurs permissions
+            </p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Shield className="h-4 w-4" />
+                Voir les permissions
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Matrice des Permissions par Rôle</DialogTitle>
+                <DialogDescription>
+                  Détail des accès et permissions pour chaque rôle utilisateur
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                {Object.entries(rolePermissions).map(([roleKey, roleData]) => {
+                  const RoleIcon = roleData.icon;
+                  return (
+                    <Card key={roleKey} className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <RoleIcon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{roleData.label}</h3>
+                          <p className="text-sm text-muted-foreground">{roleData.description}</p>
+                        </div>
+                        <span className={`text-xs px-3 py-1 rounded border ${roleData.style}`}>
+                          {roleKey}
+                        </span>
+                      </div>
+                      <div className="space-y-2 mt-4">
+                        {roleData.permissions.map((perm, idx) => (
+                          <div key={idx} className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/50">
+                            {perm.allowed ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                            )}
+                            <span className={`text-sm ${perm.allowed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {perm.action}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="flex items-center gap-4 mb-6">
@@ -223,11 +331,14 @@ const Utilisateurs = () => {
                         <h3 className="text-lg font-semibold text-foreground">
                           {user.full_name || "Utilisateur"}
                         </h3>
-                        <span
-                          className={`text-xs px-2 py-1 rounded border ${badge.style}`}
-                        >
-                          {badge.label}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {badge.icon && <badge.icon className="w-3 h-3" />}
+                          <span
+                            className={`text-xs px-2 py-1 rounded border ${badge.style}`}
+                          >
+                            {badge.label}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-1">
