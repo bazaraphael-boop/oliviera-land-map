@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,82 +118,17 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Générer le lien de réinitialisation de mot de passe
-    const { data: resetData, error: resetError } = await supabaseClient.auth.admin.generateLink({
-      type: "magiclink",
-      email: email,
-      options: {
-        redirectTo: `${Deno.env.get("SUPABASE_URL")}/auth/v1/verify`,
-      },
-    });
-
-    if (resetError) {
-      console.error("Erreur génération lien:", resetError);
-    }
-
-    // Envoyer l'email de bienvenue avec Resend
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-    
-    const magicLink = resetData?.properties?.action_link || "";
-
-    try {
-      await resend.emails.send({
-        from: "Gestion Foncière <onboarding@resend.dev>",
-        to: [email],
-        subject: "Bienvenue - Confirmez votre inscription",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #333; border-bottom: 2px solid #4F46E5; padding-bottom: 10px;">
-              Bienvenue dans l'application de gestion foncière
-            </h1>
-            
-            <p style="color: #555; font-size: 16px;">
-              Bonjour ${full_name},
-            </p>
-            
-            <p style="color: #555; font-size: 16px;">
-              Votre compte a été créé avec le rôle <strong>${role}</strong>.
-            </p>
-            
-            <p style="color: #555; font-size: 16px;">
-              Pour activer votre compte et définir votre mot de passe, cliquez sur le lien ci-dessous :
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${magicLink}" 
-                 style="background-color: #4F46E5; color: white; padding: 12px 30px; 
-                        text-decoration: none; border-radius: 5px; display: inline-block;
-                        font-weight: bold;">
-                Activer mon compte
-              </a>
-            </div>
-            
-            <p style="color: #888; font-size: 14px;">
-              Ce lien est valide pendant 24 heures. Si vous n'avez pas demandé cette inscription, 
-              vous pouvez ignorer cet email.
-            </p>
-            
-            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-            
-            <p style="color: #888; font-size: 12px; text-align: center;">
-              Gestion Foncière Muanda © ${new Date().getFullYear()}
-            </p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Erreur envoi email:", emailError);
-      // Ne pas échouer complètement si l'email n'est pas envoyé
-    }
+    console.log("Utilisateur créé avec succès:", newUser.user.email);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Utilisateur créé avec succès. Un email de confirmation a été envoyé.",
+        message: "Utilisateur créé avec succès.",
         user: {
           id: newUser.user.id,
           email: newUser.user.email,
         },
+        tempPassword: tempPassword,
       }),
       {
         status: 200,
