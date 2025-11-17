@@ -145,7 +145,7 @@ const Hectares = () => {
       const { data, error } = await supabase
         .from("hectares")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("name", { ascending: true });
 
       if (error) throw error;
       setHectares((data as any) || []);
