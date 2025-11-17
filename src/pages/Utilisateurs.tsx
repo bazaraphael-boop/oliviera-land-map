@@ -31,6 +31,12 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 
+interface Permission {
+  code: string;
+  label: string;
+  description: string;
+}
+
 interface UserProfile {
   id: string;
   full_name: string;
@@ -39,6 +45,7 @@ interface UserProfile {
   organization: string;
   created_at: string;
   roles?: { role: string }[];
+  permissions?: { permission_code: string }[];
 }
 
 const Utilisateurs = () => {
@@ -48,6 +55,8 @@ const Utilisateurs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Définition des permissions par rôle
   const rolePermissions = {
@@ -106,6 +115,7 @@ const Utilisateurs = () => {
 
   useEffect(() => {
     checkAuthAndLoadUsers();
+    loadPermissions();
   }, []);
 
   const checkAuthAndLoadUsers = async () => {
@@ -157,16 +167,39 @@ const Utilisateurs = () => {
 
       if (rolesError) throw rolesError;
 
+      // Récupérer les permissions pour chaque utilisateur
+      const { data: permissionsData, error: permissionsError } = await supabase
+        .from("user_permissions")
+        .select("user_id, permission_code");
+
+      if (permissionsError) throw permissionsError;
+
       // Combiner les données
       const usersWithRoles = (profilesData || []).map((profile) => ({
         ...profile,
         roles: rolesData?.filter((r) => r.user_id === profile.id) || [],
+        permissions: permissionsData?.filter((p) => p.user_id === profile.id) || [],
       }));
 
       setUsers(usersWithRoles);
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors du chargement des utilisateurs");
+    }
+  };
+
+  const loadPermissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("permissions")
+        .select("*")
+        .order("label", { ascending: true });
+
+      if (error) throw error;
+      setPermissions(data || []);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors du chargement des permissions");
     }
   };
 
@@ -194,6 +227,39 @@ const Utilisateurs = () => {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la mise à jour du rôle");
     }
+  };
+
+  const handlePermissionToggle = async (userId: string, permissionCode: string, isEnabled: boolean) => {
+    try {
+      if (isEnabled) {
+        // Ajouter la permission
+        const { error } = await supabase
+          .from("user_permissions")
+          .insert([{ user_id: userId, permission_code: permissionCode }]);
+
+        if (error) throw error;
+        toast.success("Permission ajoutée");
+      } else {
+        // Retirer la permission
+        const { error } = await supabase
+          .from("user_permissions")
+          .delete()
+          .eq("user_id", userId)
+          .eq("permission_code", permissionCode);
+
+        if (error) throw error;
+        toast.success("Permission retirée");
+      }
+
+      loadUsers();
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors de la mise à jour de la permission");
+    }
+  };
+
+  const hasPermission = (user: UserProfile, permissionCode: string) => {
+    return user.permissions?.some(p => p.permission_code === permissionCode) || false;
   };
 
   const getUserRole = (user: UserProfile) => {
@@ -372,34 +438,85 @@ const Utilisateurs = () => {
 
                   <div className="flex items-center gap-2">
                     {user.id !== currentUserId && (
-                      <Select
-                        value={role}
-                        onValueChange={(value) => handleRoleChange(user.id, value)}
-                      >
-                        <SelectTrigger className="w-[150px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4" />
-                              <span>Utilisateur</span>
+                      <>
+                        <Select
+                          value={role}
+                          onValueChange={(value) => handleRoleChange(user.id, value)}
+                        >
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4" />
+                                <span>Utilisateur</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="moderator">
+                              <div className="flex items-center gap-2">
+                                <Shield className="w-4 h-4" />
+                                <span>Modérateur</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="admin">
+                              <div className="flex items-center gap-2">
+                                <Shield className="w-4 h-4 text-red-500" />
+                                <span>Admin</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Dialog open={selectedUserId === user.id} onOpenChange={(open) => setSelectedUserId(open ? user.id : null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2">
+                              <Settings className="h-4 w-4" />
+                              Permissions
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Gérer les permissions de {user.full_name}</DialogTitle>
+                              <DialogDescription>
+                                Sélectionnez les permissions individuelles pour cet utilisateur
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3 mt-4">
+                              {permissions.map((permission) => {
+                                const isEnabled = hasPermission(user, permission.code);
+                                return (
+                                  <div key={permission.code} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                                    <div className="flex items-center h-5">
+                                      <input
+                                        type="checkbox"
+                                        checked={isEnabled}
+                                        onChange={(e) => handlePermissionToggle(user.id, permission.code, e.target.checked)}
+                                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                                      />
+                                    </div>
+                                    <div className="flex-1">
+                                      <label className="text-sm font-medium text-foreground cursor-pointer">
+                                        {permission.label}
+                                      </label>
+                                      {permission.description && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                          {permission.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {isEnabled ? (
+                                      <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                    ) : (
+                                      <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          </SelectItem>
-                          <SelectItem value="moderator">
-                            <div className="flex items-center gap-2">
-                              <Shield className="w-4 h-4" />
-                              <span>Modérateur</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="admin">
-                            <div className="flex items-center gap-2">
-                              <Shield className="w-4 h-4 text-red-500" />
-                              <span>Admin</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                          </DialogContent>
+                        </Dialog>
+                      </>
                     )}
 
                     {user.id === currentUserId && (
