@@ -241,6 +241,11 @@ const Utilisateurs = () => {
         throw response.error;
       }
 
+      // Vérifier si la réponse contient une erreur dans le body
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
       toast.success("Utilisateur créé avec succès");
       setShowAddUserDialog(false);
       setNewUser({
