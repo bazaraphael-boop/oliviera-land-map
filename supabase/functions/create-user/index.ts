@@ -82,11 +82,33 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (createError) {
       console.error("Erreur création utilisateur:", createError);
-      throw new Error(`Erreur lors de la création de l'utilisateur: ${createError.message}`);
+      
+      // Gérer spécifiquement l'erreur d'email existant
+      let errorMessage = createError.message;
+      let statusCode = 500;
+      
+      if (createError.message.includes("already been registered")) {
+        errorMessage = "Cet email est déjà enregistré dans le système";
+        statusCode = 422;
+      }
+      
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        {
+          status: statusCode,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     if (!newUser.user) {
-      throw new Error("Utilisateur non créé");
+      return new Response(
+        JSON.stringify({ error: "Utilisateur non créé" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     // Assigner le rôle
