@@ -55,9 +55,17 @@ export type Database = {
       hectares: {
         Row: {
           amount_paid: number | null
+          buyer_address: string | null
+          buyer_birth_date: string | null
+          buyer_birth_place: string | null
+          buyer_children_count: number | null
           buyer_email: string | null
+          buyer_first_name: string | null
+          buyer_last_name: string | null
+          buyer_marital_status: string | null
           buyer_name: string | null
           buyer_phone: string | null
+          buyer_profession: string | null
           created_at: string
           id: string
           location: string | null
@@ -76,9 +84,17 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          buyer_address?: string | null
+          buyer_birth_date?: string | null
+          buyer_birth_place?: string | null
+          buyer_children_count?: number | null
           buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
+          buyer_profession?: string | null
           created_at?: string
           id?: string
           location?: string | null
@@ -97,9 +113,17 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          buyer_address?: string | null
+          buyer_birth_date?: string | null
+          buyer_birth_place?: string | null
+          buyer_children_count?: number | null
           buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
+          buyer_profession?: string | null
           created_at?: string
           id?: string
           location?: string | null
@@ -129,9 +153,17 @@ export type Database = {
       parcelles: {
         Row: {
           amount_paid: number | null
+          buyer_address: string | null
+          buyer_birth_date: string | null
+          buyer_birth_place: string | null
+          buyer_children_count: number | null
           buyer_email: string | null
+          buyer_first_name: string | null
+          buyer_last_name: string | null
+          buyer_marital_status: string | null
           buyer_name: string | null
           buyer_phone: string | null
+          buyer_profession: string | null
           created_at: string
           hectare_id: string | null
           id: string
@@ -151,9 +183,17 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          buyer_address?: string | null
+          buyer_birth_date?: string | null
+          buyer_birth_place?: string | null
+          buyer_children_count?: number | null
           buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
+          buyer_profession?: string | null
           created_at?: string
           hectare_id?: string | null
           id?: string
@@ -173,9 +213,17 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          buyer_address?: string | null
+          buyer_birth_date?: string | null
+          buyer_birth_place?: string | null
+          buyer_children_count?: number | null
           buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
+          buyer_profession?: string | null
           created_at?: string
           hectare_id?: string | null
           id?: string

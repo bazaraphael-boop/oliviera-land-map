@@ -86,6 +86,12 @@ const Acheteurs = () => {
     nom: "",
     post_nom: "",
     prenom: "",
+    profession: "",
+    birth_place: "",
+    birth_date: "",
+    marital_status: "",
+    children_count: "",
+    address: "",
     buyer_phone: "",
     buyer_email: "",
     purchase_type: "hectare",
@@ -400,6 +406,14 @@ const Acheteurs = () => {
 
         const updateData = {
           buyer_name: fullName,
+          buyer_last_name: newBuyerForm.post_nom || null,
+          buyer_first_name: newBuyerForm.prenom || null,
+          buyer_profession: newBuyerForm.profession || null,
+          buyer_birth_place: newBuyerForm.birth_place || null,
+          buyer_birth_date: newBuyerForm.birth_date || null,
+          buyer_marital_status: newBuyerForm.marital_status || null,
+          buyer_children_count: newBuyerForm.children_count ? parseInt(newBuyerForm.children_count) : null,
+          buyer_address: newBuyerForm.address || null,
           buyer_phone: newBuyerForm.buyer_phone || null,
           buyer_email: newBuyerForm.buyer_email || null,
           status: "vendu",
@@ -478,6 +492,12 @@ const Acheteurs = () => {
         nom: "",
         post_nom: "",
         prenom: "",
+        profession: "",
+        birth_place: "",
+        birth_date: "",
+        marital_status: "",
+        children_count: "",
+        address: "",
         buyer_phone: "",
         buyer_email: "",
         purchase_type: "hectare",
@@ -1047,23 +1067,101 @@ const Acheteurs = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Téléphone</Label>
+                          <Label className="text-sm font-medium">Profession *</Label>
+                          <Input
+                            value={newBuyerForm.profession}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, profession: e.target.value })}
+                            placeholder="Profession"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">État civil *</Label>
+                          <Select
+                            value={newBuyerForm.marital_status}
+                            onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, marital_status: value })}
+                          >
+                            <SelectTrigger className="mt-1.5 bg-background">
+                              <SelectValue placeholder="Sélectionner" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
+                              <SelectItem value="celibataire">Célibataire</SelectItem>
+                              <SelectItem value="marie">Marié(e)</SelectItem>
+                              <SelectItem value="divorce">Divorcé(e)</SelectItem>
+                              <SelectItem value="veuf">Veuf/Veuve</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Lieu de naissance *</Label>
+                          <Input
+                            value={newBuyerForm.birth_place}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, birth_place: e.target.value })}
+                            placeholder="Ville, Pays"
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Date de naissance *</Label>
+                          <Input
+                            type="date"
+                            value={newBuyerForm.birth_date}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, birth_date: e.target.value })}
+                            className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium">Nombre d'enfants (facultatif)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={newBuyerForm.children_count}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, children_count: e.target.value })}
+                            placeholder="0"
+                            className="mt-1.5 bg-background"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Téléphone *</Label>
                           <Input
                             value={newBuyerForm.buyer_phone}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
                             placeholder="+243 XXX XXX XXX"
                             className="mt-1.5 bg-background"
+                            required
                           />
                         </div>
-                        
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Email</Label>
+                          <Label className="text-sm font-medium">Email *</Label>
                           <Input
                             type="email"
                             value={newBuyerForm.buyer_email}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
                             placeholder="email@example.com"
                             className="mt-1.5 bg-background"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Adresse *</Label>
+                          <Input
+                            value={newBuyerForm.address}
+                            onChange={(e) => setNewBuyerForm({ ...newBuyerForm, address: e.target.value })}
+                            placeholder="Adresse complète"
+                            className="mt-1.5 bg-background"
+                            required
                           />
                         </div>
                       </div>
