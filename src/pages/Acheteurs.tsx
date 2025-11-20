@@ -28,6 +28,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { BuyerDocuments } from "@/components/BuyerDocuments";
 
 interface Acheteur {
   id: string;
@@ -955,6 +956,14 @@ const Acheteurs = () => {
                       </Card>
                     ))}
                   </div>
+                </div>
+                
+                {/* Section Documents */}
+                <div className="pt-6 border-t border-border">
+                  <BuyerDocuments 
+                    buyerId={`${selectedAcheteur.buyer_name}-${selectedAcheteur.buyer_phone || selectedAcheteur.buyer_email}`}
+                    buyerName={selectedAcheteur.buyer_name}
+                  />
                 </div>
               </div>
             )}
