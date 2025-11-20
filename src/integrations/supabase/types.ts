@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      buyer_documents: {
+        Row: {
+          buyer_id: string
+          document_type: string
+          file_name: string
+          file_path: string
+          id: string
+          notes: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          buyer_id: string
+          document_type: string
+          file_name: string
+          file_path: string
+          id?: string
+          notes?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          buyer_id?: string
+          document_type?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          notes?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
