@@ -374,6 +374,12 @@ const Acheteurs = () => {
   const handleNewBuyerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Vérifier les champs obligatoires
+    if (!newBuyerForm.nom.trim() || !newBuyerForm.post_nom.trim() || !newBuyerForm.prenom.trim()) {
+      toast.error("Le nom, post-nom et prénom sont obligatoires");
+      return;
+    }
+    
     // Vérifier si des items sont sélectionnés
     const hasSelection = newBuyerForm.item_type === "hectare" 
       ? newBuyerForm.selected_item 
@@ -1076,17 +1082,16 @@ const Acheteurs = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Profession *</Label>
+                          <Label className="text-sm font-medium">Profession (facultatif)</Label>
                           <Input
                             value={newBuyerForm.profession}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, profession: e.target.value })}
                             placeholder="Profession"
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">État civil *</Label>
+                          <Label className="text-sm font-medium">État civil (facultatif)</Label>
                           <Select
                             value={newBuyerForm.marital_status}
                             onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, marital_status: value })}
@@ -1106,23 +1111,21 @@ const Acheteurs = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Lieu de naissance *</Label>
+                          <Label className="text-sm font-medium">Lieu de naissance (facultatif)</Label>
                           <Input
                             value={newBuyerForm.birth_place}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, birth_place: e.target.value })}
                             placeholder="Ville, Pays"
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Date de naissance *</Label>
+                          <Label className="text-sm font-medium">Date de naissance (facultatif)</Label>
                           <Input
                             type="date"
                             value={newBuyerForm.birth_date}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, birth_date: e.target.value })}
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                       </div>
@@ -1140,37 +1143,34 @@ const Acheteurs = () => {
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Téléphone *</Label>
+                          <Label className="text-sm font-medium">Téléphone (facultatif)</Label>
                           <Input
                             value={newBuyerForm.buyer_phone}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_phone: e.target.value })}
                             placeholder="+243 XXX XXX XXX"
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Email *</Label>
+                          <Label className="text-sm font-medium">Email (facultatif)</Label>
                           <Input
                             type="email"
                             value={newBuyerForm.buyer_email}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, buyer_email: e.target.value })}
                             placeholder="email@example.com"
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Adresse *</Label>
+                          <Label className="text-sm font-medium">Adresse (facultatif)</Label>
                           <Input
                             value={newBuyerForm.address}
                             onChange={(e) => setNewBuyerForm({ ...newBuyerForm, address: e.target.value })}
                             placeholder="Adresse complète"
                             className="mt-1.5 bg-background"
-                            required
                           />
                         </div>
                       </div>
