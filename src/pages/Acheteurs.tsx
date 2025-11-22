@@ -1238,63 +1238,111 @@ const Acheteurs = () => {
                           </Select>
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">Sélectionner des parcelles *</Label>
-                          {availableParcelles.length > 0 ? (
-                            <div className="max-h-[250px] overflow-y-auto border rounded-md p-3 space-y-2 bg-background">
-                              {availableParcelles.map((p) => (
-                                <label
-                                  key={p.id}
-                                  className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={newBuyerForm.selected_parcelles.includes(p.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setNewBuyerForm(prev => ({
-                                        ...prev,
-                                        selected_parcelles: checked
-                                          ? [...prev.selected_parcelles, p.id]
-                                          : prev.selected_parcelles.filter(id => id !== p.id)
-                                      }));
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <Label className="text-sm font-medium">Sélectionner un hectare *</Label>
+                            <Select
+                              value={newBuyerForm.selected_item}
+                              onValueChange={(value) => {
+                                setNewBuyerForm({ 
+                                  ...newBuyerForm, 
+                                  selected_item: value,
+                                  selected_parcelles: [] // Réinitialiser la sélection
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="mt-1.5 bg-background">
+                                <SelectValue placeholder="Choisir un hectare" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
+                                {(() => {
+                                  // Grouper les parcelles par hectare
+                                  const hectareGroups: Record<string, { name: string; parcelles: any[] }> = availableParcelles.reduce((acc, p) => {
+                                    if (!p.hectare_id) return acc;
+                                    if (!acc[p.hectare_id]) {
+                                      acc[p.hectare_id] = {
+                                        name: p.hectares?.name || 'Hectare',
+                                        parcelles: []
+                                      };
+                                    }
+                                    acc[p.hectare_id].parcelles.push(p);
+                                    return acc;
+                                  }, {} as Record<string, { name: string; parcelles: any[] }>);
+
+                                  return Object.entries(hectareGroups).length > 0 ? (
+                                    Object.entries(hectareGroups).map(([hectareId, group]) => (
+                                      <SelectItem key={hectareId} value={hectareId}>
+                                        {group.name} ({group.parcelles.length} parcelles disponibles)
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="none" disabled>Aucune parcelle disponible</SelectItem>
+                                  );
+                                })()}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {newBuyerForm.selected_item && (() => {
+                            const parcellesInHectare = availableParcelles.filter(p => p.hectare_id === newBuyerForm.selected_item);
+                            const maxParcelles = Math.min(parcellesInHectare.length, 15);
+
+                            return (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label className="text-sm font-medium">Nombre de parcelles à acheter *</Label>
+                                  <Select
+                                    value={newBuyerForm.selected_parcelles.length.toString()}
+                                    onValueChange={(value) => {
+                                      const count = parseInt(value);
+                                      // Sélectionner automatiquement les N premières parcelles disponibles
+                                      const selectedIds = parcellesInHectare.slice(0, count).map(p => p.id);
+                                      setNewBuyerForm({ 
+                                        ...newBuyerForm, 
+                                        selected_parcelles: selectedIds,
+                                        merge_parcelles: count > 1 // Fusionner automatiquement si plus d'une parcelle
+                                      });
                                     }}
-                                    className="w-4 h-4 rounded border-gray-300"
-                                  />
-                                  <span className="text-sm flex-1">
-                                    Parcelle {p.numero} - {p.surface} m² - ${p.prix.toLocaleString()}
-                                    {p.hectares && <span className="text-muted-foreground ml-1">({p.hectares.name})</span>}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground italic py-2">Aucune parcelle disponible</p>
-                          )}
-                          
-                          {/* Option de fusion visuelle */}
-                          {newBuyerForm.selected_parcelles.length > 1 && (
-                            <label className="flex items-center gap-2 p-3 rounded-md bg-muted/30 border border-border cursor-pointer hover:bg-muted/50 transition-colors">
-                              <input
-                                type="checkbox"
-                                checked={newBuyerForm.merge_parcelles}
-                                onChange={(e) => setNewBuyerForm({ ...newBuyerForm, merge_parcelles: e.target.checked })}
-                                className="w-4 h-4 rounded border-gray-300"
-                              />
-                              <div>
-                                <span className="text-sm font-medium">Fusionner visuellement les parcelles</span>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  Les parcelles seront affichées comme un seul bloc dans la grille tout en conservant leur nombre
-                                </p>
+                                  >
+                                    <SelectTrigger className="mt-1.5 bg-background">
+                                      <SelectValue placeholder="Sélectionner" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
+                                      {Array.from({ length: maxParcelles }, (_, i) => i + 1).map(num => (
+                                        <SelectItem key={num} value={num.toString()}>
+                                          {num} parcelle{num > 1 ? 's' : ''}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {newBuyerForm.selected_parcelles.length > 0 && (
+                                  <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                                    <p className="text-sm font-medium text-primary">
+                                      ✓ {newBuyerForm.selected_parcelles.length} parcelle(s) sélectionnée(s)
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {newBuyerForm.selected_parcelles.map(id => {
+                                        const parcelle = parcellesInHectare.find(p => p.id === id);
+                                        return parcelle ? (
+                                          <Badge key={id} variant="outline" className="text-xs">
+                                            Parcelle {parcelle.numero}
+                                          </Badge>
+                                        ) : null;
+                                      })}
+                                    </div>
+                                    {newBuyerForm.selected_parcelles.length > 1 && (
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
+                                        Les parcelles seront fusionnées visuellement avec le même numéro RMB
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            </label>
-                          )}
-                          
-                          {newBuyerForm.selected_parcelles.length > 0 && (
-                            <p className="text-sm text-primary font-medium">
-                              {newBuyerForm.selected_parcelles.length} parcelle(s) sélectionnée(s)
-                            </p>
-                          )}
+                            );
+                          })()}
                         </div>
                       )}
 
