@@ -975,13 +975,20 @@ const Hectares = () => {
                             hasDuplicateRMB 
                               ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
                               : isVendu 
-                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}${mergedCount > 1 ? ` (${mergedCount} parcelles)` : ''}` 
+                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}${mergedCount > 1 ? ` (${mergedCount} parcelles)` : ''}${parcelle?.rmb_number ? ` - RMB: ${parcelle.rmb_number}` : ''}` 
                                 : 'Disponible - Cliquez pour voir'
                           }
                         >
                           <span className="text-2xl">{parcelle.numero}</span>
                           {mergedCount > 1 && (
-                            <span className="text-sm mt-1">({mergedCount} parcelles)</span>
+                            <span className="text-sm mt-1 font-semibold">({mergedCount} parcelles)</span>
+                          )}
+                          {parcelle?.rmb_number && isVendu && (
+                            <div className="absolute bottom-2 left-2 right-2">
+                              <div className="px-2 py-1 bg-background/90 rounded text-xs font-mono text-foreground truncate text-center border border-border">
+                                {parcelle.rmb_number}
+                              </div>
+                            </div>
                           )}
                           {isVendu && (
                             <div className="absolute top-1 right-1">
