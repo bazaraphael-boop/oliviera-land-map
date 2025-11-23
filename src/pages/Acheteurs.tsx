@@ -83,6 +83,7 @@ const Acheteurs = () => {
   const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
   const [availableHectares, setAvailableHectares] = useState<any[]>([]);
   const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
+  const [allParcellesInSelectedHectare, setAllParcellesInSelectedHectare] = useState<any[]>([]);
   const [newBuyerForm, setNewBuyerForm] = useState({
     nom: "",
     post_nom: "",
@@ -122,6 +123,21 @@ const Acheteurs = () => {
       loadAvailableItems();
     }
   }, [showNewBuyerDialog, newBuyerForm.item_type]);
+
+  useEffect(() => {
+    // Charger toutes les parcelles (vendues et disponibles) de l'hectare sélectionné
+    if (newBuyerForm.selected_item && newBuyerForm.item_type === "parcelle") {
+      supabase
+        .from("parcelles")
+        .select("id, surface")
+        .eq("hectare_id", newBuyerForm.selected_item)
+        .then(({ data }) => {
+          if (data) setAllParcellesInSelectedHectare(data);
+        });
+    } else {
+      setAllParcellesInSelectedHectare([]);
+    }
+  }, [newBuyerForm.selected_item, newBuyerForm.item_type]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1285,12 +1301,36 @@ const Acheteurs = () => {
 
                           {newBuyerForm.selected_item && (() => {
                             const parcellesInHectare = availableParcelles.filter(p => p.hectare_id === newBuyerForm.selected_item);
-                            const maxParcelles = Math.min(parcellesInHectare.length, 15);
+                            
+                            // Calculer le nombre d'emplacements déjà occupés dans l'hectare
+                            const occupiedSlots = allParcellesInSelectedHectare.reduce((total, p) => {
+                              return total + (p.surface === 1200 ? 2 : 1);
+                            }, 0);
+                            
+                            const availableSlots = 15 - occupiedSlots;
+                            
+                            // Calculer combien de parcelles on peut acheter en fonction des emplacements disponibles
+                            let maxParcelles = 0;
+                            let slotsUsed = 0;
+                            for (const parcelle of parcellesInHectare) {
+                              const slotsNeeded = parcelle.surface === 1200 ? 2 : 1;
+                              if (slotsUsed + slotsNeeded <= availableSlots) {
+                                maxParcelles++;
+                                slotsUsed += slotsNeeded;
+                              } else {
+                                break;
+                              }
+                            }
 
                             return (
                               <div className="space-y-3">
                                 <div>
-                                  <Label className="text-sm font-medium">Nombre de parcelles à acheter *</Label>
+                                  <Label className="text-sm font-medium">
+                                    Nombre de parcelles à acheter * 
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      ({availableSlots} emplacements disponibles)
+                                    </span>
+                                  </Label>
                                   <Select
                                     value={newBuyerForm.selected_parcelles.length.toString()}
                                     onValueChange={(value) => {
@@ -1308,11 +1348,15 @@ const Acheteurs = () => {
                                       <SelectValue placeholder="Sélectionner" />
                                     </SelectTrigger>
                                     <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
-                                      {Array.from({ length: maxParcelles }, (_, i) => i + 1).map(num => (
-                                        <SelectItem key={num} value={num.toString()}>
-                                          {num} parcelle{num > 1 ? 's' : ''}
-                                        </SelectItem>
-                                      ))}
+                                      {maxParcelles === 0 ? (
+                                        <SelectItem value="0" disabled>Aucune parcelle disponible</SelectItem>
+                                      ) : (
+                                        Array.from({ length: maxParcelles }, (_, i) => i + 1).map(num => (
+                                          <SelectItem key={num} value={num.toString()}>
+                                            {num} parcelle{num > 1 ? 's' : ''}
+                                          </SelectItem>
+                                        ))
+                                      )}
                                     </SelectContent>
                                   </Select>
                                 </div>
