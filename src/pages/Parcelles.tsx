@@ -162,16 +162,22 @@ const Parcelles = () => {
       // Vérifier combien de parcelles existent déjà dans cet hectare
       const { data: existingParcelles, error: countError } = await supabase
         .from("parcelles")
-        .select("id", { count: "exact" })
+        .select("id, surface", { count: "exact" })
         .eq("hectare_id", formData.hectare_id);
 
       if (countError) throw countError;
 
-      const parcelleCount = existingParcelles?.length || 0;
+      // Calculer le nombre d'emplacements occupés (1200m² = 2 emplacements)
+      const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
+        return total + (p.surface === 1200 ? 2 : 1);
+      }, 0);
+      
+      // Calculer les emplacements que la nouvelle parcelle va occuper
+      const newParcelleSlots = parseFloat(formData.surface) === 1200 ? 2 : 1;
 
-      // Un hectare ne peut avoir que 15 parcelles maximum
-      if (parcelleCount >= 15) {
-        toast.error("Limite atteinte : un hectare ne peut contenir que 15 parcelles maximum");
+      // Un hectare ne peut avoir que 15 emplacements maximum
+      if (occupiedSlots + newParcelleSlots > 15) {
+        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleSlots} emplacements et l'hectare n'a plus assez d'espace (${15 - occupiedSlots} emplacements disponibles)`);
         return;
       }
 
@@ -256,20 +262,26 @@ const Parcelles = () => {
     if (!selectedParcelle) return;
 
     try {
-      // Vérifier si on change d'hectare et si le nouvel hectare a déjà 15 parcelles
+      // Vérifier si on change d'hectare et si le nouvel hectare a assez d'emplacements
       const newHectareId = editFormData.hectare_id || selectedParcelle.hectare_id;
       if (newHectareId !== selectedParcelle.hectare_id) {
         const { data: existingParcelles, error: countError } = await supabase
           .from("parcelles")
-          .select("id", { count: "exact" })
+          .select("id, surface", { count: "exact" })
           .eq("hectare_id", newHectareId);
 
         if (countError) throw countError;
 
-        const parcelleCount = existingParcelles?.length || 0;
+        // Calculer le nombre d'emplacements occupés
+        const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
+          return total + (p.surface === 1200 ? 2 : 1);
+        }, 0);
+        
+        // Calculer les emplacements que cette parcelle va occuper (utiliser la surface actuelle de la parcelle)
+        const newParcelleSlots = selectedParcelle.surface === 1200 ? 2 : 1;
 
-        if (parcelleCount >= 15) {
-          toast.error("Limite atteinte : l'hectare sélectionné contient déjà 15 parcelles maximum");
+        if (occupiedSlots + newParcelleSlots > 15) {
+          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'emplacements disponibles (${15 - occupiedSlots} emplacements disponibles, ${newParcelleSlots} requis)`);
           return;
         }
       }

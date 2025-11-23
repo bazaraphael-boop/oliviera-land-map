@@ -947,8 +947,13 @@ const Hectares = () => {
                       const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
                       
                       // Calculer la taille du groupe fusionné
+                      // Calculer le nombre de cellules basé sur la surface ou la fusion
                       let mergedCount = 1;
-                      if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
+                      
+                      // Si la surface est 1200 m², occuper 2 cellules
+                      if (parcelle?.surface === 1200) {
+                        mergedCount = 2;
+                      } else if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
                         mergedCount = parcelles.filter(p => p?.merged_group_id === parcelle.merged_group_id).length;
                       }
                       
