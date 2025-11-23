@@ -210,7 +210,7 @@ const Acheteurs = () => {
           rmb_number: parcelle.rmb_number,
           hectares: parcelle.hectares,
         });
-        acheteur.totalAchat += Number(parcelle.amount_paid || parcelle.prix);
+        acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : Number(parcelle.prix || 0);
         acheteur.nombreParcelles += 1;
 
         if (parcelle.buyer_phone && !acheteur.buyer_phone) {
@@ -254,7 +254,7 @@ const Acheteurs = () => {
           purchase_type: hectare.purchase_type,
           rmb_number: hectare.rmb_number,
         });
-        acheteur.totalAchat += Number(hectare.amount_paid || hectare.prix);
+        acheteur.totalAchat += hectare.sale_type === 'onereux' ? 0 : Number(hectare.prix || 0);
         acheteur.nombreHectares += 1;
 
         if (hectare.buyer_phone && !acheteur.buyer_phone) {
