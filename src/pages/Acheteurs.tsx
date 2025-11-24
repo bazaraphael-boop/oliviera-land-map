@@ -1303,7 +1303,15 @@ const Acheteurs = () => {
                             const parcellesInHectare = availableParcelles.filter(p => p.hectare_id === newBuyerForm.selected_item);
                             
                             // Calculer le nombre d'emplacements déjà occupés dans l'hectare
+                            const processedGroups = new Set<string>();
                             const occupiedSlots = allParcellesInSelectedHectare.reduce((total, p) => {
+                              if (p.merged_group_id) {
+                                if (!processedGroups.has(p.merged_group_id)) {
+                                  processedGroups.add(p.merged_group_id);
+                                  return total + 1;
+                                }
+                                return total;
+                              }
                               return total + Math.ceil(p.surface / 600);
                             }, 0);
                             
