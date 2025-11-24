@@ -1302,29 +1302,21 @@ const Acheteurs = () => {
                           {newBuyerForm.selected_item && (() => {
                             const parcellesInHectare = availableParcelles.filter(p => p.hectare_id === newBuyerForm.selected_item);
                             
-                            // Calculer le nombre d'emplacements déjà occupés dans l'hectare
-                            const processedGroups = new Set<string>();
-                            const occupiedSlots = allParcellesInSelectedHectare.reduce((total, p) => {
-                              if (p.merged_group_id) {
-                                if (!processedGroups.has(p.merged_group_id)) {
-                                  processedGroups.add(p.merged_group_id);
-                                  return total + 1;
-                                }
-                                return total;
-                              }
+                            // Calculer l'effectif déjà occupé dans l'hectare
+                            const occupiedEffectif = allParcellesInSelectedHectare.reduce((total, p) => {
                               return total + Math.ceil(p.surface / 600);
                             }, 0);
                             
-                            const availableSlots = 15 - occupiedSlots;
+                            const availableEffectif = 15 - occupiedEffectif;
                             
-                            // Calculer combien de parcelles on peut acheter en fonction des emplacements disponibles
+                            // Calculer combien de parcelles on peut acheter en fonction de l'effectif disponible
                             let maxParcelles = 0;
-                            let slotsUsed = 0;
+                            let effectifUsed = 0;
                             for (const parcelle of parcellesInHectare) {
-                              const slotsNeeded = Math.ceil(parcelle.surface / 600);
-                              if (slotsUsed + slotsNeeded <= availableSlots) {
+                              const effectifNeeded = Math.ceil(parcelle.surface / 600);
+                              if (effectifUsed + effectifNeeded <= availableEffectif) {
                                 maxParcelles++;
-                                slotsUsed += slotsNeeded;
+                                effectifUsed += effectifNeeded;
                               } else {
                                 break;
                               }
@@ -1336,7 +1328,7 @@ const Acheteurs = () => {
                                   <Label className="text-sm font-medium">
                                     Nombre de parcelles à acheter * 
                                     <span className="text-xs text-muted-foreground ml-2">
-                                      ({availableSlots} emplacements disponibles)
+                                      ({availableEffectif} en effectif disponible)
                                     </span>
                                   </Label>
                                   <Select

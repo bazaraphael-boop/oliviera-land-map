@@ -167,29 +167,18 @@ const Parcelles = () => {
 
       if (countError) throw countError;
 
-      // Calculer le nombre d'emplacements occupés
-      // Règle: parcelles avec même merged_group_id = 1 emplacement total
-      const processedGroups = new Set<string>();
-      const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-        // Si la parcelle fait partie d'un groupe fusionné
-        if (p.merged_group_id) {
-          // Ne compter qu'une fois par groupe
-          if (!processedGroups.has(p.merged_group_id)) {
-            processedGroups.add(p.merged_group_id);
-            return total + 1;
-          }
-          return total;
-        }
-        // Sinon compter selon la surface
+      // Calculer l'effectif occupé (somme de Math.ceil(surface/600))
+      // Un hectare peut avoir max 15 en effectif
+      const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
         return total + Math.ceil(p.surface / 600);
       }, 0);
       
-      // La nouvelle parcelle occupe des emplacements selon sa surface
-      const newParcelleSlots = Math.ceil(parseFloat(formData.surface) / 600);
+      // La nouvelle parcelle contribue à l'effectif selon sa surface
+      const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
 
-      // Un hectare ne peut avoir que 15 emplacements maximum
-      if (occupiedSlots + newParcelleSlots > 15) {
-        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleSlots} emplacements et l'hectare n'a plus assez d'espace (${15 - occupiedSlots} emplacements disponibles)`);
+      // Un hectare ne peut avoir que 15 en effectif maximum
+      if (occupiedEffectif + newParcelleEffectif > 15) {
+        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${15 - occupiedEffectif} en effectif disponible)`);
         return;
       }
 
@@ -284,24 +273,16 @@ const Parcelles = () => {
 
         if (countError) throw countError;
 
-        // Calculer le nombre d'emplacements occupés
-        const processedGroups = new Set<string>();
-        const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-          if (p.merged_group_id) {
-            if (!processedGroups.has(p.merged_group_id)) {
-              processedGroups.add(p.merged_group_id);
-              return total + 1;
-            }
-            return total;
-          }
+        // Calculer l'effectif occupé
+        const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
           return total + Math.ceil(p.surface / 600);
         }, 0);
         
-        // Calculer les emplacements que cette parcelle va occuper
-        const newParcelleSlots = Math.ceil(selectedParcelle.surface / 600);
+        // Calculer l'effectif que cette parcelle va ajouter
+        const newParcelleEffectif = Math.ceil(selectedParcelle.surface / 600);
 
-        if (occupiedSlots + newParcelleSlots > 15) {
-          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'emplacements disponibles (${15 - occupiedSlots} emplacements disponibles, ${newParcelleSlots} requis)`);
+        if (occupiedEffectif + newParcelleEffectif > 15) {
+          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${15 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
           return;
         }
       }
