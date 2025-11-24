@@ -162,20 +162,29 @@ const Parcelles = () => {
       // Vérifier combien de parcelles existent déjà dans cet hectare
       const { data: existingParcelles, error: countError } = await supabase
         .from("parcelles")
-        .select("id, surface", { count: "exact" })
+        .select("id, surface, merged_group_id", { count: "exact" })
         .eq("hectare_id", formData.hectare_id);
 
       if (countError) throw countError;
 
       // Calculer le nombre d'emplacements occupés
-      // Règle: parcelles fusionnées = 1 emplacement, autres = ceil(surface/600)
+      // Règle: parcelles avec même merged_group_id = 1 emplacement total
+      const processedGroups = new Set<string>();
       const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-        // Les parcelles fusionnées comptent comme 1 emplacement
-        const slots = Math.ceil(p.surface / 600);
-        return total + slots;
+        // Si la parcelle fait partie d'un groupe fusionné
+        if (p.merged_group_id) {
+          // Ne compter qu'une fois par groupe
+          if (!processedGroups.has(p.merged_group_id)) {
+            processedGroups.add(p.merged_group_id);
+            return total + 1;
+          }
+          return total;
+        }
+        // Sinon compter selon la surface
+        return total + Math.ceil(p.surface / 600);
       }, 0);
       
-      // Calculer les emplacements que la nouvelle parcelle va occuper
+      // La nouvelle parcelle occupe des emplacements selon sa surface
       const newParcelleSlots = Math.ceil(parseFloat(formData.surface) / 600);
 
       // Un hectare ne peut avoir que 15 emplacements maximum
@@ -270,15 +279,22 @@ const Parcelles = () => {
       if (newHectareId !== selectedParcelle.hectare_id) {
         const { data: existingParcelles, error: countError } = await supabase
           .from("parcelles")
-          .select("id, surface", { count: "exact" })
+          .select("id, surface, merged_group_id", { count: "exact" })
           .eq("hectare_id", newHectareId);
 
         if (countError) throw countError;
 
         // Calculer le nombre d'emplacements occupés
+        const processedGroups = new Set<string>();
         const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-          const slots = Math.ceil(p.surface / 600);
-          return total + slots;
+          if (p.merged_group_id) {
+            if (!processedGroups.has(p.merged_group_id)) {
+              processedGroups.add(p.merged_group_id);
+              return total + 1;
+            }
+            return total;
+          }
+          return total + Math.ceil(p.surface / 600);
         }, 0);
         
         // Calculer les emplacements que cette parcelle va occuper
