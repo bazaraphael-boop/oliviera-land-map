@@ -1304,7 +1304,7 @@ const Acheteurs = () => {
                             
                             // Calculer le nombre d'emplacements déjà occupés dans l'hectare
                             const occupiedSlots = allParcellesInSelectedHectare.reduce((total, p) => {
-                              return total + (p.surface === 1200 ? 2 : 1);
+                              return total + Math.ceil(p.surface / 600);
                             }, 0);
                             
                             const availableSlots = 15 - occupiedSlots;
@@ -1313,7 +1313,7 @@ const Acheteurs = () => {
                             let maxParcelles = 0;
                             let slotsUsed = 0;
                             for (const parcelle of parcellesInHectare) {
-                              const slotsNeeded = parcelle.surface === 1200 ? 2 : 1;
+                              const slotsNeeded = Math.ceil(parcelle.surface / 600);
                               if (slotsUsed + slotsNeeded <= availableSlots) {
                                 maxParcelles++;
                                 slotsUsed += slotsNeeded;
