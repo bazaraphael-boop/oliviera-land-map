@@ -167,13 +167,16 @@ const Parcelles = () => {
 
       if (countError) throw countError;
 
-      // Calculer le nombre d'emplacements occupés (1200m² = 2 emplacements)
+      // Calculer le nombre d'emplacements occupés
+      // Règle: parcelles fusionnées = 1 emplacement, autres = ceil(surface/600)
       const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-        return total + (p.surface === 1200 ? 2 : 1);
+        // Les parcelles fusionnées comptent comme 1 emplacement
+        const slots = Math.ceil(p.surface / 600);
+        return total + slots;
       }, 0);
       
       // Calculer les emplacements que la nouvelle parcelle va occuper
-      const newParcelleSlots = parseFloat(formData.surface) === 1200 ? 2 : 1;
+      const newParcelleSlots = Math.ceil(parseFloat(formData.surface) / 600);
 
       // Un hectare ne peut avoir que 15 emplacements maximum
       if (occupiedSlots + newParcelleSlots > 15) {
@@ -274,11 +277,12 @@ const Parcelles = () => {
 
         // Calculer le nombre d'emplacements occupés
         const occupiedSlots = (existingParcelles || []).reduce((total, p) => {
-          return total + (p.surface === 1200 ? 2 : 1);
+          const slots = Math.ceil(p.surface / 600);
+          return total + slots;
         }, 0);
         
-        // Calculer les emplacements que cette parcelle va occuper (utiliser la surface actuelle de la parcelle)
-        const newParcelleSlots = selectedParcelle.surface === 1200 ? 2 : 1;
+        // Calculer les emplacements que cette parcelle va occuper
+        const newParcelleSlots = Math.ceil(selectedParcelle.surface / 600);
 
         if (occupiedSlots + newParcelleSlots > 15) {
           toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'emplacements disponibles (${15 - occupiedSlots} emplacements disponibles, ${newParcelleSlots} requis)`);

@@ -950,11 +950,12 @@ const Hectares = () => {
                       // Calculer le nombre de cellules basé sur la surface ou la fusion
                       let mergedCount = 1;
                       
-                      // Si la surface est 1200 m², occuper 2 cellules
-                      if (parcelle?.surface === 1200) {
-                        mergedCount = 2;
-                      } else if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
+                      // Si des parcelles sont fusionnées, compter comme 1 seul emplacement visuel
+                      if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
                         mergedCount = parcelles.filter(p => p?.merged_group_id === parcelle.merged_group_id).length;
+                      } else {
+                        // Sinon, calculer selon la surface (600m² = 1, 1200m² = 2, 1800m² = 3, etc.)
+                        mergedCount = Math.ceil(parcelle?.surface / 600);
                       }
                       
                       // Déterminer le nombre de colonnes et lignes à occuper
