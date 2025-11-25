@@ -164,6 +164,120 @@ const Rapports = () => {
   const duplicateRMBs = getDuplicateRMBs();
   const duplicateRMBDetails = getDuplicateRMBDetails();
 
+  const exportDuplicatesPDF = async () => {
+    try {
+      const pdf = new jsPDF();
+      
+      // Charger l'image pour obtenir ses dimensions réelles
+      const img = new Image();
+      img.src = headerImage;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+      
+      // Calculer les dimensions pour garder les proportions originales
+      const pdfWidth = 210;
+      const imgRatio = img.height / img.width;
+      const headerHeight = pdfWidth * imgRatio;
+      
+      // Ajouter l'en-tête avec proportions originales
+      pdf.addImage(headerImage, 'JPEG', 0, 0, pdfWidth, headerHeight);
+      
+      let yPos = headerHeight + 10;
+      
+      // Titre du rapport
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("RAPPORT DES DOUBLONS RMB", 105, yPos, { align: "center" });
+      yPos += 10;
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
+      yPos += 15;
+
+      // Alerte
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(220, 38, 38);
+      pdf.text(`⚠ ${duplicateRMBs.length} numéro(s) RMB utilisé(s) plusieurs fois`, 20, yPos);
+      pdf.setTextColor(0, 0, 0);
+      yPos += 10;
+
+      // Parcourir chaque doublon
+      Array.from(duplicateRMBDetails.entries()).forEach(([rmb, parcelles]) => {
+        if (yPos > 240) {
+          pdf.addPage();
+          yPos = 20;
+        }
+
+        // En-tête du groupe RMB
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(254, 202, 202);
+        pdf.rect(20, yPos, 170, 8, 'F');
+        pdf.text(`RMB: ${rmb} (${parcelles.length} parcelles)`, 22, yPos + 5.5);
+        yPos += 10;
+
+        // Détails de chaque parcelle
+        parcelles.forEach((parcelle) => {
+          if (yPos > 260) {
+            pdf.addPage();
+            yPos = 20;
+          }
+
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(25, yPos, 160, 25, 'FD');
+
+          // Infos de la parcelle
+          pdf.setFont("helvetica", "bold");
+          pdf.text(`Parcelle: ${parcelle.numero}`, 28, yPos + 5);
+          
+          pdf.setFont("helvetica", "normal");
+          pdf.text(`Hectare: ${parcelle.hectares?.name || "N/A"}`, 28, yPos + 10);
+          pdf.text(`Surface: ${parcelle.surface} m² | Prix: ${parcelle.prix?.toLocaleString()} USD`, 28, yPos + 15);
+          
+          // Statut
+          const statusText = parcelle.status === "vendu" ? "Vendu" : "Disponible";
+          pdf.setFont("helvetica", "bold");
+          pdf.text(`Statut: ${statusText}`, 28, yPos + 20);
+
+          // Si vendu, afficher les infos acheteur
+          if (parcelle.status === "vendu" && parcelle.buyer_name) {
+            pdf.setFont("helvetica", "italic");
+            pdf.setFontSize(8);
+            pdf.text(`Acheteur: ${parcelle.buyer_name}`, 100, yPos + 5);
+            pdf.text(`Tel: ${parcelle.buyer_phone || "N/A"}`, 100, yPos + 10);
+            pdf.text(`Email: ${parcelle.buyer_email || "N/A"}`, 100, yPos + 15);
+            pdf.text(`Payé: ${parcelle.amount_paid?.toLocaleString() || 0} USD`, 100, yPos + 20);
+          }
+
+          yPos += 28;
+        });
+
+        yPos += 5;
+      });
+
+      // Footer
+      const pageCount = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "italic");
+        pdf.setTextColor(100, 100, 100);
+        pdf.text("Rapport de doublons RMB généré automatiquement", 105, 285, { align: "center" });
+      }
+
+      pdf.save(`rapport-doublons-rmb-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success("Rapport des doublons exporté avec succès");
+    } catch (error) {
+      console.error("Erreur export doublons:", error);
+      toast.error("Erreur lors de l'export du rapport des doublons");
+    }
+  };
+
   const exportToPDF = async () => {
     try {
       const pdf = new jsPDF();
@@ -393,17 +507,17 @@ const Rapports = () => {
       pdf.text("LISTE DES ACHETEURS", 20, yPos);
       yPos += 10;
       
-      // Récupérer les acheteurs depuis les parcelles et hectares
+      // Récupérer les acheteurs depuis les parcelles et hectares (vendus + onéreux)
       const { data: parcellesWithBuyers } = await supabase
         .from("parcelles")
         .select("*, hectares(name)")
-        .eq("status", "vendu")
+        .or("status.eq.vendu,sale_type.eq.onereux")
         .not("buyer_name", "is", null);
       
       const { data: hectaresWithBuyers } = await supabase
         .from("hectares")
         .select("*")
-        .eq("status", "sold")
+        .or("status.eq.sold,sale_type.eq.onereux")
         .not("buyer_name", "is", null);
       
       const buyers: Array<{
@@ -417,25 +531,27 @@ const Rapports = () => {
       
       // Ajouter les acheteurs de parcelles
       parcellesWithBuyers?.forEach(p => {
+        const saleTypeLabel = p.sale_type === "onereux" ? " (Onéreux)" : "";
         buyers.push({
           name: p.buyer_name || "N/A",
           phone: p.buyer_phone || "N/A",
           email: p.buyer_email || "N/A",
-          type: "Parcelle",
+          type: `Parcelle${saleTypeLabel}`,
           property: `${(p.hectares as any)?.name || "N/A"} - ${p.numero}`,
-          amount: Number(p.amount_paid || p.prix)
+          amount: p.sale_type === "onereux" ? 0 : Number(p.amount_paid || p.prix)
         });
       });
       
       // Ajouter les acheteurs d'hectares
       hectaresWithBuyers?.forEach(h => {
+        const saleTypeLabel = h.sale_type === "onereux" ? " (Onéreux)" : "";
         buyers.push({
           name: h.buyer_name || "N/A",
           phone: h.buyer_phone || "N/A",
           email: h.buyer_email || "N/A",
-          type: "Hectare",
+          type: `Hectare${saleTypeLabel}`,
           property: h.name,
-          amount: Number(h.amount_paid || h.prix)
+          amount: h.sale_type === "onereux" ? 0 : Number(h.amount_paid || h.prix)
         });
       });
       
@@ -656,13 +772,23 @@ const Rapports = () => {
                   </p>
                 </div>
               </div>
-              <Button 
-                variant="destructive"
-                onClick={() => setDuplicatesReportOpen(true)}
-                className="whitespace-nowrap"
-              >
-                Voir le rapport complet
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={exportDuplicatesPDF}
+                  className="whitespace-nowrap"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Exporter PDF
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={() => setDuplicatesReportOpen(true)}
+                  className="whitespace-nowrap"
+                >
+                  Voir le rapport complet
+                </Button>
+              </div>
             </div>
           </Card>
         )}
