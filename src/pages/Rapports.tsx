@@ -86,10 +86,13 @@ const Rapports = () => {
       // Calculer les statistiques globales
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
-      const soldHectares = hectares?.filter(h => h.status === "sold") || [];
+      const soldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
       
-      const totalRevenue = soldParcelles.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0) +
-                          soldHectares.reduce((sum, h) => sum + Number(h.amount_paid || h.prix), 0);
+      const totalRevenue = soldParcelles.reduce((sum, p) => {
+        return sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix));
+      }, 0) + soldHectares.reduce((sum, h) => {
+        return sum + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix));
+      }, 0);
       const averagePrice = parcelles && parcelles.length > 0 
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / parcelles.length 
         : 0;
