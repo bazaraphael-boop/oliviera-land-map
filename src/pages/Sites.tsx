@@ -98,7 +98,7 @@ const Sites = () => {
         
         stats[hectare.site_id].hectares_count += 1;
         
-        if (hectare.status === "vendu") {
+        if (hectare.status === "sold" || hectare.status === "vendu") {
           stats[hectare.site_id].surface_vendue += parseFloat(hectare.surface || 0);
         }
       });
@@ -341,11 +341,15 @@ const Sites = () => {
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Surface occupée</span>
+                        <span className="text-muted-foreground">Hectares occupés</span>
                         <span className="text-foreground font-medium">
-                          {stats.hectares_count} hectare{stats.hectares_count > 1 ? 's' : ''}
+                          {stats.hectares_count} / {Math.floor(site.surface_totale)}
                         </span>
                       </div>
+                      <Progress 
+                        value={(stats.hectares_count / Math.floor(site.surface_totale)) * 100} 
+                        className="h-2" 
+                      />
                     </div>
 
                     <div>
