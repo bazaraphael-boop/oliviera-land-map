@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,9 @@ const Sites = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showHectaresDialog, setShowHectaresDialog] = useState(false);
+  const [selectedSiteHectares, setSelectedSiteHectares] = useState<any[]>([]);
+  const [selectedSiteName, setSelectedSiteName] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     surface_totale: "",
@@ -192,6 +196,25 @@ const Sites = () => {
     return "text-green-600";
   };
 
+  const showSiteHectares = async (siteId: string, siteName: string) => {
+    try {
+      const { data: hectares, error } = await (supabase as any)
+        .from("hectares")
+        .select("*")
+        .eq("site_id", siteId)
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+
+      setSelectedSiteHectares(hectares || []);
+      setSelectedSiteName(siteName);
+      setShowHectaresDialog(true);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors du chargement des hectares");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen bg-background">
@@ -339,7 +362,10 @@ const Sites = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <div>
+                    <div 
+                      className="cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                      onClick={() => showSiteHectares(site.id, site.name)}
+                    >
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-muted-foreground">Hectares occupés</span>
                         <span className="text-foreground font-medium">
@@ -350,6 +376,9 @@ const Sites = () => {
                         value={(stats.hectares_count / Math.floor(site.surface_totale)) * 100} 
                         className="h-2" 
                       />
+                      <p className="text-xs text-muted-foreground mt-1 text-center">
+                        Cliquez pour voir les détails
+                      </p>
                     </div>
 
                     <div>
@@ -396,6 +425,123 @@ const Sites = () => {
           )}
         </div>
       </div>
+
+      {/* Dialog pour afficher les hectares du site */}
+      <Dialog open={showHectaresDialog} onOpenChange={setShowHectaresDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Hectares du site: {selectedSiteName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedSiteHectares.length} hectare{selectedSiteHectares.length > 1 ? 's' : ''} dans ce site
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            {selectedSiteHectares.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Aucun hectare dans ce site
+              </div>
+            ) : (
+              selectedSiteHectares.map((hectare) => (
+                <Card key={hectare.id} className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h4 className="font-semibold text-lg text-foreground">
+                          {hectare.name}
+                        </h4>
+                        <Badge 
+                          variant={
+                            hectare.status === "sold" || hectare.status === "vendu"
+                              ? "destructive" 
+                              : "default"
+                          }
+                        >
+                          {hectare.status === "sold" || hectare.status === "vendu" ? "Vendu" : "Disponible"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Surface</p>
+                          <p className="font-medium text-foreground">{hectare.surface} ha</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-muted-foreground">Prix</p>
+                          <p className="font-medium text-foreground">
+                            {hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "N/A"}
+                          </p>
+                        </div>
+                        
+                        {hectare.location && (
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground">Localisation</p>
+                            <p className="font-medium text-foreground">{hectare.location}</p>
+                          </div>
+                        )}
+                        
+                        {(hectare.status === "sold" || hectare.status === "vendu") && hectare.buyer_name && (
+                          <>
+                            <div className="col-span-2 pt-2 border-t border-border">
+                              <p className="text-muted-foreground mb-2">Informations acheteur</p>
+                              <div className="space-y-1">
+                                <p className="font-medium text-foreground">{hectare.buyer_name}</p>
+                                {hectare.buyer_phone && (
+                                  <p className="text-sm text-muted-foreground">
+                                    📞 {hectare.buyer_phone}
+                                  </p>
+                                )}
+                                {hectare.buyer_email && (
+                                  <p className="text-sm text-muted-foreground">
+                                    ✉️ {hectare.buyer_email}
+                                  </p>
+                                )}
+                                {hectare.sale_date && (
+                                  <p className="text-sm text-muted-foreground">
+                                    📅 {new Date(hectare.sale_date).toLocaleDateString('fr-FR')}
+                                  </p>
+                                )}
+                                {hectare.rmb_number && (
+                                  <p className="text-sm text-muted-foreground">
+                                    📋 RMB: {hectare.rmb_number}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {hectare.amount_paid && (
+                              <div className="col-span-2">
+                                <div className="flex justify-between items-center p-2 bg-green-500/10 rounded">
+                                  <span className="text-sm text-muted-foreground">Montant payé</span>
+                                  <span className="font-semibold text-green-600">
+                                    {Number(hectare.amount_paid).toLocaleString()} USD
+                                  </span>
+                                </div>
+                                {hectare.remaining_amount && hectare.remaining_amount > 0 && (
+                                  <div className="flex justify-between items-center p-2 bg-orange-500/10 rounded mt-1">
+                                    <span className="text-sm text-muted-foreground">Montant restant</span>
+                                    <span className="font-semibold text-orange-600">
+                                      {Number(hectare.remaining_amount).toLocaleString()} USD
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
