@@ -10,6 +10,7 @@ import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
 import { jsPDF } from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const Dashboard = () => {
     totalParcelles: 0,
     soldParcelles: 0,
   });
+  const [monthlyData, setMonthlyData] = useState<Array<{ month: string; ventes: number; revenus: number }>>([]);
+  const [hectareStats, setHectareStats] = useState<Array<{ id: string; name: string; revenue: number; salesRate: number }>>([]);
 
   useEffect(() => {
     checkUser();
@@ -113,6 +116,68 @@ const Dashboard = () => {
         totalParcelles,
         soldParcelles: soldParcelles.length + soldHectares.length,
       });
+
+      // Calculer les données mensuelles
+      const salesByMonth = new Map<string, { ventes: number; revenus: number }>();
+      
+      soldParcelles.forEach(p => {
+        if (p.sale_date) {
+          const date = new Date(p.sale_date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const existing = salesByMonth.get(monthKey) || { ventes: 0, revenus: 0 };
+          salesByMonth.set(monthKey, {
+            ventes: existing.ventes + 1,
+            revenus: existing.revenus + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix))
+          });
+        }
+      });
+
+      soldHectares.forEach(h => {
+        if (h.sale_date) {
+          const date = new Date(h.sale_date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const existing = salesByMonth.get(monthKey) || { ventes: 0, revenus: 0 };
+          salesByMonth.set(monthKey, {
+            ventes: existing.ventes + 1,
+            revenus: existing.revenus + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix))
+          });
+        }
+      });
+
+      const monthlyDataArray = Array.from(salesByMonth.entries())
+        .map(([monthKey, data]) => {
+          const [year, month] = monthKey.split('-');
+          const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+          return {
+            month: `${monthNames[parseInt(month) - 1]} ${year}`,
+            ventes: data.ventes,
+            revenus: data.revenus,
+            sortKey: monthKey
+          };
+        })
+        .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+        .slice(-12);
+
+      setMonthlyData(monthlyDataArray);
+
+      // Calculer les statistiques par hectare
+      const hectareStatsData = hectares?.map(hectare => {
+        const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
+        const soldInHectare = hectareParcelles.filter(p => p.status === "vendu");
+        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0);
+        const salesRateInHectare = hectareParcelles.length > 0
+          ? (soldInHectare.length / hectareParcelles.length) * 100
+          : 0;
+
+        return {
+          id: hectare.id,
+          name: hectare.name,
+          revenue: revenueInHectare,
+          salesRate: salesRateInHectare,
+        };
+      }) || [];
+
+      setHectareStats(hectareStatsData.filter(h => h.revenue > 0).sort((a, b) => b.revenue - a.revenue));
     } catch (error) {
       console.error("Erreur stats:", error);
     }
@@ -319,8 +384,43 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold text-foreground mb-4">
                 Évolution des Ventes Mensuelles
               </h3>
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                <p className="text-sm">Aucune donnée disponible</p>
+              <div className="h-64">
+                {monthlyData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                      <p className="text-sm">Aucune vente enregistrée</p>
+                      <p className="text-xs mt-1">Les données apparaîtront après les premières ventes</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="month" 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px"
+                        }}
+                        formatter={(value: number, name: string) => {
+                          if (name === "revenus") return [`${value.toLocaleString()} USD`, "Revenus"];
+                          return [value, "Ventes"];
+                        }}
+                      />
+                      <Bar dataKey="ventes" fill="hsl(217, 91%, 60%)" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </Card>
 
@@ -328,20 +428,57 @@ const Dashboard = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">
-                  Performance par Hectare
+                  Performance par Hectare (Top 5)
                 </h3>
               </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-foreground">issetech</p>
-                    <p className="text-sm text-muted-foreground">0/15 parcelles</p>
+              <div className="h-64">
+                {hectareStats.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                      <p className="text-sm">Aucune donnée disponible</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-foreground">0.0%</p>
-                    <p className="text-sm text-muted-foreground">0k USD</p>
-                  </div>
-                </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={hectareStats.slice(0, 5)}
+                        dataKey="revenue"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {hectareStats.slice(0, 5).map((_, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={[
+                              "hsl(217, 91%, 60%)",
+                              "hsl(160, 84%, 39%)",
+                              "hsl(24, 95%, 53%)",
+                              "hsl(271, 91%, 65%)",
+                              "hsl(210, 40%, 50%)"
+                            ][index % 5]} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px"
+                        }}
+                        formatter={(value: number) => `${value.toLocaleString()} USD`}
+                      />
+                      <Legend 
+                        wrapperStyle={{ fontSize: "12px" }}
+                        formatter={(value) => value.length > 15 ? value.substring(0, 15) + "..." : value}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </Card>
           </div>
