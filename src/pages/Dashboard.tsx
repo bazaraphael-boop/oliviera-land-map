@@ -71,30 +71,47 @@ const Dashboard = () => {
 
   const loadStats = async () => {
     try {
-      const { data: parcelles, error } = await supabase
+      // Récupérer toutes les parcelles
+      const { data: parcelles, error: parcellesError } = await supabase
         .from("parcelles")
         .select("*");
 
-      if (error) throw error;
+      if (parcellesError) throw parcellesError;
+
+      // Récupérer tous les hectares
+      const { data: hectares, error: hectaresError } = await supabase
+        .from("hectares")
+        .select("*");
+
+      if (hectaresError) throw hectaresError;
+
+      // Calculer les statistiques globales (même logique que Rapports.tsx)
+      const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
+      const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
+      const soldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
+      
+      // Calculer le revenu total en excluant les ventes onéreuses
+      const totalRevenue = soldParcelles.reduce((sum, p) => {
+        return sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix));
+      }, 0) + soldHectares.reduce((sum, h) => {
+        return sum + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix));
+      }, 0);
 
       const totalParcelles = parcelles?.length || 0;
-      const soldParcelles = parcelles?.filter((p) => p.status === "vendu").length || 0;
-      const totalRevenue = parcelles
-        ?.filter((p) => p.status === "vendu")
-        .reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0) || 0;
       const averagePrice = totalParcelles > 0
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / totalParcelles
         : 0;
-      const available = parcelles?.filter((p) => p.status === "disponible").length || 0;
-      const salesRate = totalParcelles > 0 ? (soldParcelles / totalParcelles) * 100 : 0;
+      const salesRate = totalParcelles > 0
+        ? (soldParcelles.length / totalParcelles) * 100
+        : 0;
 
       setStats({
         totalRevenue,
         salesRate,
         averagePrice,
-        available,
+        available: availableParcelles.length,
         totalParcelles,
-        soldParcelles,
+        soldParcelles: soldParcelles.length + soldHectares.length,
       });
     } catch (error) {
       console.error("Erreur stats:", error);
