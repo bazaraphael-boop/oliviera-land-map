@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import {
   Dialog,
@@ -74,6 +74,7 @@ interface Acheteur {
 
 const Acheteurs = () => {
   const navigate = useNavigate();
+  const { notify } = useNotify();
   const [acheteurs, setAcheteurs] = useState<Acheteur[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -293,7 +294,7 @@ const Acheteurs = () => {
       setAcheteurs(acheteursArray);
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors du chargement des acheteurs");
+      notify("Erreur", "Erreur lors du chargement des acheteurs", "error");
     } finally {
       setLoading(false);
     }
@@ -340,12 +341,12 @@ const Acheteurs = () => {
         if (hectaresError) throw hectaresError;
       }
 
-      toast.success("Acheteur modifié avec succès");
+      notify("Succès", "Acheteur modifié avec succès", "success");
       setShowEditBuyerDialog(false);
       loadAcheteurs(); // Recharger la liste
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de la modification de l'acheteur");
+      notify("Erreur", "Erreur lors de la modification de l'acheteur", "error");
     }
   };
 
@@ -383,7 +384,7 @@ const Acheteurs = () => {
       }
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors du chargement des items disponibles");
+      notify("Erreur", "Erreur lors du chargement des items disponibles", "error");
     }
   };
 
@@ -392,7 +393,7 @@ const Acheteurs = () => {
     
     // Vérifier les champs obligatoires
     if (!newBuyerForm.nom.trim() || !newBuyerForm.post_nom.trim() || !newBuyerForm.prenom.trim()) {
-      toast.error("Le nom, post-nom et prénom sont obligatoires");
+      notify("Erreur", "Le nom, post-nom et prénom sont obligatoires", "error");
       return;
     }
     
@@ -402,7 +403,7 @@ const Acheteurs = () => {
       : newBuyerForm.selected_parcelles.length > 0;
 
     if (!hasSelection) {
-      toast.error("Veuillez sélectionner au moins un hectare ou une parcelle");
+      notify("Erreur", "Veuillez sélectionner au moins un hectare ou une parcelle", "error");
       return;
     }
 
@@ -417,7 +418,7 @@ const Acheteurs = () => {
         const selectedItem = availableHectares.find(h => h.id === newBuyerForm.selected_item);
         
         if (!selectedItem) {
-          toast.error("Hectare sélectionné introuvable");
+          notify("Erreur", "Hectare sélectionné introuvable", "error");
           return;
         }
 
@@ -463,7 +464,7 @@ const Acheteurs = () => {
         );
 
         if (selectedParcelles.length === 0) {
-          toast.error("Parcelles sélectionnées introuvables");
+          notify("Erreur", "Parcelles sélectionnées introuvables", "error");
           return;
         }
 
@@ -509,7 +510,7 @@ const Acheteurs = () => {
         }
       }
 
-      toast.success("Acheteur enregistré avec succès");
+      notify("Succès", "Acheteur enregistré avec succès", "success");
       setShowNewBuyerDialog(false);
       setNewBuyerForm({
         nom: "",
@@ -537,7 +538,7 @@ const Acheteurs = () => {
       loadAcheteurs();
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de l'enregistrement de l'acheteur");
+      notify("Erreur", "Erreur lors de l'enregistrement de l'acheteur", "error");
     }
   };
 
