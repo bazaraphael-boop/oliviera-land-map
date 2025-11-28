@@ -20,13 +20,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <NotificationProvider>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Sonner />
-          <Toaster />
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <NotificationProvider>
+        <TooltipProvider>
+          <BrowserRouter>
+            <Sonner />
+            <Toaster />
           <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
@@ -40,13 +41,14 @@ const App = () => (
           <Route path="/parametres" element={<Parametres />} />
           <Route path="/utilisateurs" element={<Utilisateurs />} />
           <Route path="/documents" element={<Documents />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </NotificationProvider>
-  </QueryClientProvider>
-);
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </NotificationProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
