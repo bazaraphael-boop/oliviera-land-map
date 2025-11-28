@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
-import { toast } from "sonner";
+import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,6 +35,7 @@ interface SiteStats {
 
 const Sites = () => {
   const navigate = useNavigate();
+  const { notify } = useNotify();
   const [sites, setSites] = useState<Site[]>([]);
   const [siteStats, setSiteStats] = useState<Record<string, SiteStats>>({});
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ const Sites = () => {
       setSites((data as any) || []);
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors du chargement des sites");
+      notify("Erreur", "Erreur lors du chargement des sites", "error");
     } finally {
       setLoading(false);
     }
@@ -130,14 +131,14 @@ const Sites = () => {
           .eq("id", editingId);
 
         if (error) throw error;
-        toast.success("Site modifié avec succès");
+        notify("Succès", "Site modifié avec succès", "success");
       } else {
         const { error } = await (supabase as any)
           .from("sites")
           .insert([siteData as any]);
 
         if (error) throw error;
-        toast.success("Site créé avec succès");
+        notify("Succès", "Site créé avec succès", "success");
       }
 
       setIsDialogOpen(false);
@@ -146,7 +147,7 @@ const Sites = () => {
       fetchSiteStats();
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de l'enregistrement du site");
+      notify("Erreur", "Erreur lors de l'enregistrement du site", "error");
     }
   };
 
@@ -171,12 +172,12 @@ const Sites = () => {
         .eq("id", id);
 
       if (error) throw error;
-      toast.success("Site supprimé avec succès");
+      notify("Succès", "Site supprimé avec succès", "success");
       fetchSites();
       fetchSiteStats();
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de la suppression du site");
+      notify("Erreur", "Erreur lors de la suppression du site", "error");
     }
   };
 
@@ -211,7 +212,7 @@ const Sites = () => {
       setShowHectaresDialog(true);
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors du chargement des hectares");
+      notify("Erreur", "Erreur lors du chargement des hectares", "error");
     }
   };
 
