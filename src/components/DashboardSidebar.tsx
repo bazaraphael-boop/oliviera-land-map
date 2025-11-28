@@ -1,6 +1,7 @@
 import { MapPin, Home, Map, Grid3x3, Navigation, BarChart3, FileText, Settings, Users, ShoppingCart, Building2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import NotificationBell from "./NotificationBell";
 
 const menuItems = [
   { icon: Home, label: "Tableau de Bord", path: "/dashboard" },
@@ -20,17 +21,20 @@ const DashboardSidebar = () => {
 
   return (
     <aside className="w-64 bg-card min-h-screen flex flex-col border-r border-border">
-      {/* Logo */}
+      {/* Logo and Notification */}
       <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-            <MapPin className="w-5 h-5 text-primary-foreground" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
+              <MapPin className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-foreground font-bold text-base leading-tight">Concession</h1>
+              <h2 className="text-foreground font-bold text-base leading-tight">d'Oliveira</h2>
+              <p className="text-muted-foreground text-xs mt-0.5">Gestion Pro</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-foreground font-bold text-base leading-tight">Concession</h1>
-            <h2 className="text-foreground font-bold text-base leading-tight">d'Oliveira</h2>
-            <p className="text-muted-foreground text-xs mt-0.5">Gestion Pro</p>
-          </div>
+          <NotificationBell />
         </div>
       </div>
 
