@@ -984,7 +984,7 @@ const Acheteurs = () => {
                 {/* Section Documents */}
                 <div className="pt-6 border-t border-border">
                   <BuyerDocuments 
-                    buyerId={`${selectedAcheteur.buyer_name}-${selectedAcheteur.buyer_phone || selectedAcheteur.buyer_email}`}
+                    buyerId={selectedAcheteur.id}
                     buyerName={selectedAcheteur.buyer_name}
                   />
                 </div>
