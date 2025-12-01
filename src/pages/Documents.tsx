@@ -33,6 +33,28 @@ interface Document {
   parcelle_id: string | null;
 }
 
+interface BuyerDocument {
+  id: string;
+  document_type: string;
+  file_name: string;
+  file_path: string;
+  uploaded_at: string;
+  buyer_id: string;
+  notes: string | null;
+}
+
+interface UnifiedDocument {
+  id: string;
+  type: string;
+  title: string;
+  created_at: string;
+  source: 'parcelle' | 'acheteur';
+  file_url?: string | null;
+  buyer_id?: string;
+  parcelle_id?: string | null;
+  notes?: string | null;
+}
+
 interface Parcelle {
   id: string;
   numero: string;
@@ -40,7 +62,7 @@ interface Parcelle {
 
 const Documents = () => {
   const navigate = useNavigate();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<UnifiedDocument[]>([]);
   const [parcelles, setParcelles] = useState<Parcelle[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,8 +75,45 @@ const Documents = () => {
 
   useEffect(() => {
     checkAuth();
-    loadDocuments();
+    loadAllDocuments();
     loadParcelles();
+
+    // Configuration Realtime pour buyer_documents
+    const buyerDocsChannel = supabase
+      .channel('buyer-documents-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'buyer_documents'
+        },
+        () => {
+          loadAllDocuments();
+        }
+      )
+      .subscribe();
+
+    // Configuration Realtime pour documents
+    const docsChannel = supabase
+      .channel('documents-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'documents'
+        },
+        () => {
+          loadAllDocuments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(buyerDocsChannel);
+      supabase.removeChannel(docsChannel);
+    };
   }, []);
 
   const checkAuth = async () => {
@@ -64,15 +123,52 @@ const Documents = () => {
     }
   };
 
-  const loadDocuments = async () => {
+  const loadAllDocuments = async () => {
     try {
-      const { data, error } = await supabase
+      // Charger les documents parcelles
+      const { data: parcelDocs, error: parcelError } = await supabase
         .from("documents")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setDocuments(data || []);
+      if (parcelError) throw parcelError;
+
+      // Charger les documents acheteurs
+      const { data: buyerDocs, error: buyerError } = await supabase
+        .from("buyer_documents")
+        .select("*")
+        .order("uploaded_at", { ascending: false });
+
+      if (buyerError) throw buyerError;
+
+      // Mapper les documents parcelles
+      const mappedParcelDocs: UnifiedDocument[] = (parcelDocs || []).map(doc => ({
+        id: doc.id,
+        type: doc.type,
+        title: doc.title,
+        created_at: doc.created_at,
+        source: 'parcelle' as const,
+        file_url: doc.file_url,
+        parcelle_id: doc.parcelle_id,
+      }));
+
+      // Mapper les documents acheteurs
+      const mappedBuyerDocs: UnifiedDocument[] = (buyerDocs || []).map(doc => ({
+        id: doc.id,
+        type: doc.document_type,
+        title: doc.file_name,
+        created_at: doc.uploaded_at,
+        source: 'acheteur' as const,
+        buyer_id: doc.buyer_id,
+        notes: doc.notes,
+      }));
+
+      // Fusionner et trier par date
+      const allDocs = [...mappedParcelDocs, ...mappedBuyerDocs].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setDocuments(allDocs);
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors du chargement des documents");
@@ -116,7 +212,7 @@ const Documents = () => {
       toast.success("Document ajouté avec succès");
       setShowAddDialog(false);
       setNewDocument({ type: "", title: "", parcelle_id: "" });
-      loadDocuments();
+      loadAllDocuments();
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de l'ajout du document");
@@ -137,7 +233,7 @@ const Documents = () => {
       if (error) throw error;
 
       toast.success("Document supprimé avec succès");
-      loadDocuments();
+      loadAllDocuments();
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la suppression du document");
@@ -196,13 +292,24 @@ const Documents = () => {
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <FileText className="w-6 h-6 text-primary" />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteDocument(doc.id)}
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {doc.source === 'acheteur' ? (
+                    <span className="text-xs bg-blue-500/10 text-blue-500 px-2 py-1 rounded">
+                      Acheteur
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded">
+                      Parcelle
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteDocument(doc.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
 
               <h3 className="font-semibold text-foreground mb-2">
@@ -219,6 +326,12 @@ const Documents = () => {
                   <Calendar className="w-4 h-4" />
                   <span>{new Date(doc.created_at).toLocaleDateString()}</span>
                 </div>
+
+                {doc.notes && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    {doc.notes}
+                  </p>
+                )}
               </div>
 
               {doc.file_url && (
