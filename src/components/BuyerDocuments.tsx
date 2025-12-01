@@ -66,7 +66,7 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
   ];
 
   useEffect(() => {
-    loadDocuments();
+    checkAuthAndLoadDocuments();
     
     return () => {
       if (stream) {
@@ -74,6 +74,26 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
       }
     };
   }, [buyerId]);
+
+  const checkAuthAndLoadDocuments = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        toast.error("Session expirée", {
+          description: "Veuillez vous reconnecter pour gérer les documents"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      loadDocuments();
+    } catch (error) {
+      console.error("Erreur vérification authentification:", error);
+      toast.error("Erreur d'authentification");
+      setLoading(false);
+    }
+  };
 
   const loadDocuments = async () => {
     try {
@@ -161,8 +181,16 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
 
     setUploading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non authentifié");
+      // Vérifier la session d'abord
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        toast.error("Session expirée", {
+          description: "Veuillez vous reconnecter pour ajouter des documents"
+        });
+        setUploading(false);
+        return;
+      }
 
       // Upload vers storage
       const fileExt = uploadForm.file.name.split(".").pop();
@@ -183,7 +211,7 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
           document_type: uploadForm.document_type,
           file_path: filePath,
           file_name: uploadForm.file.name,
-          uploaded_by: user.id,
+          uploaded_by: session.user.id,
           notes: uploadForm.notes || null,
         });
 
@@ -195,7 +223,16 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
       loadDocuments();
     } catch (error: any) {
       console.error("Erreur upload:", error);
-      toast.error("Erreur lors de l'upload du document");
+      
+      if (error.message?.includes("JWT")) {
+        toast.error("Session expirée", {
+          description: "Veuillez vous reconnecter"
+        });
+      } else {
+        toast.error("Erreur lors de l'upload du document", {
+          description: error.message
+        });
+      }
     } finally {
       setUploading(false);
     }
