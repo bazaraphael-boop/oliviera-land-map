@@ -47,6 +47,8 @@ interface Parcelle {
   sale_type: string;
   purchase_type: string | null;
   rmb_number: string | null;
+  latitude: number | null;
+  longitude: number | null;
   hectares?: {
     name: string;
     rmb_number: string | null;
@@ -57,6 +59,8 @@ interface Hectare {
   id: string;
   name: string;
   rmb_number: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const Parcelles = () => {
@@ -81,6 +85,8 @@ const Parcelles = () => {
     hectare_id: searchParams.get("hectare") || "",
     rmb_number: "",
     sale_type: "normal",
+    latitude: "",
+    longitude: "",
   });
   const [editFormData, setEditFormData] = useState({
     status: "",
@@ -95,6 +101,8 @@ const Parcelles = () => {
     purchase_type: "parcelle",
     rmb_number: "",
     hectare_id: "",
+    latitude: "",
+    longitude: "",
   });
 
   useEffect(() => {
@@ -114,7 +122,7 @@ const Parcelles = () => {
     try {
       const { data, error } = await supabase
         .from("hectares")
-        .select("id, name, rmb_number")
+        .select("id, name, rmb_number, latitude, longitude")
         .order("name");
 
       if (error) throw error;
@@ -130,7 +138,9 @@ const Parcelles = () => {
         *,
         hectares (
           name,
-          rmb_number
+          rmb_number,
+          latitude,
+          longitude
         )
       `);
       
@@ -194,6 +204,8 @@ const Parcelles = () => {
           status: "disponible",
           rmb_number: formData.rmb_number || null,
           sale_type: formData.sale_type,
+          latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+          longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         },
       ]);
 
@@ -207,7 +219,9 @@ const Parcelles = () => {
         prix: "", 
         hectare_id: selectedHectare, 
         rmb_number: "",
-        sale_type: "normal"
+        sale_type: "normal",
+        latitude: "",
+        longitude: "",
       });
       fetchParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
@@ -248,6 +262,8 @@ const Parcelles = () => {
       prix: parcelle.prix?.toString() || "",
       purchase_type: parcelle.purchase_type || "parcelle",
       rmb_number: parcelle.rmb_number || "",
+      latitude: parcelle.latitude?.toString() || "",
+      longitude: parcelle.longitude?.toString() || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -294,6 +310,8 @@ const Parcelles = () => {
         purchase_type: editFormData.purchase_type,
         rmb_number: editFormData.rmb_number || null,
         hectare_id: newHectareId,
+        latitude: editFormData.latitude ? parseFloat(editFormData.latitude) : selectedParcelle.latitude,
+        longitude: editFormData.longitude ? parseFloat(editFormData.longitude) : selectedParcelle.longitude,
       };
 
       if (editFormData.status === "vendu") {
@@ -606,6 +624,31 @@ const Parcelles = () => {
                       placeholder="Ex: RMB-001"
                       className="mt-1"
                     />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Latitude GPS</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={formData.latitude}
+                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                        placeholder="Ex: -5.9338"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Longitude GPS</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={formData.longitude}
+                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                        placeholder="Ex: 12.3528"
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
                 </div>
 

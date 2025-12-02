@@ -15,6 +15,8 @@ interface Hectare {
   surface: number;
   location: string;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const Localisation = () => {
@@ -96,9 +98,9 @@ const Localisation = () => {
       // Ajouter des marqueurs pour chaque hectare
       hectares.forEach((hectare, index) => {
         if (map.current) {
-          // Générer des coordonnées aléatoires autour de Muanda pour la démo
-          const lng = 12.3528 + (Math.random() - 0.5) * 0.1;
-          const lat = -5.9338 + (Math.random() - 0.5) * 0.1;
+          // Utiliser les coordonnées GPS si disponibles, sinon coordonnées aléatoires autour de Muanda
+          const lng = hectare.longitude || (12.3528 + (Math.random() - 0.5) * 0.1);
+          const lat = hectare.latitude || (-5.9338 + (Math.random() - 0.5) * 0.1);
 
           const el = document.createElement("div");
           el.className = "marker";
@@ -116,11 +118,54 @@ const Localisation = () => {
               <p style="margin: 4px 0; font-size: 14px;">Surface: ${hectare.surface} ha</p>
               <p style="margin: 4px 0; font-size: 14px;">Statut: ${hectare.status === "available" ? "Disponible" : "Vendu"}</p>
               ${hectare.location ? `<p style="margin: 4px 0; font-size: 14px;">📍 ${hectare.location}</p>` : ""}
+              ${hectare.latitude && hectare.longitude ? `<p style="margin: 4px 0; font-size: 12px; color: #666;">GPS: ${hectare.latitude.toFixed(6)}, ${hectare.longitude.toFixed(6)}</p>` : ""}
             </div>
           `);
 
           new mapboxgl.Marker(el)
             .setLngLat([lng, lat])
+            .setPopup(popup)
+            .addTo(map.current);
+        }
+      });
+
+      // Récupérer aussi les parcelles avec coordonnées GPS
+      const { data: parcellesData, error: parcellesError } = await supabase
+        .from("parcelles")
+        .select("*")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("numero");
+
+      if (parcellesError) {
+        console.error("Erreur parcelles:", parcellesError);
+      }
+
+      // Ajouter des marqueurs pour chaque parcelle avec coordonnées GPS
+      (parcellesData || []).forEach((parcelle: any) => {
+        if (map.current && parcelle.latitude && parcelle.longitude) {
+          const el = document.createElement("div");
+          el.className = "marker";
+          el.style.backgroundColor = parcelle.status === "disponible" ? "#22c55e" : "#3b82f6";
+          el.style.width = "20px";
+          el.style.height = "20px";
+          el.style.borderRadius = "50%";
+          el.style.border = "2px solid white";
+          el.style.cursor = "pointer";
+          el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+
+          const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
+            <div style="padding: 8px;">
+              <h3 style="font-weight: bold; margin-bottom: 4px;">Parcelle ${parcelle.numero}</h3>
+              <p style="margin: 4px 0; font-size: 13px;">Surface: ${parcelle.surface} m²</p>
+              <p style="margin: 4px 0; font-size: 13px;">Statut: ${parcelle.status === "disponible" ? "Disponible" : "Vendu"}</p>
+              ${parcelle.buyer_name ? `<p style="margin: 4px 0; font-size: 13px;">Acheteur: ${parcelle.buyer_name}</p>` : ""}
+              <p style="margin: 4px 0; font-size: 11px; color: #666;">GPS: ${parcelle.latitude.toFixed(6)}, ${parcelle.longitude.toFixed(6)}</p>
+            </div>
+          `);
+
+          new mapboxgl.Marker(el)
+            .setLngLat([parcelle.longitude, parcelle.latitude])
             .setPopup(popup)
             .addTo(map.current);
         }
@@ -200,11 +245,19 @@ const Localisation = () => {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Disponible</span>
+                    <span className="text-xs text-muted-foreground">Hectare Disponible</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Vendu</span>
+                    <span className="text-xs text-muted-foreground">Hectare Vendu</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-600 border-2 border-white"></div>
+                    <span className="text-xs text-muted-foreground">Parcelle Disponible</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                    <span className="text-xs text-muted-foreground">Parcelle Vendue</span>
                   </div>
                 </div>
               </Card>
