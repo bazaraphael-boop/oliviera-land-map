@@ -101,7 +101,9 @@ export type Database = {
           buyer_profession: string | null
           created_at: string
           id: string
+          latitude: number | null
           location: string | null
+          longitude: number | null
           name: string
           payment_type: string | null
           prix: number | null
@@ -130,7 +132,9 @@ export type Database = {
           buyer_profession?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           name: string
           payment_type?: string | null
           prix?: number | null
@@ -159,7 +163,9 @@ export type Database = {
           buyer_profession?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           name?: string
           payment_type?: string | null
           prix?: number | null
@@ -201,6 +207,8 @@ export type Database = {
           hectare_id: string | null
           id: string
           is_merge_primary: boolean | null
+          latitude: number | null
+          longitude: number | null
           merged_group_id: string | null
           numero: string
           payment_type: string | null
@@ -231,6 +239,8 @@ export type Database = {
           hectare_id?: string | null
           id?: string
           is_merge_primary?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
           merged_group_id?: string | null
           numero: string
           payment_type?: string | null
@@ -261,6 +271,8 @@ export type Database = {
           hectare_id?: string | null
           id?: string
           is_merge_primary?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
           merged_group_id?: string | null
           numero?: string
           payment_type?: string | null

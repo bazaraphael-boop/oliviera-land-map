@@ -51,6 +51,8 @@ interface Hectare {
   sale_type: string | null;
   purchase_type: string | null;
   site_id: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const Hectares = () => {
@@ -75,6 +77,8 @@ const Hectares = () => {
     name: "",
     surface: "",
     location: "",
+    latitude: "",
+    longitude: "",
     status: "available",
     prix: "",
     rmb_number: "",
@@ -188,6 +192,8 @@ const Hectares = () => {
         name: formData.name,
         surface: parseFloat(formData.surface),
         location: formData.location,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         status: isVente ? "vendu" : formData.status,
         prix: prix,
         rmb_number: formData.rmb_number || null,
@@ -223,7 +229,7 @@ const Hectares = () => {
       setIsDialogOpen(false);
       setIsEditMode(false);
       setEditingId(null);
-      setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
+      setFormData({ name: "", surface: "", location: "", latitude: "", longitude: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
       fetchHectares();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
@@ -237,6 +243,8 @@ const Hectares = () => {
       name: hectare.name,
       surface: hectare.surface.toString(),
       location: hectare.location || "",
+      latitude: hectare.latitude?.toString() || "",
+      longitude: hectare.longitude?.toString() || "",
       status: hectare.status,
       prix: hectare.prix.toString(),
       rmb_number: hectare.rmb_number || "",
@@ -369,7 +377,7 @@ const Hectares = () => {
             if (!open) {
               setIsEditMode(false);
               setEditingId(null);
-              setFormData({ name: "", surface: "", location: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
+              setFormData({ name: "", surface: "", location: "", latitude: "", longitude: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
             }
           }}>
             <DialogTrigger asChild>
@@ -424,6 +432,30 @@ const Hectares = () => {
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                         placeholder="Ex: Zone Nord"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Latitude GPS</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={formData.latitude}
+                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                        placeholder="Ex: -5.9338"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Longitude GPS</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={formData.longitude}
+                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                        placeholder="Ex: 12.3528"
                         className="mt-1"
                       />
                     </div>
@@ -595,6 +627,8 @@ const Hectares = () => {
                         name: "",
                         surface: "",
                         location: "",
+                        latitude: "",
+                        longitude: "",
                         status: "available",
                         prix: "",
                         rmb_number: "",
