@@ -115,19 +115,44 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
 
   const startCamera = async () => {
     try {
+      // Vérifier si getUserMedia est disponible
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Votre navigateur ne supporte pas la caméra", {
+          description: "Utilisez l'option 'Choisir un fichier' à la place"
+        });
+        return;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
         audio: false,
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play(); // Assurer que la vidéo démarre
         setStream(mediaStream);
         setIsCameraActive(true);
+        toast.success("Caméra activée");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur accès caméra:", error);
-      toast.error("Impossible d'accéder à la caméra");
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error("Permission caméra refusée", {
+          description: "Autorisez l'accès à la caméra dans les paramètres"
+        });
+      } else if (error.name === 'NotFoundError') {
+        toast.error("Aucune caméra trouvée sur cet appareil");
+      } else {
+        toast.error("Impossible d'accéder à la caméra", {
+          description: "Utilisez 'Choisir un fichier' à la place"
+        });
+      }
     }
   };
 
@@ -331,25 +356,43 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
                 />
               </div>
 
-              {!uploadForm.file && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={startCamera}
-                    disabled={isCameraActive}
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Prendre une photo
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Choisir un fichier
-                  </Button>
+              {!uploadForm.file && !isCameraActive && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={startCamera}
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Caméra Web
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Choisir
+                    </Button>
+                  </div>
+                  
+                  {/* Option mobile directe pour capturer avec la caméra */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileSelect}
+                    className="w-full text-sm text-muted-foreground
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-lg file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-primary file:text-primary-foreground
+                      hover:file:bg-primary/90 file:cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Sur mobile, utilisez le bouton ci-dessus pour prendre une photo directement
+                  </p>
                 </div>
               )}
 
