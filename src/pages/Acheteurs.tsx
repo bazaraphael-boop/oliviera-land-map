@@ -868,10 +868,7 @@ const Acheteurs = () => {
                       <p className="text-sm text-muted-foreground">Total achats</p>
                     </div>
                     <p className="text-3xl font-bold text-foreground">
-                      {selectedAcheteur.nombreParcelles + selectedAcheteur.nombreHectares}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selectedAcheteur.nombreParcelles} parcelle{selectedAcheteur.nombreParcelles > 1 ? 's' : ''} + {selectedAcheteur.nombreHectares} hectare{selectedAcheteur.nombreHectares > 1 ? 's' : ''}
+                      {selectedAcheteur.nombreParcelles + selectedAcheteur.nombreHectares} achat{(selectedAcheteur.nombreParcelles + selectedAcheteur.nombreHectares) > 1 ? 's' : ''}
                     </p>
                   </Card>
                   <Card className="p-5 bg-gradient-to-br from-green-500/10 to-green-500/5">
