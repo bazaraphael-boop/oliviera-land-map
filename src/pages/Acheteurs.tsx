@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign, Plus } from "lucide-react";
+import { Search, User, MapPin, Phone, Mail, Calendar, DollarSign, Plus, Pin } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import {
@@ -48,6 +49,7 @@ interface Acheteur {
     sale_type: string;
     purchase_type: string | null;
     rmb_number: string | null;
+    paper_form_completed: boolean;
     hectares?: {
       name: string;
       location: string;
@@ -66,10 +68,12 @@ interface Acheteur {
     sale_type: string;
     purchase_type: string | null;
     rmb_number: string | null;
+    paper_form_completed: boolean;
   }[];
   totalAchat: number;
   nombreParcelles: number;
   nombreHectares: number;
+  paper_form_completed: boolean;
 }
 
 const Acheteurs = () => {
@@ -192,6 +196,7 @@ const Acheteurs = () => {
             totalAchat: 0,
             nombreParcelles: 0,
             nombreHectares: 0,
+            paper_form_completed: true, // Par défaut true, sera mis à false si un item n'est pas complété
           });
         }
 
@@ -209,10 +214,16 @@ const Acheteurs = () => {
           sale_type: parcelle.sale_type,
           purchase_type: parcelle.purchase_type,
           rmb_number: parcelle.rmb_number,
+          paper_form_completed: parcelle.paper_form_completed ?? false,
           hectares: parcelle.hectares,
         });
         acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : Number(parcelle.amount_paid || parcelle.prix || 0);
         acheteur.nombreParcelles += 1;
+        
+        // Si une parcelle n'est pas complétée, l'acheteur n'est pas complété
+        if (!parcelle.paper_form_completed) {
+          acheteur.paper_form_completed = false;
+        }
 
         if (parcelle.buyer_phone && !acheteur.buyer_phone) {
           acheteur.buyer_phone = parcelle.buyer_phone;
@@ -237,6 +248,7 @@ const Acheteurs = () => {
             totalAchat: 0,
             nombreParcelles: 0,
             nombreHectares: 0,
+            paper_form_completed: true,
           });
         }
 
@@ -254,9 +266,15 @@ const Acheteurs = () => {
           sale_type: hectare.sale_type,
           purchase_type: hectare.purchase_type,
           rmb_number: hectare.rmb_number,
+          paper_form_completed: hectare.paper_form_completed ?? false,
         });
         acheteur.totalAchat += hectare.sale_type === 'onereux' ? 0 : Number(hectare.amount_paid || hectare.prix || 0);
         acheteur.nombreHectares += 1;
+        
+        // Si un hectare n'est pas complété, l'acheteur n'est pas complété
+        if (!hectare.paper_form_completed) {
+          acheteur.paper_form_completed = false;
+        }
 
         if (hectare.buyer_phone && !acheteur.buyer_phone) {
           acheteur.buyer_phone = hectare.buyer_phone;
@@ -267,7 +285,11 @@ const Acheteurs = () => {
       });
 
       const acheteursArray = Array.from(acheteursMap.values()).sort((a, b) => {
-        // Extraire tous les numéros RMB de l'acheteur
+        // D'abord trier par statut paper_form_completed (non complétés en premier = épinglés)
+        if (!a.paper_form_completed && b.paper_form_completed) return -1;
+        if (a.paper_form_completed && !b.paper_form_completed) return 1;
+        
+        // Ensuite trier par numéro RMB
         const getRmbNumbers = (acheteur: Acheteur) => {
           const rmbNumbers: number[] = [];
           acheteur.parcelles.forEach(p => {
@@ -303,6 +325,40 @@ const Acheteurs = () => {
   const handleShowDetails = (acheteur: Acheteur) => {
     setSelectedAcheteur(acheteur);
     setShowDetails(true);
+  };
+
+  const handleTogglePaperForm = async (acheteur: Acheteur) => {
+    try {
+      const newValue = !acheteur.paper_form_completed;
+      
+      // Mettre à jour toutes les parcelles de cet acheteur
+      const parcelleIds = acheteur.parcelles.map(p => p.id);
+      if (parcelleIds.length > 0) {
+        const { error: parcellesError } = await supabase
+          .from("parcelles")
+          .update({ paper_form_completed: newValue })
+          .in("id", parcelleIds);
+
+        if (parcellesError) throw parcellesError;
+      }
+
+      // Mettre à jour tous les hectares de cet acheteur
+      const hectareIds = acheteur.hectares.map(h => h.id);
+      if (hectareIds.length > 0) {
+        const { error: hectaresError } = await supabase
+          .from("hectares")
+          .update({ paper_form_completed: newValue })
+          .in("id", hectareIds);
+
+        if (hectaresError) throw hectaresError;
+      }
+
+      notify("Succès", newValue ? "Formulaire marqué comme rempli" : "Formulaire marqué comme à remplir", "success");
+      loadAcheteurs(); // Recharger la liste
+    } catch (error) {
+      console.error("Erreur:", error);
+      notify("Erreur", "Erreur lors de la mise à jour du statut", "error");
+    }
   };
 
   const handleEditBuyer = async (e: React.FormEvent) => {
@@ -638,15 +694,24 @@ const Acheteurs = () => {
         {/* Acheteurs List */}
         <div className="grid grid-cols-1 gap-4">
           {filteredAcheteurs.map((acheteur) => (
-            <Card key={acheteur.id} className="p-6 hover:shadow-md transition-shadow">
+            <Card 
+              key={acheteur.id} 
+              className={`p-6 hover:shadow-md transition-shadow ${!acheteur.paper_form_completed ? 'border-l-4 border-l-orange-500 bg-orange-500/5' : ''}`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
+                  {/* Indicateur épinglé */}
+                  {!acheteur.paper_form_completed && (
+                    <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                      <Pin className="w-4 h-4 text-orange-500" />
+                    </div>
+                  )}
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <User className="w-6 h-6 text-primary" />
                   </div>
 
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       {(() => {
                         const rmbNumbers = new Set<string>();
                         acheteur.parcelles.forEach(p => {
@@ -706,24 +771,43 @@ const Acheteurs = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSelectedAcheteur(acheteur);
-                      setEditBuyerForm({
-                        buyer_name: acheteur.buyer_name,
-                        buyer_phone: acheteur.buyer_phone || "",
-                        buyer_email: acheteur.buyer_email || "",
-                      });
-                      setShowEditBuyerDialog(true);
+                <div className="flex flex-col items-end gap-3">
+                  {/* Case à cocher "Remplis sur papier" */}
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTogglePaperForm(acheteur);
                     }}
                   >
-                    Modifier
-                  </Button>
-                  <Button onClick={() => handleShowDetails(acheteur)}>
-                    Voir Détails
-                  </Button>
+                    <Checkbox 
+                      checked={acheteur.paper_form_completed}
+                      className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                    />
+                    <span className={`text-sm ${acheteur.paper_form_completed ? 'text-green-600' : 'text-orange-600'}`}>
+                      {acheteur.paper_form_completed ? 'Remplis sur papier' : 'À remplir'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedAcheteur(acheteur);
+                        setEditBuyerForm({
+                          buyer_name: acheteur.buyer_name,
+                          buyer_phone: acheteur.buyer_phone || "",
+                          buyer_email: acheteur.buyer_email || "",
+                        });
+                        setShowEditBuyerDialog(true);
+                      }}
+                    >
+                      Modifier
+                    </Button>
+                    <Button onClick={() => handleShowDetails(acheteur)}>
+                      Voir Détails
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>

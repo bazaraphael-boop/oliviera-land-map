@@ -105,6 +105,7 @@ export type Database = {
           location: string | null
           longitude: number | null
           name: string
+          paper_form_completed: boolean | null
           payment_type: string | null
           prix: number | null
           purchase_type: string | null
@@ -136,6 +137,7 @@ export type Database = {
           location?: string | null
           longitude?: number | null
           name: string
+          paper_form_completed?: boolean | null
           payment_type?: string | null
           prix?: number | null
           purchase_type?: string | null
@@ -167,6 +169,7 @@ export type Database = {
           location?: string | null
           longitude?: number | null
           name?: string
+          paper_form_completed?: boolean | null
           payment_type?: string | null
           prix?: number | null
           purchase_type?: string | null
@@ -211,6 +214,7 @@ export type Database = {
           longitude: number | null
           merged_group_id: string | null
           numero: string
+          paper_form_completed: boolean | null
           payment_type: string | null
           prix: number
           purchase_type: string | null
@@ -243,6 +247,7 @@ export type Database = {
           longitude?: number | null
           merged_group_id?: string | null
           numero: string
+          paper_form_completed?: boolean | null
           payment_type?: string | null
           prix: number
           purchase_type?: string | null
@@ -275,6 +280,7 @@ export type Database = {
           longitude?: number | null
           merged_group_id?: string | null
           numero?: string
+          paper_form_completed?: boolean | null
           payment_type?: string | null
           prix?: number
           purchase_type?: string | null
