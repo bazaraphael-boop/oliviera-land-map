@@ -909,110 +909,144 @@ const Acheteurs = () => {
                 <Card className="p-5 bg-muted/50">
                   <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                     <User className="w-5 h-5 text-primary" />
-                    Informations de l'acheteur
+                    Fiche d'identification
                   </h4>
-                  <Accordion type="multiple" defaultValue={["identite"]} className="space-y-2">
-                    <AccordionItem value="identite" className="border rounded-lg px-4">
-                      <AccordionTrigger className="hover:no-underline py-3">
-                        <span className="text-sm font-semibold">Fiche d'identification</span>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {/* Identité */}
-                          <div className="p-3 bg-background rounded space-y-2">
-                            <p className="text-xs text-muted-foreground font-medium uppercase">Identité</p>
-                            <div className="space-y-1">
-                              {selectedAcheteur.buyer_last_name && (
-                                <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_last_name}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_name && !selectedAcheteur.buyer_last_name && (
-                                <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[0] || ''}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_name && (
-                                <p className="text-sm"><span className="text-muted-foreground">Post-nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[1] || selectedAcheteur.buyer_name}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_first_name && (
-                                <p className="text-sm"><span className="text-muted-foreground">Prénom:</span> <span className="font-medium">{selectedAcheteur.buyer_first_name}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_profession && (
-                                <p className="text-sm"><span className="text-muted-foreground">Profession:</span> <span className="font-medium">{selectedAcheteur.buyer_profession}</span></p>
-                              )}
-                            </div>
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Identité */}
+                    <div className="p-3 bg-background rounded space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium uppercase">Identité</p>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Nom:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_last_name || selectedAcheteur.buyer_name?.split(' ')[0] || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Post-nom:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_name?.split(' ')[1] || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Prénom:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_first_name || selectedAcheteur.buyer_name?.split(' ')[2] || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Profession:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_profession || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
 
-                          {/* Naissance */}
-                          <div className="p-3 bg-background rounded space-y-2">
-                            <p className="text-xs text-muted-foreground font-medium uppercase">Né(e) à</p>
-                            <div className="space-y-1">
-                              {selectedAcheteur.buyer_birth_place && (
-                                <p className="text-sm"><span className="text-muted-foreground">Lieu:</span> <span className="font-medium">{selectedAcheteur.buyer_birth_place}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_birth_date && (
-                                <p className="text-sm"><span className="text-muted-foreground">Date:</span> <span className="font-medium">{new Date(selectedAcheteur.buyer_birth_date).toLocaleDateString('fr-FR')}</span></p>
-                              )}
-                            </div>
-                          </div>
+                    {/* Naissance */}
+                    <div className="p-3 bg-background rounded space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium uppercase">Né(e) à</p>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Lieu:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_birth_place || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Date:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_birth_date 
+                              ? new Date(selectedAcheteur.buyer_birth_date).toLocaleDateString('fr-FR') 
+                              : <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
 
-                          {/* État civil */}
-                          <div className="p-3 bg-background rounded space-y-2">
-                            <p className="text-xs text-muted-foreground font-medium uppercase">État civil</p>
-                            <div className="space-y-1">
-                              {selectedAcheteur.buyer_marital_status && (
-                                <p className="text-sm"><span className="text-muted-foreground">État civil:</span> <span className="font-medium">{selectedAcheteur.buyer_marital_status}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_children_count !== null && selectedAcheteur.buyer_children_count !== undefined && (
-                                <p className="text-sm"><span className="text-muted-foreground">Nombre d'enfants:</span> <span className="font-medium">{selectedAcheteur.buyer_children_count}</span></p>
-                              )}
-                            </div>
-                          </div>
+                    {/* État civil */}
+                    <div className="p-3 bg-background rounded space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium uppercase">État civil</p>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">État civil:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_marital_status || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Nombre d'enfants:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_children_count !== null && selectedAcheteur.buyer_children_count !== undefined 
+                              ? selectedAcheteur.buyer_children_count 
+                              : <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
 
-                          {/* Contact */}
-                          <div className="p-3 bg-background rounded space-y-2">
-                            <p className="text-xs text-muted-foreground font-medium uppercase">Contact</p>
-                            <div className="space-y-1">
-                              {selectedAcheteur.buyer_address && (
-                                <p className="text-sm"><span className="text-muted-foreground">Adresse:</span> <span className="font-medium">{selectedAcheteur.buyer_address}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_phone && (
-                                <p className="text-sm flex items-center gap-2">
-                                  <Phone className="w-3 h-3 text-muted-foreground" />
-                                  <span className="font-medium">{selectedAcheteur.buyer_phone}</span>
-                                </p>
-                              )}
-                              {selectedAcheteur.buyer_email && (
-                                <p className="text-sm flex items-center gap-2">
-                                  <Mail className="w-3 h-3 text-muted-foreground" />
-                                  <span className="font-medium">{selectedAcheteur.buyer_email}</span>
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                    {/* Contact */}
+                    <div className="p-3 bg-background rounded space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium uppercase">Contact</p>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Adresse:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_address || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm flex items-center gap-2">
+                          <Phone className="w-3 h-3 text-muted-foreground" />
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_phone || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-muted-foreground" />
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_email || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
 
-                          {/* Origine */}
-                          <div className="p-3 bg-background rounded space-y-2 md:col-span-2">
-                            <p className="text-xs text-muted-foreground font-medium uppercase">Origine</p>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                              {selectedAcheteur.buyer_village_origin && (
-                                <p className="text-sm"><span className="text-muted-foreground">Village:</span> <span className="font-medium">{selectedAcheteur.buyer_village_origin}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_groupement && (
-                                <p className="text-sm"><span className="text-muted-foreground">Groupement:</span> <span className="font-medium">{selectedAcheteur.buyer_groupement}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_secteur && (
-                                <p className="text-sm"><span className="text-muted-foreground">Secteur:</span> <span className="font-medium">{selectedAcheteur.buyer_secteur}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_territoire && (
-                                <p className="text-sm"><span className="text-muted-foreground">Territoire:</span> <span className="font-medium">{selectedAcheteur.buyer_territoire}</span></p>
-                              )}
-                              {selectedAcheteur.buyer_province && (
-                                <p className="text-sm"><span className="text-muted-foreground">Province:</span> <span className="font-medium">{selectedAcheteur.buyer_province}</span></p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
+                    {/* Origine */}
+                    <div className="p-3 bg-background rounded space-y-2 md:col-span-2">
+                      <p className="text-xs text-muted-foreground font-medium uppercase">Origine</p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Village:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_village_origin || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Groupement:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_groupement || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Secteur:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_secteur || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Territoire:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_territoire || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Province:</span>{" "}
+                          <span className="font-medium">
+                            {selectedAcheteur.buyer_province || <span className="italic text-muted-foreground">Non renseigné</span>}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
 
                 {/* Résumé des achats */}
