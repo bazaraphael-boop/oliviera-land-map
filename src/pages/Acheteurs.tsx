@@ -44,6 +44,11 @@ interface Acheteur {
   buyer_marital_status: string | null;
   buyer_children_count: number | null;
   buyer_address: string | null;
+  buyer_village_origin: string | null;
+  buyer_groupement: string | null;
+  buyer_secteur: string | null;
+  buyer_territoire: string | null;
+  buyer_province: string | null;
   parcelles: {
     id: string;
     numero: string;
@@ -109,6 +114,11 @@ const Acheteurs = () => {
     address: "",
     buyer_phone: "",
     buyer_email: "",
+    village_origin: "",
+    groupement: "",
+    secteur: "",
+    territoire: "",
+    province: "",
     purchase_type: "hectare",
     item_type: "hectare" as "hectare" | "parcelle",
     selected_item: "",
@@ -207,6 +217,11 @@ const Acheteurs = () => {
             buyer_marital_status: parcelle.buyer_marital_status,
             buyer_children_count: parcelle.buyer_children_count,
             buyer_address: parcelle.buyer_address,
+            buyer_village_origin: parcelle.buyer_village_origin,
+            buyer_groupement: parcelle.buyer_groupement,
+            buyer_secteur: parcelle.buyer_secteur,
+            buyer_territoire: parcelle.buyer_territoire,
+            buyer_province: parcelle.buyer_province,
             parcelles: [],
             hectares: [],
             totalAchat: 0,
@@ -267,6 +282,11 @@ const Acheteurs = () => {
             buyer_marital_status: hectare.buyer_marital_status,
             buyer_children_count: hectare.buyer_children_count,
             buyer_address: hectare.buyer_address,
+            buyer_village_origin: hectare.buyer_village_origin,
+            buyer_groupement: hectare.buyer_groupement,
+            buyer_secteur: hectare.buyer_secteur,
+            buyer_territoire: hectare.buyer_territoire,
+            buyer_province: hectare.buyer_province,
             parcelles: [],
             hectares: [],
             totalAchat: 0,
@@ -520,6 +540,11 @@ const Acheteurs = () => {
           buyer_address: newBuyerForm.address || null,
           buyer_phone: newBuyerForm.buyer_phone || null,
           buyer_email: newBuyerForm.buyer_email || null,
+          buyer_village_origin: newBuyerForm.village_origin || null,
+          buyer_groupement: newBuyerForm.groupement || null,
+          buyer_secteur: newBuyerForm.secteur || null,
+          buyer_territoire: newBuyerForm.territoire || null,
+          buyer_province: newBuyerForm.province || null,
           status: "vendu",
           sale_date: new Date().toISOString(),
           sale_type: newBuyerForm.sale_type,
@@ -566,19 +591,32 @@ const Acheteurs = () => {
           const parcelle = selectedParcelles[i];
           const updateData = {
             buyer_name: fullName,
+            buyer_last_name: newBuyerForm.post_nom || null,
+            buyer_first_name: newBuyerForm.prenom || null,
+            buyer_profession: newBuyerForm.profession || null,
+            buyer_birth_place: newBuyerForm.birth_place || null,
+            buyer_birth_date: newBuyerForm.birth_date || null,
+            buyer_marital_status: newBuyerForm.marital_status || null,
+            buyer_children_count: newBuyerForm.children_count ? parseInt(newBuyerForm.children_count) : null,
+            buyer_address: newBuyerForm.address || null,
             buyer_phone: newBuyerForm.buyer_phone || null,
             buyer_email: newBuyerForm.buyer_email || null,
+            buyer_village_origin: newBuyerForm.village_origin || null,
+            buyer_groupement: newBuyerForm.groupement || null,
+            buyer_secteur: newBuyerForm.secteur || null,
+            buyer_territoire: newBuyerForm.territoire || null,
+            buyer_province: newBuyerForm.province || null,
             status: "vendu",
             sale_date: new Date().toISOString(),
             sale_type: newBuyerForm.sale_type,
             purchase_type: newBuyerForm.purchase_type,
             payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
-            amount_paid: amountPaid / selectedParcelles.length, // Répartir le paiement
+            amount_paid: amountPaid / selectedParcelles.length,
             remaining_amount: remainingAmount / selectedParcelles.length,
             rmb_number: newBuyerForm.rmb_number || null,
-            prix: prix / selectedParcelles.length, // Répartir le prix
+            prix: prix / selectedParcelles.length,
             merged_group_id: mergeGroupId,
-            is_merge_primary: i === 0, // La première parcelle est primaire
+            is_merge_primary: i === 0,
           };
 
           const { error } = await supabase
@@ -604,6 +642,11 @@ const Acheteurs = () => {
         address: "",
         buyer_phone: "",
         buyer_email: "",
+        village_origin: "",
+        groupement: "",
+        secteur: "",
+        territoire: "",
+        province: "",
         purchase_type: "hectare",
         item_type: "hectare",
         selected_item: "",
@@ -868,77 +911,108 @@ const Acheteurs = () => {
                     <User className="w-5 h-5 text-primary" />
                     Informations de l'acheteur
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Identité */}
-                    <div className="p-3 bg-background rounded space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase">Identité</p>
-                      <div className="space-y-1">
-                        {selectedAcheteur.buyer_last_name && (
-                          <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_last_name}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_name && !selectedAcheteur.buyer_last_name && (
-                          <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[0] || ''}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_name && (
-                          <p className="text-sm"><span className="text-muted-foreground">Post-nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[1] || selectedAcheteur.buyer_name}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_first_name && (
-                          <p className="text-sm"><span className="text-muted-foreground">Prénom:</span> <span className="font-medium">{selectedAcheteur.buyer_first_name}</span></p>
-                        )}
-                      </div>
-                    </div>
+                  <Accordion type="multiple" defaultValue={["identite"]} className="space-y-2">
+                    <AccordionItem value="identite" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <span className="text-sm font-semibold">Fiche d'identification</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* Identité */}
+                          <div className="p-3 bg-background rounded space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase">Identité</p>
+                            <div className="space-y-1">
+                              {selectedAcheteur.buyer_last_name && (
+                                <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_last_name}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_name && !selectedAcheteur.buyer_last_name && (
+                                <p className="text-sm"><span className="text-muted-foreground">Nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[0] || ''}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_name && (
+                                <p className="text-sm"><span className="text-muted-foreground">Post-nom:</span> <span className="font-medium">{selectedAcheteur.buyer_name.split(' ')[1] || selectedAcheteur.buyer_name}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_first_name && (
+                                <p className="text-sm"><span className="text-muted-foreground">Prénom:</span> <span className="font-medium">{selectedAcheteur.buyer_first_name}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_profession && (
+                                <p className="text-sm"><span className="text-muted-foreground">Profession:</span> <span className="font-medium">{selectedAcheteur.buyer_profession}</span></p>
+                              )}
+                            </div>
+                          </div>
 
-                    {/* Contact */}
-                    <div className="p-3 bg-background rounded space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase">Contact</p>
-                      <div className="space-y-1">
-                        {selectedAcheteur.buyer_phone && (
-                          <p className="text-sm flex items-center gap-2">
-                            <Phone className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-medium">{selectedAcheteur.buyer_phone}</span>
-                          </p>
-                        )}
-                        {selectedAcheteur.buyer_email && (
-                          <p className="text-sm flex items-center gap-2">
-                            <Mail className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-medium">{selectedAcheteur.buyer_email}</span>
-                          </p>
-                        )}
-                        {selectedAcheteur.buyer_address && (
-                          <p className="text-sm"><span className="text-muted-foreground">Adresse:</span> <span className="font-medium">{selectedAcheteur.buyer_address}</span></p>
-                        )}
-                      </div>
-                    </div>
+                          {/* Naissance */}
+                          <div className="p-3 bg-background rounded space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase">Né(e) à</p>
+                            <div className="space-y-1">
+                              {selectedAcheteur.buyer_birth_place && (
+                                <p className="text-sm"><span className="text-muted-foreground">Lieu:</span> <span className="font-medium">{selectedAcheteur.buyer_birth_place}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_birth_date && (
+                                <p className="text-sm"><span className="text-muted-foreground">Date:</span> <span className="font-medium">{new Date(selectedAcheteur.buyer_birth_date).toLocaleDateString('fr-FR')}</span></p>
+                              )}
+                            </div>
+                          </div>
 
-                    {/* État civil */}
-                    <div className="p-3 bg-background rounded space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase">État civil</p>
-                      <div className="space-y-1">
-                        {selectedAcheteur.buyer_profession && (
-                          <p className="text-sm"><span className="text-muted-foreground">Profession:</span> <span className="font-medium">{selectedAcheteur.buyer_profession}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_marital_status && (
-                          <p className="text-sm"><span className="text-muted-foreground">État civil:</span> <span className="font-medium">{selectedAcheteur.buyer_marital_status}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_children_count !== null && selectedAcheteur.buyer_children_count !== undefined && (
-                          <p className="text-sm"><span className="text-muted-foreground">Enfants:</span> <span className="font-medium">{selectedAcheteur.buyer_children_count}</span></p>
-                        )}
-                      </div>
-                    </div>
+                          {/* État civil */}
+                          <div className="p-3 bg-background rounded space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase">État civil</p>
+                            <div className="space-y-1">
+                              {selectedAcheteur.buyer_marital_status && (
+                                <p className="text-sm"><span className="text-muted-foreground">État civil:</span> <span className="font-medium">{selectedAcheteur.buyer_marital_status}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_children_count !== null && selectedAcheteur.buyer_children_count !== undefined && (
+                                <p className="text-sm"><span className="text-muted-foreground">Nombre d'enfants:</span> <span className="font-medium">{selectedAcheteur.buyer_children_count}</span></p>
+                              )}
+                            </div>
+                          </div>
 
-                    {/* Naissance */}
-                    <div className="p-3 bg-background rounded space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase">Naissance</p>
-                      <div className="space-y-1">
-                        {selectedAcheteur.buyer_birth_place && (
-                          <p className="text-sm"><span className="text-muted-foreground">Lieu:</span> <span className="font-medium">{selectedAcheteur.buyer_birth_place}</span></p>
-                        )}
-                        {selectedAcheteur.buyer_birth_date && (
-                          <p className="text-sm"><span className="text-muted-foreground">Date:</span> <span className="font-medium">{new Date(selectedAcheteur.buyer_birth_date).toLocaleDateString('fr-FR')}</span></p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                          {/* Contact */}
+                          <div className="p-3 bg-background rounded space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase">Contact</p>
+                            <div className="space-y-1">
+                              {selectedAcheteur.buyer_address && (
+                                <p className="text-sm"><span className="text-muted-foreground">Adresse:</span> <span className="font-medium">{selectedAcheteur.buyer_address}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_phone && (
+                                <p className="text-sm flex items-center gap-2">
+                                  <Phone className="w-3 h-3 text-muted-foreground" />
+                                  <span className="font-medium">{selectedAcheteur.buyer_phone}</span>
+                                </p>
+                              )}
+                              {selectedAcheteur.buyer_email && (
+                                <p className="text-sm flex items-center gap-2">
+                                  <Mail className="w-3 h-3 text-muted-foreground" />
+                                  <span className="font-medium">{selectedAcheteur.buyer_email}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Origine */}
+                          <div className="p-3 bg-background rounded space-y-2 md:col-span-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase">Origine</p>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                              {selectedAcheteur.buyer_village_origin && (
+                                <p className="text-sm"><span className="text-muted-foreground">Village:</span> <span className="font-medium">{selectedAcheteur.buyer_village_origin}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_groupement && (
+                                <p className="text-sm"><span className="text-muted-foreground">Groupement:</span> <span className="font-medium">{selectedAcheteur.buyer_groupement}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_secteur && (
+                                <p className="text-sm"><span className="text-muted-foreground">Secteur:</span> <span className="font-medium">{selectedAcheteur.buyer_secteur}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_territoire && (
+                                <p className="text-sm"><span className="text-muted-foreground">Territoire:</span> <span className="font-medium">{selectedAcheteur.buyer_territoire}</span></p>
+                              )}
+                              {selectedAcheteur.buyer_province && (
+                                <p className="text-sm"><span className="text-muted-foreground">Province:</span> <span className="font-medium">{selectedAcheteur.buyer_province}</span></p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </Card>
 
                 {/* Résumé des achats */}
@@ -1351,6 +1425,60 @@ const Acheteurs = () => {
                             placeholder="Adresse complète"
                             className="mt-1.5 bg-background"
                           />
+                        </div>
+                      </div>
+
+                      {/* Section Origine */}
+                      <div className="pt-4 border-t border-border">
+                        <p className="text-sm font-semibold text-foreground mb-3">Origine</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium">Village d'origine (facultatif)</Label>
+                            <Input
+                              value={newBuyerForm.village_origin}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, village_origin: e.target.value })}
+                              placeholder="Village d'origine"
+                              className="mt-1.5 bg-background"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Groupement (facultatif)</Label>
+                            <Input
+                              value={newBuyerForm.groupement}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, groupement: e.target.value })}
+                              placeholder="Groupement"
+                              className="mt-1.5 bg-background"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div>
+                            <Label className="text-sm font-medium">Secteur (facultatif)</Label>
+                            <Input
+                              value={newBuyerForm.secteur}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, secteur: e.target.value })}
+                              placeholder="Secteur"
+                              className="mt-1.5 bg-background"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Territoire (facultatif)</Label>
+                            <Input
+                              value={newBuyerForm.territoire}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, territoire: e.target.value })}
+                              placeholder="Territoire"
+                              className="mt-1.5 bg-background"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Province (facultatif)</Label>
+                            <Input
+                              value={newBuyerForm.province}
+                              onChange={(e) => setNewBuyerForm({ ...newBuyerForm, province: e.target.value })}
+                              placeholder="Province"
+                              className="mt-1.5 bg-background"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
