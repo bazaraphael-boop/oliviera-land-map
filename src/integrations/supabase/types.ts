@@ -94,11 +94,16 @@ export type Database = {
           buyer_children_count: number | null
           buyer_email: string | null
           buyer_first_name: string | null
+          buyer_groupement: string | null
           buyer_last_name: string | null
           buyer_marital_status: string | null
           buyer_name: string | null
           buyer_phone: string | null
           buyer_profession: string | null
+          buyer_province: string | null
+          buyer_secteur: string | null
+          buyer_territoire: string | null
+          buyer_village_origin: string | null
           created_at: string
           id: string
           latitude: number | null
@@ -126,11 +131,16 @@ export type Database = {
           buyer_children_count?: number | null
           buyer_email?: string | null
           buyer_first_name?: string | null
+          buyer_groupement?: string | null
           buyer_last_name?: string | null
           buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
           buyer_profession?: string | null
+          buyer_province?: string | null
+          buyer_secteur?: string | null
+          buyer_territoire?: string | null
+          buyer_village_origin?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
@@ -158,11 +168,16 @@ export type Database = {
           buyer_children_count?: number | null
           buyer_email?: string | null
           buyer_first_name?: string | null
+          buyer_groupement?: string | null
           buyer_last_name?: string | null
           buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
           buyer_profession?: string | null
+          buyer_province?: string | null
+          buyer_secteur?: string | null
+          buyer_territoire?: string | null
+          buyer_village_origin?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
@@ -201,11 +216,16 @@ export type Database = {
           buyer_children_count: number | null
           buyer_email: string | null
           buyer_first_name: string | null
+          buyer_groupement: string | null
           buyer_last_name: string | null
           buyer_marital_status: string | null
           buyer_name: string | null
           buyer_phone: string | null
           buyer_profession: string | null
+          buyer_province: string | null
+          buyer_secteur: string | null
+          buyer_territoire: string | null
+          buyer_village_origin: string | null
           created_at: string
           hectare_id: string | null
           id: string
@@ -234,11 +254,16 @@ export type Database = {
           buyer_children_count?: number | null
           buyer_email?: string | null
           buyer_first_name?: string | null
+          buyer_groupement?: string | null
           buyer_last_name?: string | null
           buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
           buyer_profession?: string | null
+          buyer_province?: string | null
+          buyer_secteur?: string | null
+          buyer_territoire?: string | null
+          buyer_village_origin?: string | null
           created_at?: string
           hectare_id?: string | null
           id?: string
@@ -267,11 +292,16 @@ export type Database = {
           buyer_children_count?: number | null
           buyer_email?: string | null
           buyer_first_name?: string | null
+          buyer_groupement?: string | null
           buyer_last_name?: string | null
           buyer_marital_status?: string | null
           buyer_name?: string | null
           buyer_phone?: string | null
           buyer_profession?: string | null
+          buyer_province?: string | null
+          buyer_secteur?: string | null
+          buyer_territoire?: string | null
+          buyer_village_origin?: string | null
           created_at?: string
           hectare_id?: string | null
           id?: string
