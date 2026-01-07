@@ -49,10 +49,23 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 pl-0 sm:pl-[52px]">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              {acheteur.nombreParcelles > 0 && <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5"><MapPin className="w-3 h-3 mr-0.5 sm:mr-1" />{acheteur.nombreParcelles} parc.</Badge>}
-              {acheteur.nombreHectares > 0 && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5"><MapPin className="w-3 h-3 mr-0.5 sm:mr-1" />{acheteur.nombreHectares} ha</Badge>}
-              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5"><DollarSign className="w-3 h-3 mr-0.5" />{acheteur.totalAchat.toLocaleString()}</Badge>
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto sm:overflow-visible flex-nowrap sm:flex-wrap -mx-1 px-1">
+              {acheteur.nombreParcelles > 0 && (
+                <Badge variant="secondary" className="shrink-0 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                  <MapPin className="w-3 h-3 mr-0.5 sm:mr-1" />
+                  {acheteur.nombreParcelles} parc.
+                </Badge>
+              )}
+              {acheteur.nombreHectares > 0 && (
+                <Badge className="shrink-0 bg-blue-500/10 text-blue-600 border-blue-500/20 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                  <MapPin className="w-3 h-3 mr-0.5 sm:mr-1" />
+                  {acheteur.nombreHectares} ha
+                </Badge>
+              )}
+              <Badge variant="outline" className="shrink-0 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                <DollarSign className="w-3 h-3 mr-0.5" />
+                {acheteur.totalAchat.toLocaleString()}
+              </Badge>
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
               <div className="flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-muted/50" onClick={(e) => { e.stopPropagation(); onTogglePaperForm(); }}>

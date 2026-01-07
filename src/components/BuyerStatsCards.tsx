@@ -17,23 +17,59 @@ export function BuyerStatsCards({ totalAcheteurs, totalRevenu, totalParcelles, t
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-      {stats.map((stat) => (
-        <Card key={stat.label} className={`p-2.5 sm:p-4 bg-gradient-to-br ${stat.color} border-0 shadow-sm`}>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
-              <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.iconColor}`} />
+    <>
+      {/* Mobile: horizontal scroll */}
+      <div className="sm:hidden -mx-4 px-4 overflow-x-auto">
+        <div className="flex w-max gap-3 pb-2">
+          {stats.map((stat) => (
+            <Card
+              key={stat.label}
+              className={`w-[220px] shrink-0 p-3 bg-gradient-to-br ${stat.color} border-0 shadow-sm`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                  <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xl font-bold text-foreground truncate">
+                    {stat.value}
+                    {stat.suffix && (
+                      <span className="text-sm font-normal text-muted-foreground ml-1">
+                        {stat.suffix}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop/tablet */}
+      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {stats.map((stat) => (
+          <Card key={stat.label} className={`p-4 bg-gradient-to-br ${stat.color} border-0 shadow-sm`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xl lg:text-2xl font-bold text-foreground truncate">
+                  {stat.value}
+                  {stat.suffix && (
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      {stat.suffix}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-base sm:text-xl lg:text-2xl font-bold text-foreground truncate">
-                {stat.value}
-                {stat.suffix && <span className="text-[10px] sm:text-sm font-normal text-muted-foreground ml-0.5 sm:ml-1">{stat.suffix}</span>}
-              </p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{stat.label}</p>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 }
