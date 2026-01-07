@@ -8,6 +8,7 @@ import { Search, User, Plus, MapPin, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -730,25 +731,29 @@ const Acheteurs = () => {
           />
         </div>
 
-        {/* Acheteurs List */}
-        <div className="grid grid-cols-1 gap-3 sm:gap-4">
-          {filteredAcheteurs.map((acheteur) => (
-            <BuyerCard
-              key={acheteur.id}
-              acheteur={acheteur}
-              onShowDetails={() => handleShowDetails(acheteur)}
-              onEdit={() => {
-                setSelectedAcheteur(acheteur);
-                setEditBuyerForm({
-                  buyer_name: acheteur.buyer_name,
-                  buyer_phone: acheteur.buyer_phone || "",
-                  buyer_email: acheteur.buyer_email || "",
-                });
-                setShowEditBuyerDialog(true);
-              }}
-              onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
-            />
-          ))}
+        {/* Acheteurs List with horizontal scroll */}
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[600px] sm:min-w-0">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4">
+              {filteredAcheteurs.map((acheteur) => (
+                <BuyerCard
+                  key={acheteur.id}
+                  acheteur={acheteur}
+                  onShowDetails={() => handleShowDetails(acheteur)}
+                  onEdit={() => {
+                    setSelectedAcheteur(acheteur);
+                    setEditBuyerForm({
+                      buyer_name: acheteur.buyer_name,
+                      buyer_phone: acheteur.buyer_phone || "",
+                      buyer_email: acheteur.buyer_email || "",
+                    });
+                    setShowEditBuyerDialog(true);
+                  }}
+                  onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         {filteredAcheteurs.length === 0 && (
