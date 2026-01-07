@@ -730,48 +730,27 @@ const Acheteurs = () => {
           />
         </div>
 
-        {/* Acheteurs List */}
-        <div className="sm:hidden -mx-4 px-4 overflow-x-auto pb-2">
-          <div className="flex w-max gap-3 snap-x snap-mandatory">
+        {/* Acheteurs List - Scrollable vertical */}
+        <div className="flex-1 overflow-y-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex flex-col gap-3">
             {filteredAcheteurs.map((acheteur) => (
-              <div key={acheteur.id} className="w-[320px] max-w-[360px] snap-start">
-                <BuyerCard
-                  acheteur={acheteur}
-                  onShowDetails={() => handleShowDetails(acheteur)}
-                  onEdit={() => {
-                    setSelectedAcheteur(acheteur);
-                    setEditBuyerForm({
-                      buyer_name: acheteur.buyer_name,
-                      buyer_phone: acheteur.buyer_phone || "",
-                      buyer_email: acheteur.buyer_email || "",
-                    });
-                    setShowEditBuyerDialog(true);
-                  }}
-                  onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
-                />
-              </div>
+              <BuyerCard
+                key={acheteur.id}
+                acheteur={acheteur}
+                onShowDetails={() => handleShowDetails(acheteur)}
+                onEdit={() => {
+                  setSelectedAcheteur(acheteur);
+                  setEditBuyerForm({
+                    buyer_name: acheteur.buyer_name,
+                    buyer_phone: acheteur.buyer_phone || "",
+                    buyer_email: acheteur.buyer_email || "",
+                  });
+                  setShowEditBuyerDialog(true);
+                }}
+                onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
+              />
             ))}
           </div>
-        </div>
-
-        <div className="hidden sm:grid grid-cols-1 gap-4">
-          {filteredAcheteurs.map((acheteur) => (
-            <BuyerCard
-              key={acheteur.id}
-              acheteur={acheteur}
-              onShowDetails={() => handleShowDetails(acheteur)}
-              onEdit={() => {
-                setSelectedAcheteur(acheteur);
-                setEditBuyerForm({
-                  buyer_name: acheteur.buyer_name,
-                  buyer_phone: acheteur.buyer_phone || "",
-                  buyer_email: acheteur.buyer_email || "",
-                });
-                setShowEditBuyerDialog(true);
-              }}
-              onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
-            />
-          ))}
         </div>
 
         {filteredAcheteurs.length === 0 && (
