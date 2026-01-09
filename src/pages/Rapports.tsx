@@ -71,6 +71,28 @@ const Rapports = () => {
     }
   };
 
+  // Fonction pour filtrer par période
+  const getDateFilter = () => {
+    const now = new Date();
+    switch (selectedPeriod) {
+      case "month":
+        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      case "quarter":
+        const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
+        return new Date(now.getFullYear(), quarterMonth, 1).toISOString();
+      case "year":
+        return new Date(now.getFullYear(), 0, 1).toISOString();
+      default:
+        return null;
+    }
+  };
+
+  const filterByPeriod = <T extends { sale_date?: string | null }>(items: T[]): T[] => {
+    const dateFilter = getDateFilter();
+    if (!dateFilter) return items;
+    return items.filter(item => item.sale_date && new Date(item.sale_date) >= new Date(dateFilter));
+  };
+
   const loadStats = async () => {
     try {
       setLoading(true);
@@ -91,19 +113,28 @@ const Rapports = () => {
 
       if (hectaresError) throw hectaresError;
 
-      // Calculer les statistiques globales
-      const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
+      // Filtrer les ventes par période
+      const allSoldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
+      const allSoldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
+      
+      // Appliquer le filtre de période
+      const soldParcelles = filterByPeriod(allSoldParcelles);
+      const soldHectares = filterByPeriod(allSoldHectares);
+      
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
-      const soldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
       
       const totalRevenue = soldParcelles.reduce((sum, p) => {
         return sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix));
       }, 0) + soldHectares.reduce((sum, h) => {
         return sum + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix));
       }, 0);
+      
+      // Prix moyen basé sur toutes les parcelles (non filtré)
       const averagePrice = parcelles && parcelles.length > 0 
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / parcelles.length 
         : 0;
+      
+      // Taux de vente basé sur la période sélectionnée
       const salesRate = parcelles && parcelles.length > 0
         ? (soldParcelles.length / parcelles.length) * 100
         : 0;
@@ -117,11 +148,13 @@ const Rapports = () => {
         salesRate,
       });
 
-      // Calculer les statistiques par hectare
+      // Calculer les statistiques par hectare (filtré par période)
       const hectareStatsData = hectares?.map(hectare => {
         const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
-        const soldInHectare = hectareParcelles.filter(p => p.status === "vendu");
-        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + Number(p.amount_paid || p.prix), 0);
+        const allSoldInHectare = hectareParcelles.filter(p => p.status === "vendu");
+        // Appliquer le filtre de période aux parcelles vendues dans cet hectare
+        const soldInHectare = filterByPeriod(allSoldInHectare);
+        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0);
         const salesRateInHectare = hectareParcelles.length > 0
           ? (soldInHectare.length / hectareParcelles.length) * 100
           : 0;
