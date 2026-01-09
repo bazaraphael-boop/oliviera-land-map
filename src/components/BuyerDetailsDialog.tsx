@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   User, MapPin, Phone, Mail, Calendar, DollarSign, 
   Briefcase, Heart, Baby, Home, Globe, ChevronRight, 
-  ChevronDown, FileText, FolderOpen
+  ChevronDown, FileText, FolderOpen, Pencil
 } from "lucide-react";
 import { BuyerDocuments } from "@/components/BuyerDocuments";
 
@@ -77,6 +77,7 @@ interface BuyerDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   acheteur: Acheteur | null;
   onLocaliser: (parcelleId: string) => void;
+  onEditIdentification?: (acheteur: Acheteur) => void;
 }
 
 function InfoItem({ icon: Icon, label, value, className = "" }: { 
@@ -108,24 +109,38 @@ interface CollapsibleSectionProps {
   defaultOpen?: boolean;
   children: React.ReactNode;
   badge?: string;
+  onEdit?: () => void;
 }
 
-function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, badge }: CollapsibleSectionProps) {
+function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, badge, onEdit }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="overflow-hidden">
-        <CollapsibleTrigger className="w-full">
-          <div className="flex items-center justify-between bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border hover:bg-muted/70 transition-colors">
+        <div className="flex items-center justify-between bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+          <CollapsibleTrigger className="flex-1 flex items-center justify-between hover:bg-muted/70 transition-colors -mx-3 sm:-mx-4 -my-2.5 sm:-my-3 px-3 sm:px-4 py-2.5 sm:py-3">
             <h4 className="font-semibold text-foreground flex items-center gap-2 text-sm sm:text-base">
               <Icon className="w-4 h-4 text-primary" />
               {title}
               {badge && <Badge variant="secondary" className="ml-2 text-xs">{badge}</Badge>}
             </h4>
             <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-          </div>
-        </CollapsibleTrigger>
+          </CollapsibleTrigger>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="ml-2 h-7 px-2 shrink-0"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
         <CollapsibleContent>
           <div className="p-3 sm:p-4">
             {children}
@@ -136,7 +151,7 @@ function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, b
   );
 }
 
-export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser }: BuyerDetailsDialogProps) {
+export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser, onEditIdentification }: BuyerDetailsDialogProps) {
   if (!acheteur) return null;
 
   return (
@@ -195,7 +210,12 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser }
             </div>
 
             {/* Section Identification - collapsible */}
-            <CollapsibleSection title="Fiche d'identification" icon={User} defaultOpen={false}>
+            <CollapsibleSection 
+              title="Fiche d'identification" 
+              icon={User} 
+              defaultOpen={false}
+              onEdit={onEditIdentification ? () => onEditIdentification(acheteur) : undefined}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Identité */}
                 <div className="space-y-2 p-2.5 bg-muted/30 rounded-lg">
