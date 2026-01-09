@@ -99,6 +99,7 @@ const Acheteurs = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [showNewBuyerDialog, setShowNewBuyerDialog] = useState(false);
   const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
+  const [showEditIdentificationDialog, setShowEditIdentificationDialog] = useState(false);
   const [availableHectares, setAvailableHectares] = useState<any[]>([]);
   const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
   const [allParcellesInSelectedHectare, setAllParcellesInSelectedHectare] = useState<any[]>([]);
@@ -134,6 +135,22 @@ const Acheteurs = () => {
     buyer_name: "",
     buyer_phone: "",
     buyer_email: "",
+  });
+  const [editIdentificationForm, setEditIdentificationForm] = useState({
+    buyer_name: "",
+    buyer_profession: "",
+    buyer_birth_place: "",
+    buyer_birth_date: "",
+    buyer_marital_status: "",
+    buyer_children_count: "",
+    buyer_address: "",
+    buyer_phone: "",
+    buyer_email: "",
+    buyer_village_origin: "",
+    buyer_groupement: "",
+    buyer_secteur: "",
+    buyer_territoire: "",
+    buyer_province: "",
   });
 
   useEffect(() => {
@@ -447,6 +464,81 @@ const Acheteurs = () => {
     } catch (error) {
       console.error("Erreur:", error);
       notify("Erreur", "Erreur lors de la modification de l'acheteur", "error");
+    }
+  };
+
+  const handleOpenEditIdentification = (acheteur: Acheteur) => {
+    setSelectedAcheteur(acheteur);
+    setEditIdentificationForm({
+      buyer_name: acheteur.buyer_name,
+      buyer_profession: acheteur.buyer_profession || "",
+      buyer_birth_place: acheteur.buyer_birth_place || "",
+      buyer_birth_date: acheteur.buyer_birth_date || "",
+      buyer_marital_status: acheteur.buyer_marital_status || "",
+      buyer_children_count: acheteur.buyer_children_count?.toString() || "",
+      buyer_address: acheteur.buyer_address || "",
+      buyer_phone: acheteur.buyer_phone || "",
+      buyer_email: acheteur.buyer_email || "",
+      buyer_village_origin: acheteur.buyer_village_origin || "",
+      buyer_groupement: acheteur.buyer_groupement || "",
+      buyer_secteur: acheteur.buyer_secteur || "",
+      buyer_territoire: acheteur.buyer_territoire || "",
+      buyer_province: acheteur.buyer_province || "",
+    });
+    setShowEditIdentificationDialog(true);
+  };
+
+  const handleEditIdentification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedAcheteur) return;
+    
+    try {
+      const updateData = {
+        buyer_name: editIdentificationForm.buyer_name,
+        buyer_profession: editIdentificationForm.buyer_profession || null,
+        buyer_birth_place: editIdentificationForm.buyer_birth_place || null,
+        buyer_birth_date: editIdentificationForm.buyer_birth_date || null,
+        buyer_marital_status: editIdentificationForm.buyer_marital_status || null,
+        buyer_children_count: editIdentificationForm.buyer_children_count ? parseInt(editIdentificationForm.buyer_children_count) : null,
+        buyer_address: editIdentificationForm.buyer_address || null,
+        buyer_phone: editIdentificationForm.buyer_phone || null,
+        buyer_email: editIdentificationForm.buyer_email || null,
+        buyer_village_origin: editIdentificationForm.buyer_village_origin || null,
+        buyer_groupement: editIdentificationForm.buyer_groupement || null,
+        buyer_secteur: editIdentificationForm.buyer_secteur || null,
+        buyer_territoire: editIdentificationForm.buyer_territoire || null,
+        buyer_province: editIdentificationForm.buyer_province || null,
+      };
+
+      // Mettre à jour toutes les parcelles de cet acheteur
+      const parcelleIds = selectedAcheteur.parcelles.map(p => p.id);
+      if (parcelleIds.length > 0) {
+        const { error: parcellesError } = await supabase
+          .from("parcelles")
+          .update(updateData)
+          .in("id", parcelleIds);
+
+        if (parcellesError) throw parcellesError;
+      }
+
+      // Mettre à jour tous les hectares de cet acheteur
+      const hectareIds = selectedAcheteur.hectares.map(h => h.id);
+      if (hectareIds.length > 0) {
+        const { error: hectaresError } = await supabase
+          .from("hectares")
+          .update(updateData)
+          .in("id", hectareIds);
+
+        if (hectaresError) throw hectaresError;
+      }
+
+      notify("Succès", "Fiche d'identification modifiée avec succès", "success");
+      setShowEditIdentificationDialog(false);
+      loadAcheteurs(); // Recharger la liste
+    } catch (error) {
+      console.error("Erreur:", error);
+      notify("Erreur", "Erreur lors de la modification de la fiche", "error");
     }
   };
 
@@ -773,6 +865,7 @@ const Acheteurs = () => {
           onOpenChange={setShowDetails}
           acheteur={selectedAcheteur}
           onLocaliser={handleLocaliser}
+          onEditIdentification={handleOpenEditIdentification}
         />
 
         {/* Dialog Modifier Acheteur */}
@@ -817,6 +910,201 @@ const Acheteurs = () => {
 
               <div className="flex gap-3 pt-4 border-t border-border">
                 <Button type="button" variant="outline" onClick={() => setShowEditBuyerDialog(false)} className="flex-1">
+                  Annuler
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Enregistrer
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Modifier Fiche d'Identification */}
+        <Dialog open={showEditIdentificationDialog} onOpenChange={setShowEditIdentificationDialog}>
+          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-card">
+            <DialogHeader className="border-b border-border pb-4">
+              <DialogTitle className="text-xl">Modifier la fiche d'identification</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleEditIdentification} className="space-y-4 pt-4">
+              {/* Identité */}
+              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identité</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Nom complet *</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_name}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_name: e.target.value })}
+                      placeholder="Nom complet"
+                      className="mt-1.5 bg-background"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Profession</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_profession}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_profession: e.target.value })}
+                      placeholder="Profession"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Naissance */}
+              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Naissance</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Lieu de naissance</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_birth_place}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_birth_place: e.target.value })}
+                      placeholder="Lieu de naissance"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Date de naissance</Label>
+                    <Input
+                      type="date"
+                      value={editIdentificationForm.buyer_birth_date}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_birth_date: e.target.value })}
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* État civil */}
+              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">État civil</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Situation matrimoniale</Label>
+                    <Select
+                      value={editIdentificationForm.buyer_marital_status}
+                      onValueChange={(value) => setEditIdentificationForm({ ...editIdentificationForm, buyer_marital_status: value })}
+                    >
+                      <SelectTrigger className="mt-1.5 bg-background">
+                        <SelectValue placeholder="Sélectionner..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="celibataire">Célibataire</SelectItem>
+                        <SelectItem value="marie">Marié(e)</SelectItem>
+                        <SelectItem value="divorce">Divorcé(e)</SelectItem>
+                        <SelectItem value="veuf">Veuf/Veuve</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Nombre d'enfants</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editIdentificationForm.buyer_children_count}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_children_count: e.target.value })}
+                      placeholder="0"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact</p>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium">Adresse</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_address}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_address: e.target.value })}
+                      placeholder="Adresse"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium">Téléphone</Label>
+                      <Input
+                        value={editIdentificationForm.buyer_phone}
+                        onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_phone: e.target.value })}
+                        placeholder="Numéro de téléphone"
+                        className="mt-1.5 bg-background"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Email</Label>
+                      <Input
+                        type="email"
+                        value={editIdentificationForm.buyer_email}
+                        onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_email: e.target.value })}
+                        placeholder="Adresse email"
+                        className="mt-1.5 bg-background"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Origine */}
+              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Origine</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Village d'origine</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_village_origin}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_village_origin: e.target.value })}
+                      placeholder="Village d'origine"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Groupement</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_groupement}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_groupement: e.target.value })}
+                      placeholder="Groupement"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Secteur</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_secteur}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_secteur: e.target.value })}
+                      placeholder="Secteur"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Territoire</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_territoire}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_territoire: e.target.value })}
+                      placeholder="Territoire"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-sm font-medium">Province</Label>
+                    <Input
+                      value={editIdentificationForm.buyer_province}
+                      onChange={(e) => setEditIdentificationForm({ ...editIdentificationForm, buyer_province: e.target.value })}
+                      placeholder="Province"
+                      className="mt-1.5 bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => setShowEditIdentificationDialog(false)} className="flex-1">
                   Annuler
                 </Button>
                 <Button type="submit" className="flex-1">
