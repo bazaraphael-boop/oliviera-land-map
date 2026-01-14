@@ -558,6 +558,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_buyer_pii: { Args: { _user_id: string }; Returns: boolean }
       has_permission: {
         Args: { _permission_code: string; _user_id: string }
         Returns: boolean
