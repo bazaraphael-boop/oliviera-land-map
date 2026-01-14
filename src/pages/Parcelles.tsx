@@ -68,6 +68,7 @@ const Parcelles = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [parcelles, setParcelles] = useState<Parcelle[]>([]);
+  const [allParcelles, setAllParcelles] = useState<Parcelle[]>([]);
   const [hectares, setHectares] = useState<Hectare[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,6 +89,19 @@ const Parcelles = () => {
     latitude: "",
     longitude: "",
   });
+
+  // Calculer l'effectif restant pour un hectare donné
+  const getHectareOccupancy = (hectareId: string) => {
+    const hectareParcelles = allParcelles.filter(p => p.hectare_id === hectareId);
+    const occupiedEffectif = hectareParcelles.reduce((total, p) => {
+      return total + Math.ceil(p.surface / 600);
+    }, 0);
+    return {
+      occupied: occupiedEffectif,
+      remaining: 15 - occupiedEffectif,
+      total: 15
+    };
+  };
   const [editFormData, setEditFormData] = useState({
     status: "",
     buyer_name: "",
@@ -109,6 +123,7 @@ const Parcelles = () => {
     checkAuth();
     fetchHectares();
     fetchParcelles();
+    fetchAllParcelles();
   }, [selectedHectare]);
 
   const checkAuth = async () => {
@@ -127,6 +142,19 @@ const Parcelles = () => {
 
       if (error) throw error;
       setHectares(data || []);
+    } catch (error) {
+      console.error("Erreur:", error);
+    }
+  };
+
+  const fetchAllParcelles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("parcelles")
+        .select("id, hectare_id, surface");
+
+      if (error) throw error;
+      setAllParcelles((data as any) || []);
     } catch (error) {
       console.error("Erreur:", error);
     }
@@ -543,13 +571,48 @@ const Parcelles = () => {
                         <SelectValue placeholder="Sélectionner un hectare" />
                       </SelectTrigger>
                       <SelectContent>
-                        {hectares.map((h) => (
-                          <SelectItem key={h.id} value={h.id}>
-                            {h.name}
-                          </SelectItem>
-                        ))}
+                        {hectares.map((h) => {
+                          const occupancy = getHectareOccupancy(h.id);
+                          return (
+                            <SelectItem key={h.id} value={h.id}>
+                              {h.name} ({occupancy.remaining}/15 dispo)
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
+                    {formData.hectare_id && (
+                      <div className="mt-2 p-3 rounded-lg bg-muted/50 border">
+                        {(() => {
+                          const occupancy = getHectareOccupancy(formData.hectare_id);
+                          const surfaceEffectif = formData.surface ? Math.ceil(parseFloat(formData.surface) / 600) : 0;
+                          const willExceed = occupancy.remaining < surfaceEffectif;
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Effectif restant :</span>
+                                <Badge variant={occupancy.remaining > 0 ? "default" : "destructive"}>
+                                  {occupancy.remaining} / {occupancy.total}
+                                </Badge>
+                              </div>
+                              {surfaceEffectif > 0 && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Cette parcelle ({formData.surface}m²) :</span>
+                                  <Badge variant={willExceed ? "destructive" : "secondary"}>
+                                    {surfaceEffectif} effectif
+                                  </Badge>
+                                </div>
+                              )}
+                              {willExceed && (
+                                <p className="text-xs text-destructive mt-1">
+                                  ⚠️ Pas assez d'espace dans cet hectare
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                   
                   <div>
