@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -550,13 +551,14 @@ const Parcelles = () => {
                 Nouvelle Parcelle
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[85vh]">
               <DialogHeader>
                 <DialogTitle>Créer une nouvelle parcelle</DialogTitle>
                 <DialogDescription>
                   Remplissez les informations de base de la parcelle
                 </DialogDescription>
               </DialogHeader>
+              <ScrollArea className="max-h-[60vh] pr-4">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
                   <div>
@@ -722,6 +724,7 @@ const Parcelles = () => {
                   <Button type="submit" className="flex-1">Créer la parcelle</Button>
                 </div>
               </form>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </div>
