@@ -63,14 +63,23 @@ export const PaymentDialog = ({
       img.onload = resolve;
     });
     
-    // En-tête : taille réelle proportionnelle, centrée
-    const imgRatio = img.width / img.height;
-    const imgWidth = contentWidth;
-    const imgHeight = imgWidth / imgRatio;
-    const imgX = margin;
-    pdf.addImage(img, "JPEG", imgX, 8, imgWidth, imgHeight);
-    
-    let yPos = 8 + imgHeight + 12;
+     // En-tête : préserver proportions avec limite de hauteur maximale
+     const maxHeaderHeight = 40; // hauteur maximale en mm
+     const headerRatio = img.width / img.height;
+     
+     let imgWidth = contentWidth;
+     let imgHeight = imgWidth / headerRatio;
+     
+     // Limiter la hauteur si elle dépasse le maximum
+     if (imgHeight > maxHeaderHeight) {
+       imgHeight = maxHeaderHeight;
+       imgWidth = imgHeight * headerRatio;
+     }
+     
+     const imgX = margin + (contentWidth - imgWidth) / 2; // Centrer horizontalement
+     pdf.addImage(img, "JPEG", imgX, 8, imgWidth, imgHeight);
+     
+     let yPos = 8 + imgHeight + 10;
     
     // Ligne de séparation
     pdf.setDrawColor(30, 60, 110);
