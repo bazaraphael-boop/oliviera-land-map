@@ -53,6 +53,9 @@ export const PaymentDialog = ({
     newRemainingAmount: number
   ) => {
     const pdf = new jsPDF();
+    const pageWidth = 210;
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
     
     const img = new Image();
     img.src = headerImage;
@@ -60,98 +63,141 @@ export const PaymentDialog = ({
       img.onload = resolve;
     });
     
-    // Limiter la hauteur de l'en-tête à 40mm maximum
-    const imgWidth = 210;
-    const calculatedHeight = (img.height * imgWidth) / img.width;
-    const imgHeight = Math.min(calculatedHeight, 40);
-    pdf.addImage(img, "JPEG", 0, 0, imgWidth, imgHeight);
+    // En-tête : taille réelle proportionnelle, centrée
+    const imgRatio = img.width / img.height;
+    const imgWidth = contentWidth;
+    const imgHeight = imgWidth / imgRatio;
+    const imgX = margin;
+    pdf.addImage(img, "JPEG", imgX, 8, imgWidth, imgHeight);
     
-    let yPos = imgHeight + 10;
+    let yPos = 8 + imgHeight + 12;
     
-    // Title
-    pdf.setFontSize(20);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isFullPayment ? "REÇU DE PAIEMENT TOTAL" : "REÇU D'ACOMPTE", 105, yPos, { align: "center" });
+    // Ligne de séparation
+    pdf.setDrawColor(30, 60, 110);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
     
-    // RMB Number and Date
-    yPos += 15;
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "normal");
-    const displayRmbNumber = rmbNumber || invoiceNumber;
-    pdf.text(`N° RMB: ${displayRmbNumber}`, 20, yPos);
-    pdf.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, 150, yPos);
-    
-    // Client Info Section
+    // Titre
     yPos += 12;
+    pdf.setFontSize(18);
     pdf.setFont("helvetica", "bold");
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(20, yPos - 5, 170, 25, "F");
-    pdf.text("INFORMATIONS CLIENT", 22, yPos);
+    pdf.setTextColor(30, 60, 110);
+    pdf.text(isFullPayment ? "REÇU DE PAIEMENT TOTAL" : "REÇU D'ACOMPTE", pageWidth / 2, yPos, { align: "center" });
+    
+    // N° et Date sur la même ligne
+    yPos += 12;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(80, 80, 80);
+    const displayRmbNumber = rmbNumber || invoiceNumber;
+    pdf.text(`N° RMB: ${displayRmbNumber}`, margin, yPos);
+    pdf.text(`Date: ${new Date().toLocaleDateString("fr-FR")}`, pageWidth - margin, yPos, { align: "right" });
+    
+    // Section Client
+    yPos += 10;
+    pdf.setFillColor(240, 245, 250);
+    pdf.setDrawColor(30, 60, 110);
+    pdf.setLineWidth(0.3);
+    const clientBoxHeight = buyerName ? 28 : 22;
+    pdf.roundedRect(margin, yPos, contentWidth, clientBoxHeight, 2, 2, "FD");
     
     yPos += 7;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(30, 60, 110);
+    pdf.text("INFORMATIONS CLIENT", margin + 5, yPos);
+    
+    yPos += 6;
     pdf.setFont("helvetica", "normal");
-    pdf.text(`Type: ${itemType === "hectare" ? "Hectare" : "Parcelle"}`, 22, yPos);
-    pdf.text(`Référence: ${itemName}`, 22, yPos + 7);
+    pdf.setTextColor(40, 40, 40);
+    pdf.setFontSize(9);
+    pdf.text(`Type: ${itemType === "hectare" ? "Hectare" : "Parcelle"}`, margin + 5, yPos);
+    pdf.text(`Référence: ${itemName}`, margin + 80, yPos);
     if (buyerName) {
-      pdf.text(`Acheteur: ${buyerName}`, 22, yPos + 14);
+      yPos += 6;
+      pdf.text(`Acheteur: ${buyerName}`, margin + 5, yPos);
     }
     
-    // Table Header
-    yPos += 30;
-    pdf.setDrawColor(0);
-    pdf.setLineWidth(0.8);
-    pdf.setFillColor(230, 230, 230);
-    pdf.rect(20, yPos - 7, 130, 12, "FD");
-    pdf.rect(150, yPos - 7, 40, 12, "FD");
+    // Tableau des montants
+    yPos += 14;
+    const col1W = contentWidth * 0.65;
+    const col2W = contentWidth * 0.35;
     
+    // Header tableau
+    pdf.setFillColor(30, 60, 110);
+    pdf.roundedRect(margin, yPos - 6, contentWidth, 10, 1, 1, "F");
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text("DÉSIGNATION", 25, yPos);
-    pdf.text("MONTANT (USD)", 155, yPos);
+    pdf.setFontSize(10);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text("DÉSIGNATION", margin + 5, yPos);
+    pdf.text("MONTANT (USD)", margin + col1W + 5, yPos);
     
-    // Table Rows
-    yPos += 12;
+    // Lignes du tableau
+    pdf.setTextColor(40, 40, 40);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
     
-    // Row 1: Total Price
-    pdf.setLineWidth(0.5);
-    pdf.rect(20, yPos - 7, 130, 10, "D");
-    pdf.rect(150, yPos - 7, 40, 10, "D");
-    pdf.text(`Prix total ${itemType}`, 25, yPos);
-    pdf.text(`$ ${totalPrice.toLocaleString()}`, 155, yPos);
-    
-    // Row 2: Payment
+    // Ligne 1 : Prix total
     yPos += 10;
-    pdf.rect(20, yPos - 7, 130, 10, "D");
-    pdf.rect(150, yPos - 7, 40, 10, "D");
-    pdf.text(isFullPayment ? "Paiement total" : "Acompte versé", 25, yPos);
-    pdf.text(`$ ${paymentAmount.toLocaleString()}`, 155, yPos);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(margin, yPos - 6, col1W, 10, "FD");
+    pdf.rect(margin + col1W, yPos - 6, col2W, 10, "FD");
+    pdf.text(`Prix total ${itemType}`, margin + 5, yPos);
+    pdf.text(`$ ${totalPrice.toLocaleString()}`, margin + col1W + 5, yPos);
     
-    // Row 3: Remaining (if applicable)
+    // Ligne 2 : Paiement
+    yPos += 10;
+    pdf.setFillColor(248, 248, 248);
+    pdf.rect(margin, yPos - 6, col1W, 10, "FD");
+    pdf.rect(margin + col1W, yPos - 6, col2W, 10, "FD");
+    pdf.text(isFullPayment ? "Paiement total" : "Acompte versé", margin + 5, yPos);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`$ ${paymentAmount.toLocaleString()}`, margin + col1W + 5, yPos);
+    pdf.setFont("helvetica", "normal");
+    
+    // Ligne 3 : Reste à payer
     if (!isFullPayment) {
       yPos += 10;
-      pdf.setFillColor(255, 250, 230);
-      pdf.rect(20, yPos - 7, 130, 10, "FD");
-      pdf.rect(150, yPos - 7, 40, 10, "FD");
+      pdf.setFillColor(255, 248, 230);
+      pdf.rect(margin, yPos - 6, col1W, 10, "FD");
+      pdf.rect(margin + col1W, yPos - 6, col2W, 10, "FD");
       pdf.setFont("helvetica", "bold");
-      pdf.text("Reste à payer", 25, yPos);
-      pdf.text(`$ ${newRemainingAmount.toLocaleString()}`, 155, yPos);
+      pdf.setTextColor(180, 100, 0);
+      pdf.text("Reste à payer", margin + 5, yPos);
+      pdf.text(`$ ${newRemainingAmount.toLocaleString()}`, margin + col1W + 5, yPos);
       pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(40, 40, 40);
     }
     
-    yPos += 15;
-    
+    // Infos complémentaires
+    yPos += 16;
     if (paymentMethod) {
-      yPos += 10;
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Mode de paiement: ${paymentMethod}`, 25, yPos);
+      pdf.setFontSize(9);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Mode de paiement: ${paymentMethod}`, margin, yPos);
+      yPos += 7;
     }
     
     if (notes) {
-      yPos += 10;
-      pdf.text(`Notes: ${notes}`, 25, yPos);
+      pdf.setFontSize(9);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Notes: ${notes}`, margin, yPos);
+      yPos += 7;
     }
+    
+    // Ligne de séparation finale
+    yPos += 5;
+    pdf.setDrawColor(30, 60, 110);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    
+    // Pied de page
+    yPos += 7;
+    pdf.setFontSize(8);
+    pdf.setTextColor(140, 140, 140);
+    pdf.text("Ce document fait office de reçu de paiement.", pageWidth / 2, yPos, { align: "center" });
     
     pdf.save(`Recu_${displayRmbNumber}_${itemName}.pdf`);
   };
