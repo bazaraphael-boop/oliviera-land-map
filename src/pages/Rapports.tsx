@@ -40,6 +40,7 @@ interface MonthlyData {
   month: string;
   ventes: number;
   revenus: number;
+  sortKey: string;
 }
 
 const Rapports = () => {
@@ -54,7 +55,7 @@ const Rapports = () => {
     salesRate: 0,
   });
   const [hectareStats, setHectareStats] = useState<HectareStats[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null); // format: "YYYY-MM" or null for all
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [allParcelles, setAllParcelles] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -62,7 +63,7 @@ const Rapports = () => {
   useEffect(() => {
     checkAuth();
     loadStats();
-  }, [selectedPeriod]);
+  }, [selectedMonth]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -71,27 +72,32 @@ const Rapports = () => {
     }
   };
 
-  // Fonction pour filtrer par période
-  const getDateFilter = () => {
-    const now = new Date();
-    switch (selectedPeriod) {
-      case "month":
-        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      case "quarter":
-        const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
-        return new Date(now.getFullYear(), quarterMonth, 1).toISOString();
-      case "year":
-        return new Date(now.getFullYear(), 0, 1).toISOString();
-      default:
-        return null;
-    }
+  // Fonction pour filtrer par mois sélectionné
+  const filterByPeriod = <T extends { sale_date?: string | null }>(items: T[]): T[] => {
+    if (!selectedMonth) return items;
+    return items.filter(item => {
+      if (!item.sale_date) return false;
+      const date = new Date(item.sale_date);
+      const itemMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return itemMonth === selectedMonth;
+    });
   };
 
-  const filterByPeriod = <T extends { sale_date?: string | null }>(items: T[]): T[] => {
-    const dateFilter = getDateFilter();
-    if (!dateFilter) return items;
-    return items.filter(item => item.sale_date && new Date(item.sale_date) >= new Date(dateFilter));
+  // Générer la liste des mois disponibles (12 derniers mois)
+  const getAvailableMonths = () => {
+    const months: { value: string; label: string }[] = [];
+    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+      months.push({ value, label });
+    }
+    return months;
   };
+
+  const availableMonths = getAvailableMonths();
 
   const loadStats = async () => {
     try {
@@ -171,11 +177,11 @@ const Rapports = () => {
 
       setHectareStats(hectareStatsData.sort((a, b) => b.revenue - a.revenue));
 
-      // Calculer les données mensuelles
+      // Calculer les données mensuelles (toujours sur toutes les ventes, pas filtrées)
       const salesByMonth = new Map<string, { ventes: number; revenus: number }>();
       
-      // Ajouter les ventes de parcelles
-      soldParcelles.forEach(p => {
+      // Ajouter les ventes de parcelles (non filtrées)
+      allSoldParcelles.forEach(p => {
         if (p.sale_date) {
           const date = new Date(p.sale_date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -187,8 +193,8 @@ const Rapports = () => {
         }
       });
 
-      // Ajouter les ventes d'hectares
-      soldHectares.forEach(h => {
+      // Ajouter les ventes d'hectares (non filtrées)
+      allSoldHectares.forEach(h => {
         if (h.sale_date) {
           const date = new Date(h.sale_date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -740,13 +746,13 @@ const Rapports = () => {
           <div className="flex items-center gap-3">
             <select 
               className="px-4 py-2 rounded-lg border border-border bg-background text-sm"
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
+              value={selectedMonth || "all"}
+              onChange={(e) => setSelectedMonth(e.target.value === "all" ? null : e.target.value)}
             >
-              <option value="all">Toute la période</option>
-              <option value="month">Ce mois</option>
-              <option value="quarter">Ce trimestre</option>
-              <option value="year">Cette année</option>
+              <option value="all">Tous les mois</option>
+              {availableMonths.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
             </select>
             <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90">
               <Download className="w-4 h-4 mr-2" />
@@ -791,9 +797,14 @@ const Rapports = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Évolution des Ventes */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              Évolution des Ventes Mensuelles
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                Évolution des Ventes Mensuelles
+              </h3>
+              {selectedMonth && (
+                <span className="text-xs text-muted-foreground">Cliquez à nouveau pour désélectionner</span>
+              )}
+            </div>
             <div className="h-64">
               {monthlyData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -805,7 +816,12 @@ const Rapports = () => {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
+                  <BarChart data={monthlyData} onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload[0]) {
+                      const clickedMonth = data.activePayload[0].payload.sortKey;
+                      setSelectedMonth(clickedMonth === selectedMonth ? null : clickedMonth);
+                    }
+                  }} style={{ cursor: 'pointer' }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="month" 
@@ -827,7 +843,16 @@ const Rapports = () => {
                         return [value, "Ventes"];
                       }}
                     />
-                    <Bar dataKey="ventes" fill="hsl(217, 91%, 60%)" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="ventes" radius={[8, 8, 0, 0]}>
+                      {monthlyData.map((entry) => (
+                        <Cell 
+                          key={entry.sortKey}
+                          fill={entry.sortKey === selectedMonth ? "hsl(160, 84%, 39%)" : "hsl(217, 91%, 60%)"}
+                          stroke={entry.sortKey === selectedMonth ? "hsl(160, 84%, 30%)" : "none"}
+                          strokeWidth={entry.sortKey === selectedMonth ? 2 : 0}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               )}
