@@ -622,6 +622,7 @@ const Rapports = () => {
         email: string;
         type: string;
         property: string;
+        prix: number;
         amount: number;
       }> = [];
       
@@ -634,6 +635,7 @@ const Rapports = () => {
           email: p.buyer_email || "N/A",
           type: `Parcelle${saleTypeLabel}`,
           property: `${(p.hectares as any)?.name || "N/A"} - ${p.numero}`,
+          prix: Number(p.prix || 0),
           amount: p.sale_type === "onereux" ? 0 : Number(p.amount_paid || p.prix)
         });
       });
@@ -647,6 +649,7 @@ const Rapports = () => {
           email: h.buyer_email || "N/A",
           type: `Hectare${saleTypeLabel}`,
           property: h.name,
+          prix: Number(h.prix || 0),
           amount: h.sale_type === "onereux" ? 0 : Number(h.amount_paid || h.prix)
         });
       });
@@ -657,46 +660,62 @@ const Rapports = () => {
         pdf.text("Aucun acheteur enregistré", 25, yPos);
         yPos += 10;
       } else {
-        // Tableau des acheteurs
-        pdf.setFontSize(8);
+        // En-tête du tableau des acheteurs
+        const buyerColWidths = [40, 30, 30, 25, 25, 20];
+        const buyerHeaders = ["Nom", "Propriété", "Tel", "Type", "Prix", "Payé"];
         
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(66, 135, 245);
+        pdf.setTextColor(255, 255, 255);
+        let bx = 20;
+        buyerHeaders.forEach((h, i) => {
+          pdf.rect(bx, yPos, buyerColWidths[i], 8, 'F');
+          pdf.text(h, bx + 2, yPos + 5.5);
+          bx += buyerColWidths[i];
+        });
+        yPos += 8;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+
         buyers.forEach((buyer, index) => {
-          if (yPos > 260) {
+          if (yPos > 270) {
             pdf.addPage();
             yPos = 20;
           }
           
-          const isEven = index % 2 === 0;
-          if (isEven) {
-            pdf.setFillColor(250, 250, 250);
+          const isOnereux = buyer.type.includes("Onéreux");
+          if (isOnereux) {
+            pdf.setFillColor(255, 243, 224);
           } else {
-            pdf.setFillColor(255, 255, 255);
+            pdf.setFillColor(index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255, index % 2 === 0 ? 250 : 255);
           }
           
-          // Carte d'acheteur
-          pdf.rect(20, yPos, 170, 25, 'FD');
-          pdf.setDrawColor(200, 200, 200);
-          pdf.rect(20, yPos, 170, 25, 'S');
-          
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(10);
-          pdf.text(buyer.name, 25, yPos + 6);
+          bx = 20;
+          buyerColWidths.forEach(w => { pdf.rect(bx, yPos, w, 8, 'FD'); bx += w; });
           
           pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(7);
+          pdf.text(buyer.name.substring(0, 18), 22, yPos + 5.5);
+          pdf.text(buyer.property.substring(0, 14), 62, yPos + 5.5);
+          pdf.text(buyer.phone.substring(0, 14), 92, yPos + 5.5);
+          
+          if (isOnereux) {
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(180, 90, 0);
+            pdf.text("ONÉREUX", 122, yPos + 5.5);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont("helvetica", "normal");
+            pdf.text("-", 147, yPos + 5.5);
+            pdf.text("-", 167, yPos + 5.5);
+          } else {
+            pdf.text(buyer.type.substring(0, 10), 122, yPos + 5.5);
+            pdf.text(formatPrice(buyer.prix), 147, yPos + 5.5);
+            pdf.text(formatPrice(buyer.amount), 167, yPos + 5.5);
+          }
           pdf.setFontSize(8);
-          pdf.text(`Tel: ${buyer.phone}`, 25, yPos + 12);
-          pdf.text(`Email: ${buyer.email}`, 25, yPos + 18);
           
-          pdf.setFont("helvetica", "bold");
-          pdf.text(`${buyer.type}:`, 110, yPos + 6);
-          pdf.setFont("helvetica", "normal");
-          pdf.text(buyer.property.substring(0, 30), 110, yPos + 12);
-          
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(9);
-          pdf.text(`${formatPrice(buyer.amount)} USD`, 110, yPos + 20);
-          
-          yPos += 28;
+          yPos += 8;
         });
       }
       
@@ -812,10 +831,10 @@ const Rapports = () => {
         pdf.text("DÉTAIL DES VENTES - PARCELLES", 20, yPos);
         yPos += 8;
 
-        const colWidths = [40, 35, 50, 45];
-        const headers = ["Parcelle", "Hectare", "Acheteur", "Montant (USD)"];
+        const colWidths = [30, 25, 35, 25, 25, 30];
+        const headers = ["Parcelle", "Hectare", "Acheteur", "Type", "Prix (USD)", "Payé (USD)"];
 
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
         pdf.setFillColor(30, 60, 110);
         pdf.setTextColor(255, 255, 255);
@@ -831,13 +850,31 @@ const Rapports = () => {
 
         soldParcelles.forEach((p, idx) => {
           if (yPos > 270) { pdf.addPage(); yPos = 20; }
-          pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
+          const isOnereux = p.sale_type === 'onereux';
+          if (isOnereux) {
+            pdf.setFillColor(255, 243, 224);
+          } else {
+            pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
+          }
           cx = 20;
           colWidths.forEach(w => { pdf.rect(cx, yPos, w, 8, 'FD'); cx += w; });
-          pdf.text(p.numero.substring(0, 15), 22, yPos + 5.5);
-          pdf.text(((p.hectares as any)?.name || "N/A").substring(0, 12), 62, yPos + 5.5);
-          pdf.text((p.buyer_name || "N/A").substring(0, 20), 97, yPos + 5.5);
-          pdf.text(formatPrice(p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 127, yPos + 5.5);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(p.numero.substring(0, 12), 22, yPos + 5.5);
+          pdf.text(((p.hectares as any)?.name || "N/A").substring(0, 10), 52, yPos + 5.5);
+          pdf.text((p.buyer_name || "N/A").substring(0, 14), 77, yPos + 5.5);
+          if (isOnereux) {
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(180, 90, 0);
+            pdf.text("ONÉREUX", 112, yPos + 5.5);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont("helvetica", "normal");
+            pdf.text("-", 137, yPos + 5.5);
+            pdf.text("-", 162, yPos + 5.5);
+          } else {
+            pdf.text("Normal", 112, yPos + 5.5);
+            pdf.text(formatPrice(Number(p.prix || 0)), 137, yPos + 5.5);
+            pdf.text(formatPrice(Number(p.amount_paid || 0)), 162, yPos + 5.5);
+          }
           yPos += 8;
         });
         yPos += 8;
@@ -851,18 +888,18 @@ const Rapports = () => {
         pdf.text("DÉTAIL DES VENTES - HECTARES", 20, yPos);
         yPos += 8;
 
-        const colWidths = [55, 50, 65];
-        const headers = ["Hectare", "Acheteur", "Montant (USD)"];
+        const hColWidths = [40, 35, 25, 35, 35];
+        const hHeaders = ["Hectare", "Acheteur", "Type", "Prix (USD)", "Payé (USD)"];
 
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
         pdf.setFillColor(30, 60, 110);
         pdf.setTextColor(255, 255, 255);
-        let cx = 20;
-        headers.forEach((h, i) => {
-          pdf.rect(cx, yPos, colWidths[i], 8, 'F');
-          pdf.text(h, cx + 2, yPos + 5.5);
-          cx += colWidths[i];
+        let hcx = 20;
+        hHeaders.forEach((h, i) => {
+          pdf.rect(hcx, yPos, hColWidths[i], 8, 'F');
+          pdf.text(h, hcx + 2, yPos + 5.5);
+          hcx += hColWidths[i];
         });
         yPos += 8;
         pdf.setTextColor(0, 0, 0);
@@ -870,12 +907,30 @@ const Rapports = () => {
 
         soldHectares.forEach((h, idx) => {
           if (yPos > 270) { pdf.addPage(); yPos = 20; }
-          pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
-          cx = 20;
-          colWidths.forEach(w => { pdf.rect(cx, yPos, w, 8, 'FD'); cx += w; });
-          pdf.text(h.name.substring(0, 22), 22, yPos + 5.5);
-          pdf.text((h.buyer_name || "N/A").substring(0, 20), 77, yPos + 5.5);
-          pdf.text(formatPrice(h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix)), 127, yPos + 5.5);
+          const isOnereux = h.sale_type === 'onereux';
+          if (isOnereux) {
+            pdf.setFillColor(255, 243, 224);
+          } else {
+            pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
+          }
+          hcx = 20;
+          hColWidths.forEach(w => { pdf.rect(hcx, yPos, w, 8, 'FD'); hcx += w; });
+          pdf.setFont("helvetica", "normal");
+          pdf.text(h.name.substring(0, 16), 22, yPos + 5.5);
+          pdf.text((h.buyer_name || "N/A").substring(0, 14), 62, yPos + 5.5);
+          if (isOnereux) {
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(180, 90, 0);
+            pdf.text("ONÉREUX", 97, yPos + 5.5);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont("helvetica", "normal");
+            pdf.text("-", 122, yPos + 5.5);
+            pdf.text("-", 157, yPos + 5.5);
+          } else {
+            pdf.text("Normal", 97, yPos + 5.5);
+            pdf.text(formatPrice(Number(h.prix || 0)), 122, yPos + 5.5);
+            pdf.text(formatPrice(Number(h.amount_paid || 0)), 157, yPos + 5.5);
+          }
           yPos += 8;
         });
       }
