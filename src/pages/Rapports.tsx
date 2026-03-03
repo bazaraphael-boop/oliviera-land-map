@@ -719,6 +719,185 @@ const Rapports = () => {
     }
   };
 
+  const exportMonthlyPDF = async (monthKey: string) => {
+    try {
+      const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+      const [year, month] = monthKey.split('-');
+      const monthLabel = `${monthNames[parseInt(month) - 1]} ${year}`;
+
+      // Filtrer les données pour ce mois
+      const filterMonth = <T extends { sale_date?: string | null }>(items: T[]): T[] => {
+        return items.filter(item => {
+          if (!item.sale_date) return false;
+          const d = new Date(item.sale_date);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === monthKey;
+        });
+      };
+
+      const { data: parcelles } = await supabase.from("parcelles").select("*, hectares(id, name)");
+      const { data: hectares } = await supabase.from("hectares").select("*");
+
+      const soldParcelles = filterMonth(parcelles?.filter(p => p.status === "vendu") || []);
+      const soldHectares = filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []);
+
+      const totalRevenue = soldParcelles.reduce((s, p) => s + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0)
+        + soldHectares.reduce((s, h) => s + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix)), 0);
+
+      const formatPrice = (price: number) => price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+      const pdf = new jsPDF();
+
+      // Header image
+      const img = new Image();
+      img.src = headerImage;
+      await new Promise((resolve) => { img.onload = resolve; });
+      const pdfWidth = 210;
+      const imgRatio = img.height / img.width;
+      const headerHeight = Math.min(pdfWidth * imgRatio, 40);
+      const imgWidth = headerHeight / imgRatio;
+      const imgX = (pdfWidth - imgWidth) / 2;
+      pdf.addImage(headerImage, 'JPEG', imgX, 5, imgWidth, headerHeight);
+
+      let yPos = headerHeight + 15;
+
+      // Titre
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(30, 60, 110);
+      pdf.text(`RAPPORT DES VENTES - ${monthLabel.toUpperCase()}`, 105, yPos, { align: "center" });
+      yPos += 8;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
+      yPos += 12;
+
+      // Ligne séparatrice
+      pdf.setDrawColor(30, 60, 110);
+      pdf.setLineWidth(0.5);
+      pdf.line(20, yPos, 190, yPos);
+      yPos += 10;
+
+      // Résumé statistiques
+      pdf.setFontSize(13);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("RÉSUMÉ DU MOIS", 20, yPos);
+      yPos += 10;
+
+      const summaryData = [
+        ["Nombre de ventes (parcelles)", `${soldParcelles.length}`],
+        ["Nombre de ventes (hectares)", `${soldHectares.length}`],
+        ["Total ventes", `${soldParcelles.length + soldHectares.length}`],
+        ["Revenus total", `${formatPrice(totalRevenue)} USD`],
+      ];
+
+      pdf.setFontSize(10);
+      summaryData.forEach(([label, value]) => {
+        pdf.setFillColor(245, 247, 250);
+        pdf.roundedRect(20, yPos - 4, 170, 10, 2, 2, 'F');
+        pdf.setFont("helvetica", "normal");
+        pdf.text(label, 25, yPos + 2);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(value, 185, yPos + 2, { align: "right" });
+        yPos += 12;
+      });
+
+      yPos += 5;
+
+      // Détail des ventes parcelles
+      if (soldParcelles.length > 0) {
+        pdf.setFontSize(13);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("DÉTAIL DES VENTES - PARCELLES", 20, yPos);
+        yPos += 8;
+
+        const colWidths = [40, 35, 50, 45];
+        const headers = ["Parcelle", "Hectare", "Acheteur", "Montant (USD)"];
+
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(30, 60, 110);
+        pdf.setTextColor(255, 255, 255);
+        let cx = 20;
+        headers.forEach((h, i) => {
+          pdf.rect(cx, yPos, colWidths[i], 8, 'F');
+          pdf.text(h, cx + 2, yPos + 5.5);
+          cx += colWidths[i];
+        });
+        yPos += 8;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+
+        soldParcelles.forEach((p, idx) => {
+          if (yPos > 270) { pdf.addPage(); yPos = 20; }
+          pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
+          cx = 20;
+          colWidths.forEach(w => { pdf.rect(cx, yPos, w, 8, 'FD'); cx += w; });
+          pdf.text(p.numero.substring(0, 15), 22, yPos + 5.5);
+          pdf.text(((p.hectares as any)?.name || "N/A").substring(0, 12), 62, yPos + 5.5);
+          pdf.text((p.buyer_name || "N/A").substring(0, 20), 97, yPos + 5.5);
+          pdf.text(formatPrice(p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 127, yPos + 5.5);
+          yPos += 8;
+        });
+        yPos += 8;
+      }
+
+      // Détail des ventes hectares
+      if (soldHectares.length > 0) {
+        if (yPos > 240) { pdf.addPage(); yPos = 20; }
+        pdf.setFontSize(13);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("DÉTAIL DES VENTES - HECTARES", 20, yPos);
+        yPos += 8;
+
+        const colWidths = [55, 50, 65];
+        const headers = ["Hectare", "Acheteur", "Montant (USD)"];
+
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(30, 60, 110);
+        pdf.setTextColor(255, 255, 255);
+        let cx = 20;
+        headers.forEach((h, i) => {
+          pdf.rect(cx, yPos, colWidths[i], 8, 'F');
+          pdf.text(h, cx + 2, yPos + 5.5);
+          cx += colWidths[i];
+        });
+        yPos += 8;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+
+        soldHectares.forEach((h, idx) => {
+          if (yPos > 270) { pdf.addPage(); yPos = 20; }
+          pdf.setFillColor(idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 250 : 255);
+          cx = 20;
+          colWidths.forEach(w => { pdf.rect(cx, yPos, w, 8, 'FD'); cx += w; });
+          pdf.text(h.name.substring(0, 22), 22, yPos + 5.5);
+          pdf.text((h.buyer_name || "N/A").substring(0, 20), 77, yPos + 5.5);
+          pdf.text(formatPrice(h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix)), 127, yPos + 5.5);
+          yPos += 8;
+        });
+      }
+
+      // Footer
+      const pageCount = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "italic");
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Rapport mensuel - ${monthLabel}`, 105, 285, { align: "center" });
+      }
+
+      pdf.save(`rapport-ventes-${monthKey}.pdf`);
+      toast.success(`Rapport de ${monthLabel} téléchargé`);
+    } catch (error) {
+      console.error("Erreur export mensuel:", error);
+      toast.error("Erreur lors de la génération du rapport mensuel");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -801,9 +980,9 @@ const Rapports = () => {
               <h3 className="text-lg font-semibold text-foreground">
                 Évolution des Ventes Mensuelles
               </h3>
-              {selectedMonth && (
-                <span className="text-xs text-muted-foreground">Cliquez à nouveau pour désélectionner</span>
-              )}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Download className="w-3 h-3" /> Cliquez sur un mois pour télécharger son rapport
+              </span>
             </div>
             <div className="h-64">
               {monthlyData.length === 0 ? (
@@ -819,7 +998,7 @@ const Rapports = () => {
                   <BarChart data={monthlyData} onClick={(data) => {
                     if (data && data.activePayload && data.activePayload[0]) {
                       const clickedMonth = data.activePayload[0].payload.sortKey;
-                      setSelectedMonth(clickedMonth === selectedMonth ? null : clickedMonth);
+                      exportMonthlyPDF(clickedMonth);
                     }
                   }} style={{ cursor: 'pointer' }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
