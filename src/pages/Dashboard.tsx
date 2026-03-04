@@ -432,10 +432,10 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Bar */}
-        <header className="bg-card border-b border-border px-8 py-4">
-          <div className="flex items-center justify-between">
-            {/* Search */}
-            <div className="flex-1 max-w-xl">
+        <header className="bg-card border-b border-border px-4 sm:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            {/* Search - hidden on small mobile */}
+            <div className="hidden sm:block flex-1 max-w-xl">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -445,14 +445,26 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Mobile: show name */}
+            <div className="sm:hidden flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                <span className="text-primary-foreground font-semibold text-sm">
+                  {profile?.full_name?.charAt(0) || "A"}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-foreground truncate">
+                {profile?.full_name || "Admin"}
+              </p>
+            </div>
+
             {/* User Profile */}
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+              <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
               </Button>
 
-              <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
                   <span className="text-primary-foreground font-semibold">
                     {profile?.full_name?.charAt(0) || "A"}
@@ -466,41 +478,41 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="w-5 h-5" />
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 sm:h-10 sm:w-10">
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
         </header>
 
         {/* Dashboard Content */}
-        <main className="flex-1 p-8 overflow-auto">
+        <main className="flex-1 p-4 sm:p-8 overflow-auto">
           {/* Page Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">
+              <h1 className="text-xl sm:text-3xl font-bold text-foreground mb-1">
                 Rapports & Analyses
               </h1>
-              <p className="text-muted-foreground text-sm">
-                Analysez les performances de vos terrains - Données mises à jour automatiquement
+              <p className="text-muted-foreground text-xs sm:text-sm">
+                Performances de vos terrains
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <select className="px-4 py-2 rounded-lg border border-border bg-background text-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <select className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm flex-1 sm:flex-none">
                 <option>Ce mois</option>
                 <option>Ce trimestre</option>
                 <option>Cette année</option>
               </select>
-              <Button className="bg-primary hover:bg-primary/90" onClick={handleExportReport}>
-                <Download className="w-4 h-4 mr-2" />
-                Exporter PDF
+              <Button className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4" onClick={handleExportReport}>
+                <Download className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Exporter PDF</span>
               </Button>
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
             {canViewRevenue && (
               <StatsCard
                 title="Revenus Total"
@@ -534,18 +546,18 @@ const Dashboard = () => {
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Évolution des Ventes */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">
-                  Évolution des Ventes Mensuelles
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+                <h3 className="text-sm sm:text-lg font-semibold text-foreground">
+                  Évolution des Ventes
                 </h3>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Download className="w-3 h-3" /> Cliquez sur un mois pour son rapport
+                <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                  <Download className="w-3 h-3" /> Cliquez pour télécharger
                 </span>
               </div>
-              <div className="h-64">
+              <div className="h-48 sm:h-64">
                 {monthlyData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground">
                     <div className="text-center">
@@ -590,13 +602,13 @@ const Dashboard = () => {
             </Card>
 
             {/* Performance par Hectare */}
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">
+                <h3 className="text-sm sm:text-lg font-semibold text-foreground">
                   Performance par Hectare (Top 5)
                 </h3>
               </div>
-              <div className="h-64">
+              <div className="h-48 sm:h-64">
                 {hectareStats.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground">
                     <div className="text-center">
