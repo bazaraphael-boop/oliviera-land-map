@@ -605,56 +605,53 @@ const Dashboard = () => {
             <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm sm:text-lg font-semibold text-foreground">
-                  Performance par Hectare (Top 5)
+                  Performance par Hectare
                 </h3>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">Top 5</span>
               </div>
-              <div className="h-48 sm:h-64">
+              <div className="space-y-3">
                 {hectareStats.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="h-48 flex items-center justify-center text-muted-foreground">
                     <div className="text-center">
                       <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
                       <p className="text-sm">Aucune donnée disponible</p>
                     </div>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={hectareStats.slice(0, 5)}
-                        dataKey="revenue"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {hectareStats.slice(0, 5).map((_, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={[
-                              "hsl(217, 91%, 60%)",
-                              "hsl(160, 84%, 39%)",
-                              "hsl(24, 95%, 53%)",
-                              "hsl(271, 91%, 65%)",
-                              "hsl(210, 40%, 50%)"
-                            ][index % 5]} 
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px"
-                        }}
-                        formatter={(value: number) => `${value.toLocaleString()} USD`}
-                      />
-                      <Legend 
-                        wrapperStyle={{ fontSize: "12px" }}
-                        formatter={(value) => value.length > 15 ? value.substring(0, 15) + "..." : value}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  (() => {
+                    const top5 = hectareStats.slice(0, 5);
+                    const maxRevenue = Math.max(...top5.map(h => h.revenue));
+                    const colors = [
+                      "bg-[hsl(217,91%,60%)]",
+                      "bg-[hsl(160,84%,39%)]",
+                      "bg-[hsl(24,95%,53%)]",
+                      "bg-[hsl(271,91%,65%)]",
+                      "bg-[hsl(210,40%,50%)]",
+                    ];
+                    return top5.map((hectare, index) => {
+                      const pct = maxRevenue > 0 ? (hectare.revenue / maxRevenue) * 100 : 0;
+                      return (
+                        <div key={hectare.id} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs sm:text-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors[index % 5]}`} />
+                              <span className="font-medium text-foreground truncate">{hectare.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-2">
+                              <span className="font-semibold text-foreground">{hectare.revenue.toLocaleString()} USD</span>
+                              <span className="text-muted-foreground text-[10px] sm:text-xs w-10 text-right">{hectare.salesRate.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${colors[index % 5]} transition-all duration-500`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
                 )}
               </div>
             </Card>
