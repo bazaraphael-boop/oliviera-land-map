@@ -965,21 +965,21 @@ const Rapports = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8 overflow-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1">
               Rapports & Analyses
             </h1>
-            <p className="text-muted-foreground text-sm">
-              Analysez les performances de vos terrains - Données mises à jour automatiquement
+            <p className="text-muted-foreground text-xs sm:text-sm">
+              Performances de vos terrains
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <select 
-              className="px-4 py-2 rounded-lg border border-border bg-background text-sm"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm flex-1 sm:flex-none"
               value={selectedMonth || "all"}
               onChange={(e) => setSelectedMonth(e.target.value === "all" ? null : e.target.value)}
             >
@@ -988,15 +988,15 @@ const Rapports = () => {
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
             </select>
-            <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90">
-              <Download className="w-4 h-4 mr-2" />
-              Exporter PDF
+            <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4">
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exporter PDF</span>
             </Button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
           <StatsCard
             title="Revenus Total"
             value={`${stats.totalRevenue.toLocaleString()} USD`}
@@ -1028,24 +1028,23 @@ const Rapports = () => {
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Évolution des Ventes */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                Évolution des Ventes Mensuelles
+          <Card className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
+                Évolution des Ventes
               </h3>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Download className="w-3 h-3" /> Cliquez sur un mois pour télécharger son rapport
+              <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                <Download className="w-3 h-3" /> Cliquez pour télécharger
               </span>
             </div>
-            <div className="h-64">
+            <div className="h-48 sm:h-64">
               {monthlyData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
-                    <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-sm">Aucune vente enregistrée</p>
-                    <p className="text-xs mt-1">Les données apparaîtront après les premières ventes</p>
+                    <BarChart2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <p className="text-xs sm:text-sm">Aucune vente enregistrée</p>
                   </div>
                 </div>
               ) : (
@@ -1060,24 +1059,28 @@ const Rapports = () => {
                     <XAxis 
                       dataKey="month" 
                       stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
+                      fontSize={10}
+                      tick={{ fontSize: 9 }}
+                      interval="preserveStartEnd"
                     />
                     <YAxis 
                       stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
+                      fontSize={10}
+                      width={30}
                     />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px"
+                        borderRadius: "8px",
+                        fontSize: "12px"
                       }}
                       formatter={(value: number, name: string) => {
                         if (name === "revenus") return [`${value.toLocaleString()} USD`, "Revenus"];
                         return [value, "Ventes"];
                       }}
                     />
-                    <Bar dataKey="ventes" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="ventes" radius={[6, 6, 0, 0]}>
                       {monthlyData.map((entry) => (
                         <Cell 
                           key={entry.sortKey}
@@ -1094,59 +1097,56 @@ const Rapports = () => {
           </Card>
 
           {/* Performance par Hectare */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                Performance par Hectare (Top 5)
+              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
+                Performance par Hectare
               </h3>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Top 5</span>
             </div>
-            <div className="h-64">
+            <div className="space-y-3">
               {hectareStats.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="h-48 flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
-                    <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-sm">Aucune donnée disponible</p>
+                    <BarChart2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <p className="text-xs sm:text-sm">Aucune donnée disponible</p>
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={hectareStats.slice(0, 5)}
-                      dataKey="revenue"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {hectareStats.slice(0, 5).map((_, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={[
-                            "hsl(217, 91%, 60%)",
-                            "hsl(160, 84%, 39%)",
-                            "hsl(24, 95%, 53%)",
-                            "hsl(271, 91%, 65%)",
-                            "hsl(210, 40%, 50%)"
-                          ][index % 5]} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px"
-                      }}
-                      formatter={(value: number) => `${value.toLocaleString()} USD`}
-                    />
-                    <Legend 
-                      wrapperStyle={{ fontSize: "12px" }}
-                      formatter={(value) => value.length > 15 ? value.substring(0, 15) + "..." : value}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                (() => {
+                  const top5 = hectareStats.slice(0, 5);
+                  const maxRevenue = Math.max(...top5.map(h => h.revenue));
+                  const colors = [
+                    "bg-[hsl(217,91%,60%)]",
+                    "bg-[hsl(160,84%,39%)]",
+                    "bg-[hsl(24,95%,53%)]",
+                    "bg-[hsl(271,91%,65%)]",
+                    "bg-[hsl(210,40%,50%)]",
+                  ];
+                  return top5.map((hectare, index) => {
+                    const pct = maxRevenue > 0 ? (hectare.revenue / maxRevenue) * 100 : 0;
+                    return (
+                      <div key={hectare.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors[index % 5]}`} />
+                            <span className="font-medium text-foreground truncate">{hectare.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-2">
+                            <span className="font-semibold text-foreground">{hectare.revenue.toLocaleString()} USD</span>
+                            <span className="text-muted-foreground text-[10px] sm:text-xs w-10 text-right">{hectare.salesRate.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${colors[index % 5]} transition-all duration-500`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
               )}
             </div>
           </Card>
@@ -1154,39 +1154,38 @@ const Rapports = () => {
 
         {/* Rapport des Doublons RMB */}
         {duplicateRMBs.length > 0 && (
-          <Card className="p-6 mb-8 border-red-200 bg-red-50/50">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+          <Card className="p-4 sm:p-6 mb-6 sm:mb-8 border-red-200 bg-red-50/50">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-2">
                     Doublons RMB Détectés
                   </h3>
-                  <Alert variant="destructive" className="mb-3">
-                    <AlertDescription>
-                      {duplicateRMBs.length} numéro(s) RMB utilisé(s) plusieurs fois : {duplicateRMBs.join(", ")}
+                  <Alert variant="destructive" className="mb-2 sm:mb-3">
+                    <AlertDescription className="text-xs sm:text-sm">
+                      {duplicateRMBs.length} numéro(s) RMB utilisé(s) plusieurs fois
                     </AlertDescription>
                   </Alert>
-                  <p className="text-sm text-muted-foreground">
-                    Ces numéros RMB apparaissent sur plusieurs parcelles. Cliquez sur le bouton pour voir le détail complet.
-                  </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <Button 
                   variant="outline"
+                  size="sm"
                   onClick={exportDuplicatesPDF}
-                  className="whitespace-nowrap"
+                  className="text-xs"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Exporter PDF
+                  <Download className="w-3.5 h-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">PDF</span>
                 </Button>
                 <Button 
                   variant="destructive"
+                  size="sm"
                   onClick={() => setDuplicatesReportOpen(true)}
-                  className="whitespace-nowrap"
+                  className="text-xs"
                 >
-                  Voir le rapport complet
+                  Voir détail
                 </Button>
               </div>
             </div>
@@ -1194,41 +1193,41 @@ const Rapports = () => {
         )}
 
         {/* Détails par Statut */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">
+        <Card className="p-4 sm:p-6">
+          <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-4">
             Répartition par Statut
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-foreground">Disponibles</span>
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="p-3 sm:p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <span className="text-[10px] sm:text-sm font-medium text-foreground">Disponibles</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.availableCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}% du total
+              <p className="text-lg sm:text-2xl font-bold text-foreground">{stats.availableCount}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
+                {((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%
               </p>
             </div>
 
-            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-foreground">Vendues</span>
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <div className="p-3 sm:p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <span className="text-[10px] sm:text-sm font-medium text-foreground">Vendues</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-500"></div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.soldCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.salesRate.toFixed(1)}% de taux de vente
+              <p className="text-lg sm:text-2xl font-bold text-foreground">{stats.soldCount}</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
+                {stats.salesRate.toFixed(1)}%
               </p>
             </div>
 
-            <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-foreground">Réservées</span>
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+            <div className="p-3 sm:p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <span className="text-[10px] sm:text-sm font-medium text-foreground">Réservées</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-orange-500"></div>
               </div>
-              <p className="text-2xl font-bold text-foreground">0</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                0% du total
+              <p className="text-lg sm:text-2xl font-bold text-foreground">0</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
+                0%
               </p>
             </div>
           </div>
@@ -1237,48 +1236,48 @@ const Rapports = () => {
 
       {/* Dialog pour le rapport des doublons RMB */}
       <Dialog open={duplicatesReportOpen} onOpenChange={setDuplicatesReportOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="w-5 h-5" />
+            <DialogTitle className="flex items-center gap-2 text-red-600 text-sm sm:text-base">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
               Rapport des Doublons RMB
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <Alert variant="destructive">
-              <AlertDescription>
-                {duplicateRMBs.length} numéro(s) RMB sont utilisés plusieurs fois. Chaque numéro RMB devrait être unique.
+              <AlertDescription className="text-xs sm:text-sm">
+                {duplicateRMBs.length} numéro(s) RMB sont utilisés plusieurs fois.
               </AlertDescription>
             </Alert>
 
             {Array.from(duplicateRMBDetails.entries()).map(([rmb, parcelles]) => (
-              <Card key={rmb} className="p-4 border-red-200">
-                <div className="mb-3 pb-3 border-b">
-                  <h3 className="font-semibold text-lg text-red-600">
+              <Card key={rmb} className="p-3 sm:p-4 border-red-200">
+                <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b">
+                  <h3 className="font-semibold text-sm sm:text-lg text-red-600">
                     RMB: {rmb}
-                    <span className="ml-2 text-sm text-muted-foreground">
+                    <span className="ml-2 text-xs text-muted-foreground">
                       ({parcelles.length} parcelles)
                     </span>
                   </h3>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {parcelles.map((parcelle) => (
-                    <div key={parcelle.id} className="p-3 bg-muted/50 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
+                    <div key={parcelle.id} className="p-2.5 sm:p-3 bg-muted/50 rounded-lg">
+                      <div className="flex justify-between items-start gap-2 mb-2">
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium text-xs sm:text-sm">
                             Parcelle: {parcelle.numero}
-                            <span className="ml-2 text-sm text-muted-foreground">
-                              Hectare: {parcelle.hectares?.name || "N/A"}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {parcelle.hectares?.name || "N/A"}
                             </span>
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-[10px] sm:text-sm text-muted-foreground">
                             {parcelle.surface} m² • {parcelle.prix?.toLocaleString()} USD
                           </p>
                         </div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                        <span className={`px-2 py-0.5 text-[10px] sm:text-xs font-semibold rounded shrink-0 ${
                           parcelle.status === "vendu" 
                             ? "bg-green-500/20 text-green-700" 
                             : "bg-blue-500/20 text-blue-700"
@@ -1289,19 +1288,14 @@ const Rapports = () => {
                       
                       {parcelle.status === "vendu" && (
                         <div className="mt-2 pt-2 border-t border-border/50">
-                          <p className="text-sm font-medium text-foreground">
+                          <p className="text-xs font-medium text-foreground">
                             Acheteur: {parcelle.buyer_name || "Non renseigné"}
                           </p>
-                          <div className="grid grid-cols-2 gap-2 mt-1 text-xs text-muted-foreground">
+                          <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
                             <p>📞 {parcelle.buyer_phone || "N/A"}</p>
                             <p>📧 {parcelle.buyer_email || "N/A"}</p>
                             <p>📅 {parcelle.sale_date ? new Date(parcelle.sale_date).toLocaleDateString() : "N/A"}</p>
-                            <p>
-                              💰 {parcelle.amount_paid?.toLocaleString() || 0} USD payés
-                              {parcelle.remaining_amount && parcelle.remaining_amount > 0 && (
-                                <span className="text-orange-600"> • {parcelle.remaining_amount.toLocaleString()} USD restants</span>
-                              )}
-                            </p>
+                            <p>💰 {parcelle.amount_paid?.toLocaleString() || 0} USD</p>
                           </div>
                         </div>
                       )}
