@@ -11,15 +11,15 @@ interface StatsCardProps {
 
 const StatsCard = ({ title, value, subtitle, icon: Icon, colorClass }: StatsCardProps) => {
   return (
-    <Card className={`p-6 border-0 ${colorClass}`}>
+    <Card className={`p-3 sm:p-6 border-0 ${colorClass}`}>
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-white/80 text-sm font-medium mb-2">{title}</p>
-          <h3 className="text-white text-3xl font-bold mb-1">{value}</h3>
-          <p className="text-white/70 text-xs">{subtitle}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-white/80 text-[10px] sm:text-sm font-medium mb-1 sm:mb-2 truncate">{title}</p>
+          <h3 className="text-white text-lg sm:text-3xl font-bold mb-0.5 sm:mb-1 truncate">{value}</h3>
+          <p className="text-white/70 text-[9px] sm:text-xs truncate">{subtitle}</p>
         </div>
-        <div className="bg-white/10 p-3 rounded-lg">
-          <Icon className="w-6 h-6 text-white" />
+        <div className="bg-white/10 p-2 sm:p-3 rounded-lg shrink-0 ml-2">
+          <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </Card>
