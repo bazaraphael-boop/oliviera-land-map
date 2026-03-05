@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, ChevronDown, ChevronUp, Users, Grid3X3 } from "lucide-react";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,9 @@ const Sites = () => {
   const [showHectaresDialog, setShowHectaresDialog] = useState(false);
   const [selectedSiteHectares, setSelectedSiteHectares] = useState<any[]>([]);
   const [selectedSiteName, setSelectedSiteName] = useState("");
+  const [expandedHectare, setExpandedHectare] = useState<string | null>(null);
+  const [hectareParcelles, setHectareParcelles] = useState<Record<string, any[]>>({});
+  const [loadingParcelles, setLoadingParcelles] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     surface_totale: "",
@@ -209,10 +213,41 @@ const Sites = () => {
 
       setSelectedSiteHectares(hectares || []);
       setSelectedSiteName(siteName);
+      setExpandedHectare(null);
+      setHectareParcelles({});
       setShowHectaresDialog(true);
     } catch (error) {
       console.error("Erreur:", error);
       notify("Erreur", "Erreur lors du chargement des hectares", "error");
+    }
+  };
+
+  const toggleHectareParcelles = async (hectareId: string) => {
+    if (expandedHectare === hectareId) {
+      setExpandedHectare(null);
+      return;
+    }
+
+    setExpandedHectare(hectareId);
+
+    if (hectareParcelles[hectareId]) return;
+
+    setLoadingParcelles(hectareId);
+    try {
+      const { data: parcelles, error } = await (supabase as any)
+        .from("parcelles")
+        .select("*")
+        .eq("hectare_id", hectareId)
+        .order("numero", { ascending: true });
+
+      if (error) throw error;
+
+      setHectareParcelles(prev => ({ ...prev, [hectareId]: parcelles || [] }));
+    } catch (error) {
+      console.error("Erreur:", error);
+      notify("Erreur", "Erreur lors du chargement des parcelles", "error");
+    } finally {
+      setLoadingParcelles(null);
     }
   };
 
@@ -429,118 +464,204 @@ const Sites = () => {
 
       {/* Dialog pour afficher les hectares du site */}
       <Dialog open={showHectaresDialog} onOpenChange={setShowHectaresDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-primary" />
               Hectares du site: {selectedSiteName}
             </DialogTitle>
             <DialogDescription>
-              {selectedSiteHectares.length} hectare{selectedSiteHectares.length > 1 ? 's' : ''} dans ce site
+              {selectedSiteHectares.length} hectare{selectedSiteHectares.length > 1 ? 's' : ''} dans ce site — Cliquez sur un hectare pour voir ses parcelles
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3">
-            {selectedSiteHectares.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Aucun hectare dans ce site
-              </div>
-            ) : (
-              selectedSiteHectares.map((hectare) => (
-                <Card key={hectare.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h4 className="font-semibold text-lg text-foreground">
-                          {hectare.name}
-                        </h4>
-                        <Badge 
-                          variant={
-                            hectare.status === "sold" || hectare.status === "vendu"
-                              ? "destructive" 
-                              : "default"
-                          }
-                        >
-                          {hectare.status === "sold" || hectare.status === "vendu" ? "Vendu" : "Disponible"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Surface</p>
-                          <p className="font-medium text-foreground">{hectare.surface} ha</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-muted-foreground">Prix</p>
-                          <p className="font-medium text-foreground">
-                            {hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "N/A"}
-                          </p>
-                        </div>
-                        
-                        {hectare.location && (
-                          <div className="col-span-2">
-                            <p className="text-muted-foreground">Localisation</p>
-                            <p className="font-medium text-foreground">{hectare.location}</p>
-                          </div>
-                        )}
-                        
-                        {(hectare.status === "sold" || hectare.status === "vendu") && hectare.buyer_name && (
-                          <>
-                            <div className="col-span-2 pt-2 border-t border-border">
-                              <p className="text-muted-foreground mb-2">Informations acheteur</p>
-                              <div className="space-y-1">
-                                <p className="font-medium text-foreground">{hectare.buyer_name}</p>
-                                {hectare.buyer_phone && (
-                                  <p className="text-sm text-muted-foreground">
-                                    📞 {hectare.buyer_phone}
-                                  </p>
-                                )}
-                                {hectare.buyer_email && (
-                                  <p className="text-sm text-muted-foreground">
-                                    ✉️ {hectare.buyer_email}
-                                  </p>
-                                )}
-                                {hectare.sale_date && (
-                                  <p className="text-sm text-muted-foreground">
-                                    📅 {new Date(hectare.sale_date).toLocaleDateString('fr-FR')}
-                                  </p>
-                                )}
-                                {hectare.rmb_number && (
-                                  <p className="text-sm text-muted-foreground">
-                                    📋 RMB: {hectare.rmb_number}
-                                  </p>
-                                )}
-                              </div>
+          <ScrollArea className="max-h-[65vh] pr-3">
+            <div className="space-y-3">
+              {selectedSiteHectares.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun hectare dans ce site
+                </div>
+              ) : (
+                selectedSiteHectares.map((hectare) => {
+                  const parcelles = hectareParcelles[hectare.id] || [];
+                  const isExpanded = expandedHectare === hectare.id;
+                  const occupiedParcelles = parcelles.filter((p: any) => p.status === "vendue" || p.status === "occupée" || p.buyer_name);
+                  const totalSlots = 15;
+                  const occupiedCount = parcelles.length;
+
+                  return (
+                    <Card key={hectare.id} className="overflow-hidden">
+                      {/* Hectare header - clickable */}
+                      <div
+                        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleHectareParcelles(hectare.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Grid3X3 className="w-4 h-4 text-primary" />
                             </div>
-                            
-                            {hectare.amount_paid && (
-                              <div className="col-span-2">
-                                <div className="flex justify-between items-center p-2 bg-green-500/10 rounded">
-                                  <span className="text-sm text-muted-foreground">Montant payé</span>
-                                  <span className="font-semibold text-green-600">
-                                    {Number(hectare.amount_paid).toLocaleString()} USD
-                                  </span>
-                                </div>
-                                {hectare.remaining_amount && hectare.remaining_amount > 0 && (
-                                  <div className="flex justify-between items-center p-2 bg-orange-500/10 rounded mt-1">
-                                    <span className="text-sm text-muted-foreground">Montant restant</span>
-                                    <span className="font-semibold text-orange-600">
-                                      {Number(hectare.remaining_amount).toLocaleString()} USD
-                                    </span>
-                                  </div>
-                                )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-semibold text-foreground truncate">
+                                  {hectare.name}
+                                </h4>
+                                <Badge
+                                  variant={
+                                    hectare.status === "sold" || hectare.status === "vendu"
+                                      ? "destructive"
+                                      : "default"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {hectare.status === "sold" || hectare.status === "vendu" ? "Vendu" : "Disponible"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {hectare.surface} ha • {hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "Prix N/A"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            {isExpanded && parcelles.length > 0 && (
+                              <div className="text-right hidden sm:block">
+                                <p className="text-xs text-muted-foreground">Parcelles</p>
+                                <p className="text-sm font-semibold text-foreground">
+                                  {occupiedCount} / {totalSlots}
+                                </p>
                               </div>
                             )}
-                          </>
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Buyer info summary for sold hectares */}
+                        {(hectare.status === "sold" || hectare.status === "vendu") && hectare.buyer_name && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Users className="w-3 h-3" />
+                            <span>{hectare.buyer_name}</span>
+                            {hectare.buyer_phone && <span>• {hectare.buyer_phone}</span>}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
+
+                      {/* Expanded parcelles section */}
+                      {isExpanded && (
+                        <div className="border-t border-border bg-muted/20">
+                          {loadingParcelles === hectare.id ? (
+                            <div className="p-6 text-center text-sm text-muted-foreground">
+                              Chargement des parcelles...
+                            </div>
+                          ) : parcelles.length === 0 ? (
+                            <div className="p-6 text-center text-sm text-muted-foreground">
+                              Aucune parcelle enregistrée dans cet hectare
+                            </div>
+                          ) : (
+                            <div className="p-4 space-y-3">
+                              {/* Quota bar */}
+                              <div className="p-3 rounded-lg bg-card border border-border">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {occupiedCount} / {totalSlots} parcelles
+                                  </span>
+                                </div>
+                                <Progress value={(occupiedCount / totalSlots) * 100} className="h-2.5" />
+                                <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+                                  <span>{occupiedParcelles.length} occupée{occupiedParcelles.length > 1 ? 's' : ''}</span>
+                                  <span>{totalSlots - occupiedCount} disponible{totalSlots - occupiedCount > 1 ? 's' : ''}</span>
+                                </div>
+                              </div>
+
+                              {/* Parcelles list */}
+                              <div className="grid gap-2">
+                                {parcelles.map((parcelle: any) => {
+                                  const isOccupied = parcelle.status === "vendue" || parcelle.status === "occupée" || parcelle.buyer_name;
+                                  return (
+                                    <div
+                                      key={parcelle.id}
+                                      className={`p-3 rounded-lg border transition-colors ${
+                                        isOccupied
+                                          ? "border-destructive/30 bg-destructive/5"
+                                          : "border-border bg-card"
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-medium text-sm text-foreground">
+                                              Parcelle {parcelle.numero}
+                                            </span>
+                                            <Badge
+                                              variant={isOccupied ? "destructive" : "secondary"}
+                                              className="text-[10px] px-1.5 py-0"
+                                            >
+                                              {isOccupied ? "Occupée" : "Disponible"}
+                                            </Badge>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground">
+                                            {parcelle.surface} m² • {Number(parcelle.prix).toLocaleString()} USD
+                                          </p>
+                                        </div>
+
+                                        {parcelle.rmb_number && (
+                                          <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground shrink-0">
+                                            RMB: {parcelle.rmb_number}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Buyer info for occupied parcels */}
+                                      {isOccupied && parcelle.buyer_name && (
+                                        <div className="mt-2 pt-2 border-t border-border/50 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                          <div className="flex items-center gap-1.5">
+                                            <Users className="w-3 h-3 text-muted-foreground" />
+                                            <span className="text-foreground font-medium">{parcelle.buyer_name}</span>
+                                          </div>
+                                          {parcelle.buyer_phone && (
+                                            <div className="text-muted-foreground">📞 {parcelle.buyer_phone}</div>
+                                          )}
+                                          {parcelle.buyer_email && (
+                                            <div className="text-muted-foreground">✉️ {parcelle.buyer_email}</div>
+                                          )}
+                                          {parcelle.sale_date && (
+                                            <div className="text-muted-foreground">
+                                              📅 {new Date(parcelle.sale_date).toLocaleDateString('fr-FR')}
+                                            </div>
+                                          )}
+                                          {parcelle.amount_paid != null && Number(parcelle.amount_paid) > 0 && (
+                                            <div className="sm:col-span-2 mt-1 flex gap-3">
+                                              <span className="text-primary font-medium">
+                                                Payé: {Number(parcelle.amount_paid).toLocaleString()} USD
+                                              </span>
+                                              {parcelle.remaining_amount != null && Number(parcelle.remaining_amount) > 0 && (
+                                                <span className="text-destructive font-medium">
+                                                  Reste: {Number(parcelle.remaining_amount).toLocaleString()} USD
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
