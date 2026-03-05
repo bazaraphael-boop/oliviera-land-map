@@ -211,7 +211,30 @@ const Sites = () => {
 
       if (error) throw error;
 
-      setSelectedSiteHectares(hectares || []);
+      // Pre-load parcelle counts for all hectares
+      const hectareIds = (hectares || []).map((h: any) => h.id);
+      const parcelleCounts: Record<string, number> = {};
+      
+      if (hectareIds.length > 0) {
+        const { data: parcelles, error: pError } = await (supabase as any)
+          .from("parcelles")
+          .select("hectare_id")
+          .in("hectare_id", hectareIds);
+
+        if (!pError && parcelles) {
+          parcelles.forEach((p: any) => {
+            parcelleCounts[p.hectare_id] = (parcelleCounts[p.hectare_id] || 0) + 1;
+          });
+        }
+      }
+
+      // Attach parcelle count to each hectare
+      const enrichedHectares = (hectares || []).map((h: any) => ({
+        ...h,
+        parcelle_count: parcelleCounts[h.id] || 0,
+      }));
+
+      setSelectedSiteHectares(enrichedHectares);
       setSelectedSiteName(siteName);
       setExpandedHectare(null);
       setHectareParcelles({});
@@ -485,9 +508,11 @@ const Sites = () => {
                 selectedSiteHectares.map((hectare) => {
                   const parcelles = hectareParcelles[hectare.id] || [];
                   const isExpanded = expandedHectare === hectare.id;
-                  const occupiedParcelles = parcelles.filter((p: any) => p.status === "vendue" || p.status === "occupée" || p.buyer_name);
+                  const isSold = hectare.status === "sold" || hectare.status === "vendu";
+                  const isWholeHectareSold = isSold && hectare.parcelle_count === 0 && hectare.buyer_name;
                   const totalSlots = 15;
-                  const occupiedCount = parcelles.length;
+                  const parcelleCount = hectare.parcelle_count || 0;
+                  const occupiedParcelles = parcelles.filter((p: any) => p.status === "vendue" || p.status === "occupée" || p.buyer_name);
 
                   return (
                     <Card key={hectare.id} className="overflow-hidden">
@@ -507,31 +532,42 @@ const Sites = () => {
                                   {hectare.name}
                                 </h4>
                                 <Badge
-                                  variant={
-                                    hectare.status === "sold" || hectare.status === "vendu"
-                                      ? "destructive"
-                                      : "default"
-                                  }
+                                  variant={isSold ? "destructive" : "default"}
                                   className="text-xs"
                                 >
-                                  {hectare.status === "sold" || hectare.status === "vendu" ? "Vendu" : "Disponible"}
+                                  {isSold ? "Vendu" : "Disponible"}
                                 </Badge>
+                                {isWholeHectareSold && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Hectare entier
+                                  </Badge>
+                                )}
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                {hectare.surface} ha • {hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "Prix N/A"}
-                              </p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{hectare.surface} ha</span>
+                                <span>•</span>
+                                <span>{hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "Prix N/A"}</span>
+                                <span>•</span>
+                                <span className="font-medium">
+                                  {isWholeHectareSold ? "15/15 occupées" : `${parcelleCount}/${totalSlots} parcelles`}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-3 shrink-0">
-                            {isExpanded && parcelles.length > 0 && (
-                              <div className="text-right hidden sm:block">
-                                <p className="text-xs text-muted-foreground">Parcelles</p>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {occupiedCount} / {totalSlots}
-                                </p>
-                              </div>
-                            )}
+                            {/* Compact quota indicator */}
+                            <div className="w-10 h-10 rounded-full border-2 border-border flex items-center justify-center">
+                              <span className={`text-xs font-bold ${
+                                isWholeHectareSold || parcelleCount >= 13
+                                  ? "text-destructive"
+                                  : parcelleCount >= 8
+                                  ? "text-orange-500"
+                                  : "text-primary"
+                              }`}>
+                                {isWholeHectareSold ? "15" : parcelleCount}
+                              </span>
+                            </div>
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-muted-foreground" />
                             ) : (
@@ -541,7 +577,7 @@ const Sites = () => {
                         </div>
 
                         {/* Buyer info summary for sold hectares */}
-                        {(hectare.status === "sold" || hectare.status === "vendu") && hectare.buyer_name && (
+                        {isSold && hectare.buyer_name && (
                           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                             <Users className="w-3 h-3" />
                             <span>{hectare.buyer_name}</span>
@@ -550,12 +586,69 @@ const Sites = () => {
                         )}
                       </div>
 
-                      {/* Expanded parcelles section */}
+                      {/* Expanded section */}
                       {isExpanded && (
                         <div className="border-t border-border bg-muted/20">
                           {loadingParcelles === hectare.id ? (
                             <div className="p-6 text-center text-sm text-muted-foreground">
                               Chargement des parcelles...
+                            </div>
+                          ) : isWholeHectareSold ? (
+                            /* Hectare vendu en entier - pas de parcelles subdivisées */
+                            <div className="p-4 space-y-3">
+                              <div className="p-3 rounded-lg bg-card border border-border">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
+                                  <span className="text-sm font-semibold text-destructive">
+                                    15 / 15 — Complet
+                                  </span>
+                                </div>
+                                <Progress value={100} className="h-2.5" />
+                              </div>
+
+                              <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                                <p className="text-sm font-medium text-foreground mb-3">
+                                  Hectare entier vendu à :
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-foreground">{hectare.buyer_name}</span>
+                                  </div>
+                                  {hectare.buyer_phone && (
+                                    <div className="text-muted-foreground">📞 {hectare.buyer_phone}</div>
+                                  )}
+                                  {hectare.buyer_email && (
+                                    <div className="text-muted-foreground">✉️ {hectare.buyer_email}</div>
+                                  )}
+                                  {hectare.sale_date && (
+                                    <div className="text-muted-foreground">
+                                      📅 {new Date(hectare.sale_date).toLocaleDateString('fr-FR')}
+                                    </div>
+                                  )}
+                                  {hectare.rmb_number && (
+                                    <div className="text-muted-foreground">📋 RMB: {hectare.rmb_number}</div>
+                                  )}
+                                  {hectare.buyer_profession && (
+                                    <div className="text-muted-foreground">💼 {hectare.buyer_profession}</div>
+                                  )}
+                                  {hectare.buyer_address && (
+                                    <div className="text-muted-foreground sm:col-span-2">📍 {hectare.buyer_address}</div>
+                                  )}
+                                </div>
+                                {hectare.amount_paid != null && Number(hectare.amount_paid) > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-border/50 flex gap-4">
+                                    <span className="text-primary font-medium text-sm">
+                                      Payé: {Number(hectare.amount_paid).toLocaleString()} USD
+                                    </span>
+                                    {hectare.remaining_amount != null && Number(hectare.remaining_amount) > 0 && (
+                                      <span className="text-destructive font-medium text-sm">
+                                        Reste: {Number(hectare.remaining_amount).toLocaleString()} USD
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : parcelles.length === 0 ? (
                             <div className="p-6 text-center text-sm text-muted-foreground">
@@ -568,13 +661,13 @@ const Sites = () => {
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
                                   <span className="text-sm font-semibold text-foreground">
-                                    {occupiedCount} / {totalSlots} parcelles
+                                    {parcelles.length} / {totalSlots} parcelles
                                   </span>
                                 </div>
-                                <Progress value={(occupiedCount / totalSlots) * 100} className="h-2.5" />
+                                <Progress value={(parcelles.length / totalSlots) * 100} className="h-2.5" />
                                 <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
                                   <span>{occupiedParcelles.length} occupée{occupiedParcelles.length > 1 ? 's' : ''}</span>
-                                  <span>{totalSlots - occupiedCount} disponible{totalSlots - occupiedCount > 1 ? 's' : ''}</span>
+                                  <span>{totalSlots - parcelles.length} disponible{totalSlots - parcelles.length > 1 ? 's' : ''}</span>
                                 </div>
                               </div>
 
