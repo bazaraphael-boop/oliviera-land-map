@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import LeveTerrainPanel from "@/components/LeveTerrainPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Layers } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapPin, Layers, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 interface Hectare {
