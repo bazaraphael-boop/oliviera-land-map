@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import LeveTerrainPanel from "@/components/LeveTerrainPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Layers } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapPin, Layers, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 interface Hectare {
@@ -220,60 +222,77 @@ const Localisation = () => {
           </div>
         </div>
 
-        {/* Map */}
+        {/* Tabs */}
         <div className="flex-1 p-6">
-          {hectares.length === 0 ? (
-            <Card className="p-12 text-center">
-              <MapPin className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Aucun terrain à afficher
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Commencez par créer vos premiers hectares pour les visualiser sur la carte
-              </p>
-              <Button onClick={() => navigate("/hectares")}>
-                Créer un hectare
-              </Button>
-            </Card>
-          ) : (
-            <div className="relative h-full rounded-lg overflow-hidden shadow-lg">
-              <div ref={mapContainer} className="absolute inset-0" />
-              
-              {/* Legend */}
-              <Card className="absolute bottom-6 left-6 p-4 bg-card/95 backdrop-blur">
-                <h4 className="font-semibold text-sm mb-3">Légende</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Hectare Disponible</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Hectare Vendu</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-600 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Parcelle Disponible</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
-                    <span className="text-xs text-muted-foreground">Parcelle Vendue</span>
-                  </div>
-                </div>
-              </Card>
+          <Tabs defaultValue="carte" className="h-full flex flex-col">
+            <TabsList className="mb-4 self-start">
+              <TabsTrigger value="carte">
+                <MapPin className="w-4 h-4 mr-2" />
+                Carte des parcelles
+              </TabsTrigger>
+              <TabsTrigger value="leve">
+                <Crosshair className="w-4 h-4 mr-2" />
+                Levé de terrain GPS
+              </TabsTrigger>
+            </TabsList>
 
-              {/* Stats */}
-              <Card className="absolute top-6 left-6 p-4 bg-card/95 backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{hectares.length}</p>
-                    <p className="text-xs text-muted-foreground">Hectares</p>
-                  </div>
+            <TabsContent value="carte" className="flex-1 mt-0">
+              {hectares.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <MapPin className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground mb-2">
+                    Aucun terrain à afficher
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Commencez par créer vos premiers hectares pour les visualiser sur la carte
+                  </p>
+                  <Button onClick={() => navigate("/hectares")}>Créer un hectare</Button>
+                </Card>
+              ) : (
+                <div className="relative h-full min-h-[500px] rounded-lg overflow-hidden shadow-lg">
+                  <div ref={mapContainer} className="absolute inset-0" />
+
+                  {/* Legend */}
+                  <Card className="absolute bottom-6 left-6 p-4 bg-card/95 backdrop-blur">
+                    <h4 className="font-semibold text-sm mb-3">Légende</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white"></div>
+                        <span className="text-xs text-muted-foreground">Hectare Disponible</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white"></div>
+                        <span className="text-xs text-muted-foreground">Hectare Vendu</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-600 border-2 border-white"></div>
+                        <span className="text-xs text-muted-foreground">Parcelle Disponible</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                        <span className="text-xs text-muted-foreground">Parcelle Vendue</span>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Stats */}
+                  <Card className="absolute top-6 left-6 p-4 bg-card/95 backdrop-blur">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-2xl font-bold text-foreground">{hectares.length}</p>
+                        <p className="text-xs text-muted-foreground">Hectares</p>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
-            </div>
-          )}
+              )}
+            </TabsContent>
+
+            <TabsContent value="leve" className="flex-1 mt-0">
+              <LeveTerrainPanel />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
