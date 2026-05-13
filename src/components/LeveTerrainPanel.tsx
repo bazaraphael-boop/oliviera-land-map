@@ -32,6 +32,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Signal,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
