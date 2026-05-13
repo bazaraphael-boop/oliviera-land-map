@@ -534,182 +534,269 @@ const LeveTerrainPanel = () => {
     ? `Moyen • ±${currentPos.accuracy.toFixed(1)}m`
     : `Faible • ±${currentPos.accuracy.toFixed(1)}m`;
 
+  // Step status
+  const stepCaptureDone = points.length >= 3;
+  const stepCloseDone = isClosed;
+  const stepSaveReady = isClosed && agentName.trim().length > 0;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 h-[calc(100vh-12rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-4 h-[calc(100vh-12rem)]">
       {/* Control panel */}
-      <Card className="flex flex-col p-4 overflow-hidden">
-        <ScrollArea className="flex-1 pr-2">
-          <div className="space-y-4">
-            {/* GPS signal */}
-            <div className={`flex items-center gap-3 rounded-lg p-3 ${signalColor}`}>
-              <Signal className="w-5 h-5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Signal GPS</p>
-                <p className="text-xs opacity-90">{signalLabel}</p>
+      <Card className="flex flex-col overflow-hidden">
+        {/* Sticky header: GPS + progress */}
+        <div className="border-b border-border p-3 space-y-2 bg-card/95 backdrop-blur">
+          <div className={`flex items-center gap-3 rounded-lg p-2.5 ${signalColor}`}>
+            <Signal className="w-5 h-5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold leading-tight">Signal GPS</p>
+              <p className="text-[11px] opacity-90 truncate">{signalLabel}</p>
+            </div>
+            {navigator.onLine ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+          </div>
+          {/* Progress steps */}
+          <div className="flex items-center gap-1 text-[11px]">
+            <StepBadge n={1} label="Points" active={!stepCaptureDone} done={stepCaptureDone} />
+            <div className="flex-1 h-px bg-border" />
+            <StepBadge n={2} label="Clôturer" active={stepCaptureDone && !stepCloseDone} done={stepCloseDone} />
+            <div className="flex-1 h-px bg-border" />
+            <StepBadge n={3} label="Sauver" active={stepCloseDone && !saving} done={false} />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {/* ÉTAPE 1 — Capture */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="rounded-full w-6 h-6 p-0 flex items-center justify-center">1</Badge>
+                <h3 className="text-sm font-bold">Capturer les coins de la parcelle</h3>
               </div>
-              {navigator.onLine ? (
-                <Wifi className="w-5 h-5" />
-              ) : (
-                <WifiOff className="w-5 h-5" />
-              )}
-            </div>
-
-            {/* Agent / client */}
-            <div className="space-y-2">
-              <Label htmlFor="agent">Nom de l'agent *</Label>
-              <Input
-                id="agent"
-                value={agentName}
-                onChange={(e) => setAgentName(e.target.value)}
-                placeholder="Ex: Jean Mukendi"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="client">Nom du client</Label>
-              <Input
-                id="client"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="Ex: Mme Kabongo"
-              />
-            </div>
-
-            {/* Capture buttons */}
-            <div className="space-y-2">
-              <Button
-                onClick={capturePoint}
-                disabled={capturing || isClosed}
-                className="w-full h-16 text-base font-semibold"
-                size="lg"
-              >
-                <Crosshair className="w-6 h-6 mr-2" />
-                {capturing ? "Capture en cours…" : "📍 Capturer ma position"}
-              </Button>
-              <Button
-                onClick={validateCurrentPosition}
-                disabled={!currentPos || isClosed}
-                variant="secondary"
-                className="w-full h-12 text-sm font-semibold"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                ✓ Valider la position actuelle
-                {currentPos && (
-                  <span className="ml-2 text-xs opacity-80">±{currentPos.accuracy.toFixed(1)}m</span>
-                )}
-              </Button>
-              <p className="text-[11px] text-muted-foreground italic">
-                « Capturer » force une nouvelle mesure GPS. « Valider » utilise la position déjà suivie (plus rapide).
+              <p className="text-[11px] text-muted-foreground pl-8">
+                Déplacez-vous physiquement à chaque coin (A, B, C, D…) puis appuyez sur un bouton.
               </p>
-            </div>
 
-            {/* Points list */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">
-                  Points capturés ({points.length})
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={capturePoint}
+                  disabled={capturing || isClosed}
+                  className="h-14 text-sm font-semibold"
+                >
+                  <Crosshair className="w-5 h-5 mr-1" />
+                  {capturing ? "…" : "Capturer"}
+                </Button>
+                <Button
+                  onClick={validateCurrentPosition}
+                  disabled={!currentPos || isClosed}
+                  variant="secondary"
+                  className="h-14 text-sm font-semibold"
+                >
+                  <CheckCircle2 className="w-5 h-5 mr-1" />
+                  Valider
+                </Button>
+              </div>
+              <div className="flex items-start gap-1.5 text-[10.5px] text-muted-foreground bg-muted/40 rounded-md p-2">
+                <HelpCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Capturer</strong> : nouvelle mesure GPS précise (lent, plus fiable).
+                  <br />
+                  <strong>Valider</strong> : utilise la position déjà suivie (rapide).
+                </span>
+              </div>
+
+              {/* Points list */}
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-xs font-semibold">
+                  {points.length} point{points.length > 1 ? "s" : ""} capturé{points.length > 1 ? "s" : ""}
+                  {points.length > 0 && points.length < 3 && (
+                    <span className="text-muted-foreground font-normal"> (min. 3)</span>
+                  )}
                 </p>
                 {points.length > 0 && (
-                  <Button size="sm" variant="ghost" onClick={undoLastPoint}>
-                    <Trash2 className="w-4 h-4 mr-1" />
+                  <Button size="sm" variant="ghost" onClick={undoLastPoint} className="h-7 text-xs">
+                    <Undo2 className="w-3.5 h-3.5 mr-1" />
                     Annuler dernier
                   </Button>
                 )}
               </div>
-              {points.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">
-                  Déplacez-vous au coin de la parcelle puis appuyez sur "Capturer ma position".
-                </p>
-              ) : (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
+              {points.length > 0 && (
+                <div className="space-y-1 max-h-40 overflow-y-auto rounded-md border border-border p-1.5 bg-muted/20">
                   {points.map((p, i) => (
                     <div
                       key={p.timestamp}
-                      className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+                      className="flex items-center justify-between rounded px-2 py-1.5 text-[11px] hover:bg-muted/60"
                     >
-                      <div className="flex items-center gap-2">
-                        <Badge variant="default">{LETTERS[i] || i + 1}</Badge>
-                        <span className="font-mono">
-                          {p.lat.toFixed(6)}, {p.lng.toFixed(6)}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="default" className="w-5 h-5 p-0 flex items-center justify-center text-[10px]">
+                          {LETTERS[i] || i + 1}
+                        </Badge>
+                        <span className="font-mono truncate">
+                          {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
                         </span>
                       </div>
-                      <span className="text-muted-foreground">±{p.accuracy.toFixed(1)}m</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                          p.accuracy < 5
+                            ? "border-green-500 text-green-600"
+                            : p.accuracy <= 10
+                            ? "border-orange-500 text-orange-600"
+                            : "border-red-500 text-red-600"
+                        }`}
+                      >
+                        ±{p.accuracy.toFixed(1)}m
+                      </Badge>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* Close polygon */}
-            <Button
-              onClick={closePolygon}
-              disabled={points.length < 3 || isClosed}
-              variant="secondary"
-              className="w-full h-12"
-            >
-              <Square className="w-5 h-5 mr-2" />
-              {isClosed ? "Parcelle clôturée" : "Clôturer la parcelle"}
-            </Button>
-
-            {isClosed && (
-              <Card className="p-3 bg-primary/10 border-primary/30">
-                <p className="text-xs text-muted-foreground">Surface calculée</p>
-                <p className="text-2xl font-bold text-primary">
-                  {surfaceM2.toFixed(2)} m²
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  ≈ {(surfaceM2 / 10000).toFixed(4)} ha
-                </p>
-              </Card>
-            )}
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observations sur le terrain…"
-                rows={2}
-              />
-            </div>
-
-            {/* Offline mode */}
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <div>
-                <p className="text-sm font-semibold">Mode Hors-ligne</p>
-                <p className="text-xs text-muted-foreground">
-                  Stocker localement avant synchronisation
-                </p>
+            {/* ÉTAPE 2 — Clôturer */}
+            <section className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={stepCloseDone ? "default" : "outline"}
+                  className="rounded-full w-6 h-6 p-0 flex items-center justify-center"
+                >
+                  2
+                </Badge>
+                <h3 className="text-sm font-bold">Clôturer la parcelle</h3>
               </div>
-              <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
-            </div>
-
-            {pendingCount > 0 && (
-              <Button variant="outline" className="w-full" onClick={() => syncOfflineQueue(false)}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Synchroniser ({pendingCount} en attente)
+              <Button
+                onClick={closePolygon}
+                disabled={points.length < 3 || isClosed}
+                variant={isClosed ? "outline" : "secondary"}
+                className="w-full h-12"
+              >
+                <Square className="w-5 h-5 mr-2" />
+                {isClosed ? "✓ Parcelle clôturée" : "Clôturer (calculer la surface)"}
               </Button>
-            )}
+              {isClosed && (
+                <Card className="p-3 bg-primary/10 border-primary/30">
+                  <p className="text-[11px] text-muted-foreground">Surface calculée</p>
+                  <p className="text-2xl font-bold text-primary leading-tight">
+                    {surfaceM2.toFixed(2)} m²
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    ≈ {(surfaceM2 / 10000).toFixed(4)} ha
+                  </p>
+                </Card>
+              )}
+            </section>
 
-            {/* Save */}
-            <Button
-              onClick={saveLeve}
-              disabled={!isClosed || saving || !agentName.trim()}
-              className="w-full h-14 text-base"
-              size="lg"
-            >
-              <Save className="w-5 h-5 mr-2" />
-              {saving ? "Sauvegarde…" : "Sauvegarder le levé"}
-            </Button>
+            {/* ÉTAPE 3 — Infos & Sauvegarde */}
+            <section className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={stepSaveReady ? "default" : "outline"}
+                  className="rounded-full w-6 h-6 p-0 flex items-center justify-center"
+                >
+                  3
+                </Badge>
+                <h3 className="text-sm font-bold">Informations & Sauvegarde</h3>
+              </div>
 
-            {points.length > 0 && (
-              <Button variant="ghost" className="w-full" onClick={resetForm}>
-                Réinitialiser
-              </Button>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="agent" className="text-xs">
+                  Nom de l'agent <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="agent"
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="Ex: Jean Mukendi"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client" className="text-xs">Nom du client</Label>
+                <Input
+                  id="client"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Ex: Mme Kabongo"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="text-xs">Notes (facultatif)</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Observations sur le terrain…"
+                  rows={2}
+                  className="text-sm"
+                />
+              </div>
+            </section>
+
+            {/* Paramètres avancés (collapsible) */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted/50 transition-colors">
+                  <span className="flex items-center gap-2">
+                    <Settings2 className="w-3.5 h-3.5" />
+                    Paramètres avancés
+                    {pendingCount > 0 && (
+                      <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
+                        {pendingCount} en attente
+                      </Badge>
+                    )}
+                  </span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-2">
+                <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold">Mode hors-ligne</p>
+                    <p className="text-[10.5px] text-muted-foreground">
+                      Stocker localement avant synchro
+                    </p>
+                  </div>
+                  <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
+                </div>
+                {pendingCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => syncOfflineQueue(false)}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Synchroniser ({pendingCount})
+                  </Button>
+                )}
+                {points.length > 0 && (
+                  <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={resetForm}>
+                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                    Réinitialiser le levé
+                  </Button>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </ScrollArea>
+
+        {/* Sticky footer: Save CTA */}
+        <div className="border-t border-border p-3 bg-card/95 backdrop-blur">
+          <Button
+            onClick={saveLeve}
+            disabled={!stepSaveReady || saving}
+            className="w-full h-12 text-base font-semibold"
+            size="lg"
+          >
+            <Save className="w-5 h-5 mr-2" />
+            {saving
+              ? "Sauvegarde…"
+              : !isClosed
+              ? "Clôturez d'abord la parcelle"
+              : !agentName.trim()
+              ? "Renseignez le nom de l'agent"
+              : "Sauvegarder le levé"}
+          </Button>
+        </div>
       </Card>
 
       {/* Map */}
