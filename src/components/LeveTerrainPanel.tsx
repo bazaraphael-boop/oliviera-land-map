@@ -801,6 +801,36 @@ const LeveTerrainPanel = () => {
             </span>
           </Card>
         )}
+
+        {/* Floating capture buttons at bottom center of map */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+          <Button
+            onClick={capturePoint}
+            disabled={capturing || isClosed}
+            className="h-12 px-5 text-sm font-semibold shadow-lg"
+          >
+            <Crosshair className="w-5 h-5 mr-1.5" />
+            {capturing ? "…" : "Capturer"}
+          </Button>
+          <Button
+            onClick={validateCurrentPosition}
+            disabled={!currentPos || isClosed}
+            variant="secondary"
+            className="h-12 px-5 text-sm font-semibold shadow-lg"
+          >
+            <CheckCircle2 className="w-5 h-5 mr-1.5" />
+            Valider
+          </Button>
+        </div>
+
+        {/* Quick hint tooltip */}
+        {!isClosed && (
+          <div className="absolute bottom-[4.2rem] left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur text-[10.5px] text-muted-foreground rounded-md px-3 py-1.5 shadow-sm border border-border">
+            <span className="hidden sm:inline">
+              <strong>Capturer</strong> = nouvelle mesure GPS • <strong>Valider</strong> = position suivie
+            </span>
+          </div>
+        )}
       </Card>
 
       {/* Collision alert */}
