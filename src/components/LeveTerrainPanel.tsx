@@ -872,4 +872,21 @@ const LeveTerrainPanel = () => {
   );
 };
 
+const StepBadge = ({ n, label, active, done }: { n: number; label: string; active: boolean; done: boolean }) => (
+  <div
+    className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-colors ${
+      done
+        ? "bg-primary/15 border-primary/40 text-primary"
+        : active
+        ? "bg-secondary border-secondary text-secondary-foreground font-semibold"
+        : "bg-muted/40 border-border text-muted-foreground"
+    }`}
+  >
+    <span className="w-4 h-4 rounded-full bg-background/60 flex items-center justify-center text-[10px] font-bold">
+      {done ? "✓" : n}
+    </span>
+    <span className="text-[10.5px]">{label}</span>
+  </div>
+);
+
 export default LeveTerrainPanel;
