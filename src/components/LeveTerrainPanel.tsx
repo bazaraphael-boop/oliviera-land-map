@@ -575,33 +575,10 @@ const LeveTerrainPanel = () => {
                 Déplacez-vous physiquement à chaque coin (A, B, C, D…) puis appuyez sur un bouton.
               </p>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  onClick={capturePoint}
-                  disabled={capturing || isClosed}
-                  className="h-14 text-sm font-semibold"
-                >
-                  <Crosshair className="w-5 h-5 mr-1" />
-                  {capturing ? "…" : "Capturer"}
-                </Button>
-                <Button
-                  onClick={validateCurrentPosition}
-                  disabled={!currentPos || isClosed}
-                  variant="secondary"
-                  className="h-14 text-sm font-semibold"
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-1" />
-                  Valider
-                </Button>
-              </div>
-              <div className="flex items-start gap-1.5 text-[10.5px] text-muted-foreground bg-muted/40 rounded-md p-2">
-                <HelpCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>
-                  <strong>Capturer</strong> : nouvelle mesure GPS précise (lent, plus fiable).
-                  <br />
-                  <strong>Valider</strong> : utilise la position déjà suivie (rapide).
-                </span>
-              </div>
+              {/* Moved to map overlay */}
+              <p className="text-[11px] text-muted-foreground pl-8">
+                Déplacez-vous physiquement à chaque coin (A, B, C, D…) puis appuyez sur <strong>Capturer</strong> ou <strong>Valider</strong> en bas de la carte.
+              </p>
 
               {/* Points list */}
               <div className="flex items-center justify-between pt-1">
