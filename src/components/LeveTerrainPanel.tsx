@@ -32,6 +32,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Signal,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -286,6 +287,40 @@ const LeveTerrainPanel = () => {
     );
   }, [isClosed]);
 
+  // Validate the current live (watched) position as a vertex — no re-query
+  const validateCurrentPosition = useCallback(async () => {
+    if (isClosed) {
+      toast.warning("Parcelle déjà clôturée");
+      return;
+    }
+    if (!currentPos) {
+      toast.error("Aucune position GPS disponible. Patientez quelques secondes.");
+      return;
+    }
+    if (currentPos.accuracy > 20) {
+      toast.warning(`Précision faible (±${currentPos.accuracy.toFixed(1)}m). Recommandé: attendre <10m.`);
+    }
+    const point: CapturedPoint = {
+      lat: currentPos.lat,
+      lng: currentPos.lng,
+      accuracy: currentPos.accuracy,
+      timestamp: Date.now(),
+    };
+    try {
+      const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", {
+        _lat: point.lat,
+        _lng: point.lng,
+      });
+      if (conflicts && conflicts.length > 0) {
+        setCollisionAlert({ point, conflicts: conflicts as any });
+        return;
+      }
+    } catch (e) {
+      console.warn("Collision check failed:", e);
+    }
+    addPoint(point);
+  }, [isClosed, currentPos]);
+
   const addPoint = (point: CapturedPoint) => {
     setPoints((prev) => {
       const next = [...prev, point];
@@ -530,16 +565,33 @@ const LeveTerrainPanel = () => {
               />
             </div>
 
-            {/* Capture button */}
-            <Button
-              onClick={capturePoint}
-              disabled={capturing || isClosed}
-              className="w-full h-16 text-base font-semibold"
-              size="lg"
-            >
-              <Crosshair className="w-6 h-6 mr-2" />
-              {capturing ? "Capture en cours…" : "📍 Capturer ma position"}
-            </Button>
+            {/* Capture buttons */}
+            <div className="space-y-2">
+              <Button
+                onClick={capturePoint}
+                disabled={capturing || isClosed}
+                className="w-full h-16 text-base font-semibold"
+                size="lg"
+              >
+                <Crosshair className="w-6 h-6 mr-2" />
+                {capturing ? "Capture en cours…" : "📍 Capturer ma position"}
+              </Button>
+              <Button
+                onClick={validateCurrentPosition}
+                disabled={!currentPos || isClosed}
+                variant="secondary"
+                className="w-full h-12 text-sm font-semibold"
+              >
+                <CheckCircle2 className="w-5 h-5 mr-2" />
+                ✓ Valider la position actuelle
+                {currentPos && (
+                  <span className="ml-2 text-xs opacity-80">±{currentPos.accuracy.toFixed(1)}m</span>
+                )}
+              </Button>
+              <p className="text-[11px] text-muted-foreground italic">
+                « Capturer » force une nouvelle mesure GPS. « Valider » utilise la position déjà suivie (plus rapide).
+              </p>
+            </div>
 
             {/* Points list */}
             <div className="space-y-2">
