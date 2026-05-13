@@ -22,6 +22,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   MapPin,
   Crosshair,
   Trash2,
@@ -33,6 +38,10 @@ import {
   AlertTriangle,
   Signal,
   CheckCircle2,
+  ChevronDown,
+  Settings2,
+  HelpCircle,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 
