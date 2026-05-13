@@ -565,16 +565,33 @@ const LeveTerrainPanel = () => {
               />
             </div>
 
-            {/* Capture button */}
-            <Button
-              onClick={capturePoint}
-              disabled={capturing || isClosed}
-              className="w-full h-16 text-base font-semibold"
-              size="lg"
-            >
-              <Crosshair className="w-6 h-6 mr-2" />
-              {capturing ? "Capture en cours…" : "📍 Capturer ma position"}
-            </Button>
+            {/* Capture buttons */}
+            <div className="space-y-2">
+              <Button
+                onClick={capturePoint}
+                disabled={capturing || isClosed}
+                className="w-full h-16 text-base font-semibold"
+                size="lg"
+              >
+                <Crosshair className="w-6 h-6 mr-2" />
+                {capturing ? "Capture en cours…" : "📍 Capturer ma position"}
+              </Button>
+              <Button
+                onClick={validateCurrentPosition}
+                disabled={!currentPos || isClosed}
+                variant="secondary"
+                className="w-full h-12 text-sm font-semibold"
+              >
+                <CheckCircle2 className="w-5 h-5 mr-2" />
+                ✓ Valider la position actuelle
+                {currentPos && (
+                  <span className="ml-2 text-xs opacity-80">±{currentPos.accuracy.toFixed(1)}m</span>
+                )}
+              </Button>
+              <p className="text-[11px] text-muted-foreground italic">
+                « Capturer » force une nouvelle mesure GPS. « Valider » utilise la position déjà suivie (plus rapide).
+              </p>
+            </div>
 
             {/* Points list */}
             <div className="space-y-2">
