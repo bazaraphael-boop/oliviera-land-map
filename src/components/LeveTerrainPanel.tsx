@@ -40,7 +40,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Settings2,
-  HelpCircle,
   Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
