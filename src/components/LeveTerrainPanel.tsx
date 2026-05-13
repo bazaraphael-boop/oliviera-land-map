@@ -287,6 +287,40 @@ const LeveTerrainPanel = () => {
     );
   }, [isClosed]);
 
+  // Validate the current live (watched) position as a vertex — no re-query
+  const validateCurrentPosition = useCallback(async () => {
+    if (isClosed) {
+      toast.warning("Parcelle déjà clôturée");
+      return;
+    }
+    if (!currentPos) {
+      toast.error("Aucune position GPS disponible. Patientez quelques secondes.");
+      return;
+    }
+    if (currentPos.accuracy > 20) {
+      toast.warning(`Précision faible (±${currentPos.accuracy.toFixed(1)}m). Recommandé: attendre <10m.`);
+    }
+    const point: CapturedPoint = {
+      lat: currentPos.lat,
+      lng: currentPos.lng,
+      accuracy: currentPos.accuracy,
+      timestamp: Date.now(),
+    };
+    try {
+      const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", {
+        _lat: point.lat,
+        _lng: point.lng,
+      });
+      if (conflicts && conflicts.length > 0) {
+        setCollisionAlert({ point, conflicts: conflicts as any });
+        return;
+      }
+    } catch (e) {
+      console.warn("Collision check failed:", e);
+    }
+    addPoint(point);
+  }, [isClosed, currentPos]);
+
   const addPoint = (point: CapturedPoint) => {
     setPoints((prev) => {
       const next = [...prev, point];
