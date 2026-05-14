@@ -133,6 +133,39 @@ const LeveTerrainPanel = () => {
               "fill-outline-color": "#16a34a",
             },
           });
+          // Live trail (track of agent movement)
+          map.current!.addSource("lt-trail", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+          map.current!.addLayer({
+            id: "lt-trail-layer",
+            type: "line",
+            source: "lt-trail",
+            paint: {
+              "line-color": "#3b82f6",
+              "line-width": 4,
+              "line-opacity": 0.85,
+            },
+          });
+          // Accuracy circle around current position
+          map.current!.addSource("lt-accuracy", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+          map.current!.addLayer({
+            id: "lt-accuracy-layer",
+            type: "circle",
+            source: "lt-accuracy",
+            paint: {
+              "circle-radius": ["get", "radiusPx"],
+              "circle-color": "#3b82f6",
+              "circle-opacity": 0.12,
+              "circle-stroke-color": "#3b82f6",
+              "circle-stroke-width": 1,
+              "circle-stroke-opacity": 0.5,
+            },
+          });
           // Existing polygons (background)
           map.current!.addSource("lt-existing", {
             type: "geojson",
