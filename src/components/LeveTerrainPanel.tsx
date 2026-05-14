@@ -61,6 +61,8 @@ const LeveTerrainPanel = () => {
   const watchId = useRef<number | null>(null);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const pointMarkers = useRef<mapboxgl.Marker[]>([]);
+  const trailCoords = useRef<[number, number][]>([]);
+  const lastTrailAt = useRef<number>(0);
 
   const [points, setPoints] = useState<CapturedPoint[]>([]);
   const [currentPos, setCurrentPos] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
