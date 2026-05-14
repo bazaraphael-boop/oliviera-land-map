@@ -275,12 +275,60 @@ const LeveTerrainPanel = () => {
           } else {
             userMarker.current.setLngLat([longitude, latitude]);
           }
+
+          // Live trail (track of agent movement)
+          const now = Date.now();
+          const last = trailCoords.current[trailCoords.current.length - 1];
+          const movedMeters = last
+            ? Math.hypot((last[0] - longitude) * Math.cos((latitude * Math.PI) / 180), last[1] - latitude) * 111000
+            : Infinity;
+          if (!last || movedMeters > 0.5 || now - lastTrailAt.current > 1500) {
+            trailCoords.current.push([longitude, latitude]);
+            if (trailCoords.current.length > 1000) trailCoords.current.shift();
+            lastTrailAt.current = now;
+            const trailSrc = map.current.getSource("lt-trail") as mapboxgl.GeoJSONSource | undefined;
+            trailSrc?.setData({
+              type: "FeatureCollection",
+              features:
+                trailCoords.current.length >= 2
+                  ? [
+                      {
+                        type: "Feature",
+                        properties: {},
+                        geometry: { type: "LineString", coordinates: trailCoords.current },
+                      },
+                    ]
+                  : [],
+            } as any);
+          }
+
+          // Accuracy halo around current position
+          const metersPerPx =
+            (156543.03392 * Math.cos((latitude * Math.PI) / 180)) /
+            Math.pow(2, map.current.getZoom());
+          const radiusPx = Math.min(120, Math.max(6, accuracy / metersPerPx));
+          const accSrc = map.current.getSource("lt-accuracy") as mapboxgl.GeoJSONSource | undefined;
+          accSrc?.setData({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: { radiusPx },
+                geometry: { type: "Point", coordinates: [longitude, latitude] },
+              },
+            ],
+          } as any);
         }
       },
       (err) => {
         console.warn("watchPosition", err);
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error("Permission GPS refusée. Autorisez la localisation dans le navigateur.");
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          toast.error("Position GPS indisponible. Allez à l'extérieur pour un meilleur signal.");
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
     );
   };
 
@@ -295,38 +343,56 @@ const LeveTerrainPanel = () => {
       return;
     }
     setCapturing(true);
+
+    const finalize = async (point: CapturedPoint) => {
+      try {
+        const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", {
+          _lat: point.lat,
+          _lng: point.lng,
+        });
+        if (conflicts && conflicts.length > 0) {
+          setCollisionAlert({ point, conflicts: conflicts as any });
+          setCapturing(false);
+          return;
+        }
+      } catch (e) {
+        console.warn("Collision check failed:", e);
+      }
+      addPoint(point);
+      setCapturing(false);
+    };
+
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const point: CapturedPoint = {
+      (pos) => {
+        finalize({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
           timestamp: Date.now(),
-        };
-
-        // Collision check (RPC)
-        try {
-          const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", {
-            _lat: point.lat,
-            _lng: point.lng,
-          });
-          if (conflicts && conflicts.length > 0) {
-            setCollisionAlert({ point, conflicts: conflicts as any });
-            setCapturing(false);
-            return;
-          }
-        } catch (e) {
-          console.warn("Collision check failed:", e);
-        }
-
-        addPoint(point);
-        setCapturing(false);
+        });
       },
       (err) => {
+        // Fallback: use last live position from watchPosition if available
+        if (currentPos) {
+          toast.info("GPS lent — point capturé depuis le suivi en direct.");
+          finalize({
+            lat: currentPos.lat,
+            lng: currentPos.lng,
+            accuracy: currentPos.accuracy,
+            timestamp: Date.now(),
+          });
+          return;
+        }
         setCapturing(false);
-        toast.error(`Erreur GPS: ${err.message}`);
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error("Permission GPS refusée.");
+        } else if (err.code === err.TIMEOUT) {
+          toast.error("GPS lent à répondre. Patientez quelques secondes (signal en cours d'acquisition) puis réessayez.");
+        } else {
+          toast.error(`Erreur GPS: ${err.message}`);
+        }
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
     );
   }, [isClosed]);
 
