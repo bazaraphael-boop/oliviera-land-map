@@ -642,231 +642,232 @@ const LeveTerrainPanel = () => {
   const stepSaveReady = isClosed && agentName.trim().length > 0;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-4 h-[calc(100vh-12rem)]">
-      {/* Control panel */}
-      <Card className="flex flex-col overflow-hidden">
-        {/* Sticky header: GPS + progress */}
-        <div className="border-b border-border p-3 space-y-2 bg-card/95 backdrop-blur">
-          <div className={`flex items-center gap-3 rounded-lg p-2.5 ${signalColor}`}>
-            <Signal className="w-5 h-5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold leading-tight">Signal GPS</p>
-              <p className="text-[11px] opacity-90 truncate">{signalLabel}</p>
+    <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-3 h-[calc(100vh-9rem)]">
+      {/* ---------- Control panel ---------- */}
+      <Card className="flex flex-col overflow-hidden border-border/60">
+        {/* Header: GPS pill + connectivity */}
+        <div className="border-b border-border/60 p-3 bg-gradient-to-b from-card to-card/60">
+          <div className="flex items-center justify-between gap-2">
+            <div className={`flex items-center gap-2 rounded-full pl-2 pr-3 py-1.5 text-xs font-medium ${signalColor}`}>
+              <Signal className="w-3.5 h-3.5" />
+              <span className="leading-none">{signalLabel}</span>
             </div>
-            {navigator.onLine ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+            <div className="flex items-center gap-1.5">
+              {navigator.onLine ? (
+                <Badge variant="outline" className="gap-1 border-green-500/40 text-green-600 dark:text-green-400 text-[10px] h-6">
+                  <Wifi className="w-3 h-3" /> En ligne
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1 border-orange-500/40 text-orange-600 dark:text-orange-400 text-[10px] h-6">
+                  <WifiOff className="w-3 h-3" /> Hors-ligne
+                </Badge>
+              )}
+              {pendingCount > 0 && (
+                <Badge variant="destructive" className="text-[10px] h-6">{pendingCount}</Badge>
+              )}
+            </div>
           </div>
-          {/* Progress steps */}
-          <div className="flex items-center gap-1 text-[11px]">
-            <StepBadge n={1} label="Points" active={!stepCaptureDone} done={stepCaptureDone} />
-            <div className="flex-1 h-px bg-border" />
-            <StepBadge n={2} label="Clôturer" active={stepCaptureDone && !stepCloseDone} done={stepCloseDone} />
-            <div className="flex-1 h-px bg-border" />
-            <StepBadge n={3} label="Sauver" active={stepCloseDone && !saving} done={false} />
+
+          {/* Progress bar */}
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-[10.5px] text-muted-foreground mb-1">
+              <span className={stepCaptureDone ? "text-primary font-semibold" : ""}>1. Points</span>
+              <span className={stepCloseDone ? "text-primary font-semibold" : ""}>2. Clôture</span>
+              <span className={stepSaveReady ? "text-primary font-semibold" : ""}>3. Sauvegarde</span>
+            </div>
+            <Progress
+              value={stepSaveReady ? 100 : stepCloseDone ? 66 : stepCaptureDone ? 33 : Math.min(33, (points.length / 3) * 33)}
+              className="h-1.5"
+            />
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
-            {/* ÉTAPE 1 — Capture */}
-            <section className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="default" className="rounded-full w-6 h-6 p-0 flex items-center justify-center">1</Badge>
-                <h3 className="text-sm font-bold">Capturer les coins de la parcelle</h3>
-              </div>
-              <p className="text-[11px] text-muted-foreground pl-8">
-                Déplacez-vous physiquement à chaque coin (A, B, C, D…) puis appuyez sur un bouton.
-              </p>
+        <Tabs defaultValue="mesure" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mx-3 mt-3 grid grid-cols-2 h-9">
+            <TabsTrigger value="mesure" className="text-xs">
+              <Crosshair className="w-3.5 h-3.5 mr-1.5" /> Mesure
+            </TabsTrigger>
+            <TabsTrigger value="details" className="text-xs">
+              <Save className="w-3.5 h-3.5 mr-1.5" /> Détails
+            </TabsTrigger>
+          </TabsList>
 
-              {/* Moved to map overlay */}
-              <p className="text-[11px] text-muted-foreground pl-8">
-                Déplacez-vous physiquement à chaque coin (A, B, C, D…) puis appuyez sur <strong>Capturer</strong> ou <strong>Valider</strong> en bas de la carte.
-              </p>
-
-              {/* Points list */}
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-xs font-semibold">
-                  {points.length} point{points.length > 1 ? "s" : ""} capturé{points.length > 1 ? "s" : ""}
-                  {points.length > 0 && points.length < 3 && (
-                    <span className="text-muted-foreground font-normal"> (min. 3)</span>
-                  )}
-                </p>
-                {points.length > 0 && (
-                  <Button size="sm" variant="ghost" onClick={undoLastPoint} className="h-7 text-xs">
-                    <Undo2 className="w-3.5 h-3.5 mr-1" />
-                    Annuler dernier
-                  </Button>
-                )}
-              </div>
-              {points.length > 0 && (
-                <div className="space-y-1 max-h-40 overflow-y-auto rounded-md border border-border p-1.5 bg-muted/20">
-                  {points.map((p, i) => (
-                    <div
-                      key={p.timestamp}
-                      className="flex items-center justify-between rounded px-2 py-1.5 text-[11px] hover:bg-muted/60"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Badge variant="default" className="w-5 h-5 p-0 flex items-center justify-center text-[10px]">
-                          {LETTERS[i] || i + 1}
-                        </Badge>
-                        <span className="font-mono truncate">
-                          {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
-                        </span>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${
-                          p.accuracy < 5
-                            ? "border-green-500 text-green-600"
-                            : p.accuracy <= 10
-                            ? "border-orange-500 text-orange-600"
-                            : "border-red-500 text-red-600"
-                        }`}
-                      >
-                        ±{p.accuracy.toFixed(1)}m
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* ÉTAPE 2 — Clôturer */}
-            <section className="space-y-2 pt-2 border-t border-border">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={stepCloseDone ? "default" : "outline"}
-                  className="rounded-full w-6 h-6 p-0 flex items-center justify-center"
-                >
-                  2
-                </Badge>
-                <h3 className="text-sm font-bold">Clôturer la parcelle</h3>
-              </div>
-              <Button
-                onClick={closePolygon}
-                disabled={points.length < 3 || isClosed}
-                variant={isClosed ? "outline" : "secondary"}
-                className="w-full h-12"
-              >
-                <Square className="w-5 h-5 mr-2" />
-                {isClosed ? "✓ Parcelle clôturée" : "Clôturer (calculer la surface)"}
-              </Button>
-              {isClosed && (
-                <Card className="p-3 bg-primary/10 border-primary/30">
-                  <p className="text-[11px] text-muted-foreground">Surface calculée</p>
-                  <p className="text-2xl font-bold text-primary leading-tight">
-                    {surfaceM2.toFixed(2)} m²
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    ≈ {(surfaceM2 / 10000).toFixed(4)} ha
-                  </p>
-                </Card>
-              )}
-            </section>
-
-            {/* ÉTAPE 3 — Infos & Sauvegarde */}
-            <section className="space-y-2 pt-2 border-t border-border">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={stepSaveReady ? "default" : "outline"}
-                  className="rounded-full w-6 h-6 p-0 flex items-center justify-center"
-                >
-                  3
-                </Badge>
-                <h3 className="text-sm font-bold">Informations & Sauvegarde</h3>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agent" className="text-xs">
-                  Nom de l'agent <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="agent"
-                  value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
-                  placeholder="Ex: Jean Mukendi"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="client" className="text-xs">Nom du client</Label>
-                <Input
-                  id="client"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Ex: Mme Kabongo"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-xs">Notes (facultatif)</Label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Observations sur le terrain…"
-                  rows={2}
-                  className="text-sm"
-                />
-              </div>
-            </section>
-
-            {/* Paramètres avancés (collapsible) */}
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted/50 transition-colors">
-                  <span className="flex items-center gap-2">
-                    <Settings2 className="w-3.5 h-3.5" />
-                    Paramètres avancés
-                    {pendingCount > 0 && (
-                      <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
-                        {pendingCount} en attente
-                      </Badge>
-                    )}
-                  </span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 pt-2">
-                <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold">Mode hors-ligne</p>
+          {/* ===== Tab MESURE ===== */}
+          <TabsContent value="mesure" className="flex-1 overflow-hidden mt-2">
+            <ScrollArea className="h-full">
+              <div className="p-3 space-y-3">
+                {/* Points header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold leading-tight">
+                      {points.length} {points.length > 1 ? "points capturés" : "point capturé"}
+                    </p>
                     <p className="text-[10.5px] text-muted-foreground">
-                      Stocker localement avant synchro
+                      {points.length < 3 ? `Encore ${3 - points.length} pour clôturer` : "Prêt à clôturer"}
                     </p>
                   </div>
-                  <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
+                  {points.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={undoLastPoint} className="h-7 text-xs">
+                      <Undo2 className="w-3.5 h-3.5 mr-1" /> Annuler
+                    </Button>
+                  )}
                 </div>
-                {pendingCount > 0 && (
+
+                {/* Points list */}
+                {points.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center">
+                    <Crosshair className="w-8 h-8 mx-auto text-muted-foreground/60 mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Déplacez-vous au coin <strong className="text-foreground">A</strong> et appuyez sur
+                      <strong className="text-foreground"> Capturer</strong> en bas de la carte.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {points.map((p, i) => {
+                      const acc = p.accuracy;
+                      const tone = acc < 5 ? "green" : acc <= 10 ? "orange" : "red";
+                      const toneClasses: Record<string, string> = {
+                        green: "border-l-green-500 bg-green-500/5",
+                        orange: "border-l-orange-500 bg-orange-500/5",
+                        red: "border-l-red-500 bg-red-500/5",
+                      };
+                      const dotClasses: Record<string, string> = {
+                        green: "bg-green-500",
+                        orange: "bg-orange-500",
+                        red: "bg-red-500",
+                      };
+                      return (
+                        <div
+                          key={p.timestamp}
+                          className={`flex items-center gap-2 rounded-md border border-border border-l-2 px-2 py-1.5 ${toneClasses[tone]}`}
+                        >
+                          <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+                            {LETTERS[i] || i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-mono truncate leading-tight">
+                              {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`w-1.5 h-1.5 rounded-full ${dotClasses[tone]}`} />
+                              <span className="text-[10px] text-muted-foreground">±{acc.toFixed(1)}m</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Close polygon */}
+                <div className="pt-2 border-t border-border/60">
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => syncOfflineQueue(false)}
+                    onClick={closePolygon}
+                    disabled={points.length < 3 || isClosed}
+                    variant={isClosed ? "outline" : "default"}
+                    className="w-full h-10"
                   >
-                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
-                    Synchroniser ({pendingCount})
+                    {isClosed ? (
+                      <><CheckCircle2 className="w-4 h-4 mr-2" /> Parcelle clôturée</>
+                    ) : (
+                      <><Square className="w-4 h-4 mr-2" /> Clôturer la parcelle</>
+                    )}
                   </Button>
-                )}
-                {points.length > 0 && (
-                  <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={resetForm}>
-                    <Trash2 className="w-3.5 h-3.5 mr-2" />
-                    Réinitialiser le levé
-                  </Button>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </ScrollArea>
+                  {isClosed && (
+                    <div className="mt-2 rounded-lg bg-primary/10 border border-primary/20 p-3 text-center">
+                      <p className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Surface mesurée</p>
+                      <p className="text-2xl font-bold text-primary leading-tight mt-0.5">
+                        {surfaceM2.toFixed(2)} <span className="text-sm">m²</span>
+                      </p>
+                      <p className="text-[10.5px] text-muted-foreground">≈ {(surfaceM2 / 10000).toFixed(4)} ha</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          {/* ===== Tab DÉTAILS ===== */}
+          <TabsContent value="details" className="flex-1 overflow-hidden mt-2">
+            <ScrollArea className="h-full">
+              <div className="p-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent" className="text-xs">
+                    Agent <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="agent"
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    placeholder="Ex: Jean Mukendi"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="client" className="text-xs">Client</Label>
+                  <Input
+                    id="client"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Ex: Mme Kabongo"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="notes" className="text-xs">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Observations sur le terrain…"
+                    rows={3}
+                    className="text-sm resize-none"
+                  />
+                </div>
+
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted/50">
+                      <span className="flex items-center gap-2">
+                        <Settings2 className="w-3.5 h-3.5" /> Paramètres avancés
+                      </span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 pt-2">
+                    <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold">Mode hors-ligne</p>
+                        <p className="text-[10.5px] text-muted-foreground">Stocker localement avant synchro</p>
+                      </div>
+                      <Switch checked={offlineMode} onCheckedChange={setOfflineMode} />
+                    </div>
+                    {pendingCount > 0 && (
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => syncOfflineQueue(false)}>
+                        <RefreshCw className="w-3.5 h-3.5 mr-2" /> Synchroniser ({pendingCount})
+                      </Button>
+                    )}
+                    {points.length > 0 && (
+                      <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={resetForm}>
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> Réinitialiser le levé
+                      </Button>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
 
         {/* Sticky footer: Save CTA */}
-        <div className="border-t border-border p-3 bg-card/95 backdrop-blur">
+        <div className="border-t border-border/60 p-3 bg-card">
           <Button
             onClick={saveLeve}
             disabled={!stepSaveReady || saving}
-            className="w-full h-12 text-base font-semibold"
-            size="lg"
+            className="w-full h-11 font-semibold"
           >
-            <Save className="w-5 h-5 mr-2" />
+            <Save className="w-4 h-4 mr-2" />
             {saving
               ? "Sauvegarde…"
               : !isClosed
@@ -878,61 +879,54 @@ const LeveTerrainPanel = () => {
         </div>
       </Card>
 
-      {/* Map */}
-      <Card className="relative overflow-hidden min-h-[400px]">
+      {/* ---------- Map ---------- */}
+      <Card className="relative overflow-hidden min-h-[400px] border-border/60">
         <div ref={mapContainer} className="absolute inset-0" />
-        <Card className="absolute top-3 left-3 p-2 bg-card/95 backdrop-blur text-xs space-y-1">
+
+        {/* Legend */}
+        <div className="absolute top-3 left-3 rounded-lg bg-card/90 backdrop-blur-md border border-border/60 px-2.5 py-1.5 text-[10.5px] space-y-1 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500 ring-2 ring-blue-500/40" />
-            <span>Position de l'agent</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-500/30" />
+            <span>Position agent</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-600 border border-white" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-600 border border-white" />
             <span>Points capturés</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-slate-400/40 border border-slate-600" />
+            <div className="w-2.5 h-2.5 bg-slate-400/40 border border-slate-600" />
             <span>Parcelles existantes</span>
           </div>
-        </Card>
+        </div>
+
+        {/* Coords pill */}
         {currentPos && (
-          <Card className="absolute bottom-3 left-3 p-2 bg-card/95 backdrop-blur text-xs flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" />
-            <span className="font-mono">
-              {currentPos.lat.toFixed(6)}, {currentPos.lng.toFixed(6)}
-            </span>
-          </Card>
+          <div className="absolute top-3 right-3 rounded-full bg-card/90 backdrop-blur-md border border-border/60 px-3 py-1.5 text-[11px] font-mono shadow-sm flex items-center gap-1.5">
+            <MapPin className="w-3 h-3 text-primary" />
+            {currentPos.lat.toFixed(5)}, {currentPos.lng.toFixed(5)}
+          </div>
         )}
 
-        {/* Floating capture buttons at bottom center of map */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+        {/* Floating action bar */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border/60 rounded-full p-1.5 shadow-xl">
           <Button
             onClick={capturePoint}
             disabled={capturing || isClosed}
-            className="h-12 px-5 text-sm font-semibold shadow-lg"
+            className="h-11 px-5 rounded-full font-semibold"
           >
-            <Crosshair className="w-5 h-5 mr-1.5" />
-            {capturing ? "…" : "Capturer"}
+            <Crosshair className="w-4 h-4 mr-1.5" />
+            {capturing ? "Mesure…" : "Capturer"}
           </Button>
           <Button
             onClick={validateCurrentPosition}
             disabled={!currentPos || isClosed}
             variant="secondary"
-            className="h-12 px-5 text-sm font-semibold shadow-lg"
+            className="h-11 px-5 rounded-full font-semibold"
           >
-            <CheckCircle2 className="w-5 h-5 mr-1.5" />
+            <CheckCircle2 className="w-4 h-4 mr-1.5" />
             Valider
           </Button>
         </div>
-
-        {/* Quick hint tooltip */}
-        {!isClosed && (
-          <div className="absolute bottom-[4.2rem] left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur text-[10.5px] text-muted-foreground rounded-md px-3 py-1.5 shadow-sm border border-border">
-            <span className="hidden sm:inline">
-              <strong>Capturer</strong> = nouvelle mesure GPS • <strong>Valider</strong> = position suivie
-            </span>
-          </div>
-        )}
       </Card>
 
       {/* Collision alert */}
