@@ -303,7 +303,7 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser, 
                             </div>
                             {hectare.sale_type === "onereux" && (
                               <Badge variant="secondary" className="text-[10px] mt-1">
-                                À titre onéreux
+                                À titre gratuit
                               </Badge>
                             )}
                           </div>
@@ -354,7 +354,7 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser, 
                             </div>
                             {parcelle.sale_type === "onereux" && (
                               <Badge variant="secondary" className="text-[10px] mt-1">
-                                À titre onéreux
+                                À titre gratuit
                               </Badge>
                             )}
                             {parcelle.hectares?.name && (

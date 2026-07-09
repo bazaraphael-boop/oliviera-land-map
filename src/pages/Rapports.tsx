@@ -130,9 +130,9 @@ const Rapports = () => {
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
       
       const totalRevenue = soldParcelles.reduce((sum, p) => {
-        return sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix));
+        return sum + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0)));
       }, 0) + soldHectares.reduce((sum, h) => {
-        return sum + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix));
+        return sum + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0)));
       }, 0);
       
       // Prix moyen basé sur toutes les parcelles (non filtré)
@@ -160,7 +160,7 @@ const Rapports = () => {
         const allSoldInHectare = hectareParcelles.filter(p => p.status === "vendu");
         // Appliquer le filtre de période aux parcelles vendues dans cet hectare
         const soldInHectare = filterByPeriod(allSoldInHectare);
-        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0);
+        const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0);
         const salesRateInHectare = hectareParcelles.length > 0
           ? (soldInHectare.length / hectareParcelles.length) * 100
           : 0;
@@ -188,7 +188,7 @@ const Rapports = () => {
           const existing = salesByMonth.get(monthKey) || { ventes: 0, revenus: 0 };
           salesByMonth.set(monthKey, {
             ventes: existing.ventes + 1,
-            revenus: existing.revenus + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix))
+            revenus: existing.revenus + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0)))
           });
         }
       });
@@ -201,7 +201,7 @@ const Rapports = () => {
           const existing = salesByMonth.get(monthKey) || { ventes: 0, revenus: 0 };
           salesByMonth.set(monthKey, {
             ventes: existing.ventes + 1,
-            revenus: existing.revenus + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix))
+            revenus: existing.revenus + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0)))
           });
         }
       });
@@ -628,7 +628,7 @@ const Rapports = () => {
       
       // Ajouter les acheteurs de parcelles
       parcellesWithBuyers?.forEach(p => {
-        const saleTypeLabel = p.sale_type === "onereux" ? " (Onéreux)" : "";
+        const saleTypeLabel = p.sale_type === "onereux" ? " (Gratuit)" : "";
         buyers.push({
           name: p.buyer_name || "N/A",
           phone: p.buyer_phone || "N/A",
@@ -636,13 +636,13 @@ const Rapports = () => {
           type: `Parcelle${saleTypeLabel}`,
           property: `${(p.hectares as any)?.name || "N/A"} - ${p.numero}`,
           prix: Number(p.prix || 0),
-          amount: p.sale_type === "onereux" ? 0 : Number(p.amount_paid || p.prix)
+          amount: p.sale_type === "onereux" ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))
         });
       });
       
       // Ajouter les acheteurs d'hectares
       hectaresWithBuyers?.forEach(h => {
-        const saleTypeLabel = h.sale_type === "onereux" ? " (Onéreux)" : "";
+        const saleTypeLabel = h.sale_type === "onereux" ? " (Gratuit)" : "";
         buyers.push({
           name: h.buyer_name || "N/A",
           phone: h.buyer_phone || "N/A",
@@ -650,7 +650,7 @@ const Rapports = () => {
           type: `Hectare${saleTypeLabel}`,
           property: h.name,
           prix: Number(h.prix || 0),
-          amount: h.sale_type === "onereux" ? 0 : Number(h.amount_paid || h.prix)
+          amount: h.sale_type === "onereux" ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0))
         });
       });
       
@@ -684,7 +684,7 @@ const Rapports = () => {
             yPos = 20;
           }
           
-          const isOnereux = buyer.type.includes("Onéreux");
+          const isOnereux = buyer.type.includes("Gratuit");
           if (isOnereux) {
             pdf.setFillColor(255, 243, 224);
           } else {
@@ -703,7 +703,7 @@ const Rapports = () => {
           if (isOnereux) {
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(180, 90, 0);
-            pdf.text("ONÉREUX", 122, yPos + 5.5);
+            pdf.text("GRATUIT", 122, yPos + 5.5);
             pdf.setTextColor(0, 0, 0);
             pdf.setFont("helvetica", "normal");
             pdf.text("-", 147, yPos + 5.5);
@@ -759,8 +759,8 @@ const Rapports = () => {
       const soldParcelles = filterMonth(parcelles?.filter(p => p.status === "vendu") || []);
       const soldHectares = filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []);
 
-      const totalRevenue = soldParcelles.reduce((s, p) => s + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0)
-        + soldHectares.reduce((s, h) => s + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix)), 0);
+      const totalRevenue = soldParcelles.reduce((s, p) => s + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0)
+        + soldHectares.reduce((s, h) => s + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0))), 0);
 
       const formatPrice = (price: number) => price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
@@ -865,7 +865,7 @@ const Rapports = () => {
           if (isOnereux) {
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(180, 90, 0);
-            pdf.text("ONÉREUX", 112, yPos + 5.5);
+            pdf.text("GRATUIT", 112, yPos + 5.5);
             pdf.setTextColor(0, 0, 0);
             pdf.setFont("helvetica", "normal");
             pdf.text("-", 137, yPos + 5.5);
@@ -921,7 +921,7 @@ const Rapports = () => {
           if (isOnereux) {
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(180, 90, 0);
-            pdf.text("ONÉREUX", 97, yPos + 5.5);
+            pdf.text("GRATUIT", 97, yPos + 5.5);
             pdf.setTextColor(0, 0, 0);
             pdf.setFont("helvetica", "normal");
             pdf.text("-", 122, yPos + 5.5);

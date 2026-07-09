@@ -332,9 +332,12 @@ const Parcelles = () => {
         }
       }
 
+      const isOnereux = editFormData.sale_type === "onereux";
+      const prix = isOnereux ? 0 : (parseFloat(editFormData.prix) || selectedParcelle.prix || 0);
+
       const updateData: any = {
         status: editFormData.status,
-        prix: parseFloat(editFormData.prix) || selectedParcelle.prix,
+        prix: prix,
         sale_type: editFormData.sale_type,
         purchase_type: editFormData.purchase_type,
         rmb_number: editFormData.rmb_number || null,
@@ -349,16 +352,16 @@ const Parcelles = () => {
           return;
         }
         
-        const prix = parseFloat(editFormData.prix) || selectedParcelle.prix;
-        const amountPaid = parseFloat(editFormData.amount_paid) || 0;
+        const amountPaid = isOnereux ? 0 : (editFormData.payment_type === "total" ? prix : (parseFloat(editFormData.amount_paid) || 0));
+        const remainingAmount = isOnereux ? 0 : (editFormData.payment_type === "partiel" ? prix - amountPaid : 0);
         
         updateData.buyer_name = editFormData.buyer_name;
         updateData.buyer_phone = editFormData.buyer_phone || null;
         updateData.buyer_email = editFormData.buyer_email || null;
         updateData.sale_date = editFormData.sale_date || new Date().toISOString();
-        updateData.payment_type = editFormData.payment_type;
+        updateData.payment_type = isOnereux ? "total" : editFormData.payment_type;
         updateData.amount_paid = amountPaid;
-        updateData.remaining_amount = editFormData.payment_type === "partiel" ? prix - amountPaid : 0;
+        updateData.remaining_amount = remainingAmount;
       } else {
         // Si le statut n'est pas "vendu", on enlève les infos acheteur
         updateData.buyer_name = null;
@@ -425,7 +428,7 @@ const Parcelles = () => {
       
       // Type de vente
       pdf.setFont("helvetica", "bold");
-      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre onéreux" : "Vente normale"}`, 20, yPos);
+      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre gratuit" : "Vente normale"}`, 20, yPos);
       yPos += 15;
       
       // Informations acheteur
@@ -630,7 +633,7 @@ const Parcelles = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="normal">Vente normale</SelectItem>
-                        <SelectItem value="onereux">Titre onéreux</SelectItem>
+                        <SelectItem value="onereux">À titre gratuit</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -786,7 +789,7 @@ const Parcelles = () => {
                   
                   {parcelle.sale_type === "onereux" && (
                     <Badge variant="secondary" className="text-xs">
-                      À titre onéreux
+                      À titre gratuit
                     </Badge>
                   )}
                   
@@ -929,7 +932,7 @@ const Parcelles = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="normal">Vente normale</SelectItem>
-                      <SelectItem value="onereux">À titre onéreux</SelectItem>
+                      <SelectItem value="onereux">À titre gratuit</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -184,9 +184,10 @@ const Hectares = () => {
     try {
       // Déterminer si c'est une vente (si un nom d'acheteur est fourni)
       const isVente = formData.buyer_name.trim() !== "";
-      const prix = parseFloat(formData.prix) || 0;
-      const amountPaid = parseFloat(formData.amount_paid) || (formData.payment_type === "total" ? prix : 0);
-      const remainingAmount = formData.payment_type === "partiel" ? prix - amountPaid : 0;
+      const isOnereux = isVente && formData.sale_type === "onereux";
+      const prix = isOnereux ? 0 : (parseFloat(formData.prix) || 0);
+      const amountPaid = isOnereux ? 0 : (parseFloat(formData.amount_paid) || (formData.payment_type === "total" ? prix : 0));
+      const remainingAmount = isOnereux ? 0 : (formData.payment_type === "partiel" ? prix - amountPaid : 0);
       
       const hectareData = {
         name: formData.name,
@@ -202,7 +203,7 @@ const Hectares = () => {
         buyer_email: isVente ? formData.buyer_email || null : null,
         sale_type: isVente ? formData.sale_type : null,
         purchase_type: isVente ? formData.purchase_type : null,
-        payment_type: isVente ? formData.payment_type : null,
+        payment_type: isVente ? (isOnereux ? "total" : formData.payment_type) : null,
         amount_paid: isVente ? amountPaid : 0,
         remaining_amount: isVente ? remainingAmount : 0,
         sale_date: isVente ? new Date().toISOString() : null,
@@ -581,7 +582,7 @@ const Hectares = () => {
                           className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
                         >
                           <option value="normal">Vente normale</option>
-                          <option value="onereux">À titre onéreux</option>
+                          <option value="onereux">À titre gratuit</option>
                         </select>
                       </div>
                       
@@ -678,7 +679,7 @@ const Hectares = () => {
                     <div className="mb-2">
                       <h3 className="font-bold text-base leading-tight line-clamp-2 mb-1">{hectare.name}</h3>
                       {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
-                        <Badge variant="secondary" className="text-xs mt-1">Onéreux</Badge>
+                        <Badge variant="secondary" className="text-xs mt-1">Gratuit</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -723,7 +724,7 @@ const Hectares = () => {
                 </div>
 
                 {/* Price */}
-                {hectare.prix > 0 && hectare.sale_type !== "onéreux" && (
+                {hectare.prix > 0 && hectare.sale_type !== "onereux" && (
                   <div className="mb-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-5 h-5 text-primary" />
@@ -770,7 +771,7 @@ const Hectares = () => {
                       {hectare.buyer_phone && (
                         <p className="text-xs text-muted-foreground ml-6">{hectare.buyer_phone}</p>
                       )}
-                      {hectare.payment_type === "partiel" && hectare.sale_type !== "onéreux" && (
+                      {hectare.payment_type === "partiel" && hectare.sale_type !== "onereux" && (
                         <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
                           <div className="flex justify-between items-center mb-1">
                             <span className="text-xs text-muted-foreground">Montant payé</span>
@@ -792,7 +793,7 @@ const Hectares = () => {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 pt-4 border-t-2 border-border">
-                  {hectare.status === "vendu" && hectare.remaining_amount > 0 && hectare.sale_type !== "onéreux" && (
+                  {hectare.status === "vendu" && hectare.remaining_amount > 0 && hectare.sale_type !== "onereux" && (
                     <Button
                       variant="default"
                       size="sm"

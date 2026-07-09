@@ -265,7 +265,7 @@ const Acheteurs = () => {
           paper_form_completed: parcelle.paper_form_completed ?? false,
           hectares: parcelle.hectares,
         });
-        acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : Number(parcelle.amount_paid || parcelle.prix || 0);
+        acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : (parcelle.payment_type === 'partiel' ? Number(parcelle.amount_paid || 0) : Number(parcelle.prix || 0));
         acheteur.nombreParcelles += 1;
         
         // Si une parcelle n'est pas complétée, l'acheteur n'est pas complété
@@ -329,7 +329,7 @@ const Acheteurs = () => {
           rmb_number: hectare.rmb_number,
           paper_form_completed: hectare.paper_form_completed ?? false,
         });
-        acheteur.totalAchat += hectare.sale_type === 'onereux' ? 0 : Number(hectare.amount_paid || hectare.prix || 0);
+        acheteur.totalAchat += hectare.sale_type === 'onereux' ? 0 : (hectare.payment_type === 'partiel' ? Number(hectare.amount_paid || 0) : Number(hectare.prix || 0));
         acheteur.nombreHectares += 1;
         
         // Si un hectare n'est pas complété, l'acheteur n'est pas complété
@@ -1528,7 +1528,7 @@ const Acheteurs = () => {
                           </SelectTrigger>
                           <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="normal">Vente normale</SelectItem>
-                            <SelectItem value="onereux">À titre onéreux</SelectItem>
+                            <SelectItem value="onereux">À titre gratuit</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
