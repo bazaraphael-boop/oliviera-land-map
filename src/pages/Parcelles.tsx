@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
+import { HectareSelector } from "@/components/HectareSelector";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
@@ -620,56 +621,15 @@ const Parcelles = () => {
                 <div className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium">Hectare *</Label>
-                    <Select
-                      value={formData.hectare_id}
-                      onValueChange={handleHectareChange}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Sélectionner un hectare" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {hectares.map((h) => {
-                          const occupancy = getHectareOccupancy(h.id);
-                          return (
-                            <SelectItem key={h.id} value={h.id}>
-                              {h.name} ({occupancy.remaining}/16 dispo)
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    {formData.hectare_id && (
-                      <div className="mt-2 p-3 rounded-lg bg-muted/50 border">
-                        {(() => {
-                          const occupancy = getHectareOccupancy(formData.hectare_id);
-                          const surfaceEffectif = formData.surface ? Math.ceil(parseFloat(formData.surface) / 600) : 0;
-                          const willExceed = occupancy.remaining < surfaceEffectif;
-                          return (
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Effectif restant :</span>
-                                <Badge variant={occupancy.remaining > 0 ? "default" : "destructive"}>
-                                  {occupancy.remaining} / {occupancy.total}
-                                </Badge>
-                              </div>
-                              {surfaceEffectif > 0 && (
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">Cette parcelle ({formData.surface}m²) :</span>
-                                  <Badge variant={willExceed ? "destructive" : "secondary"}>
-                                    {surfaceEffectif} effectif
-                                  </Badge>
-                                </div>
-                              )}
-                              {willExceed && (
-                                <p className="text-xs text-destructive mt-1">
-                                  ⚠️ Pas assez d'espace dans cet hectare
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                    <div className="mt-1">
+                      <HectareSelector
+                        hectares={hectares}
+                        selectedId={formData.hectare_id}
+                        onSelect={handleHectareChange}
+                        getOccupancy={getHectareOccupancy}
+                        placeholder="Sélectionner un hectare"
+                      />
+                    </div>
                   </div>
                   
                   <div>

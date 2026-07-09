@@ -15,6 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { HectareSelector } from "@/components/HectareSelector";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [showAddHectareDialog, setShowAddHectareDialog] = useState(false);
   const [showAddParcelleDialog, setShowAddParcelleDialog] = useState(false);
   const [hectaresList, setHectaresList] = useState<any[]>([]);
+  const [allParcellesList, setAllParcellesList] = useState<any[]>([]);
   
   const [hectareForm, setHectareForm] = useState({
     name: "",
@@ -127,6 +129,7 @@ const Dashboard = () => {
       if (hectaresError) throw hectaresError;
 
       setHectaresList(hectares || []);
+      setAllParcellesList(parcelles || []);
 
       // Calculer les statistiques globales (même logique que Rapports.tsx)
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
@@ -676,6 +679,12 @@ const Dashboard = () => {
     return words[0];
   };
 
+  const getHectareOccupancyDash = (hectareId: string) => {
+    const hParcelles = allParcellesList.filter(p => p.hectare_id === hectareId);
+    const occupied = hParcelles.reduce((total, p) => total + Math.ceil((p.surface || 600) / 600), 0);
+    return { occupied, remaining: 16 - occupied, total: 16 };
+  };
+
   const handleDashboardHectareChange = async (hectareId: string) => {
     setParcelleForm(prev => ({ ...prev, hectare_id: hectareId }));
     if (!hectareId) return;
@@ -1175,21 +1184,13 @@ const Dashboard = () => {
             <form onSubmit={handleAddParcelle} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="p-hectare">Hectare associé *</Label>
-                <Select
-                  value={parcelleForm.hectare_id}
-                  onValueChange={handleDashboardHectareChange}
-                >
-                  <SelectTrigger id="p-hectare">
-                    <SelectValue placeholder="Sélectionner un hectare" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hectaresList.map((h) => (
-                      <SelectItem key={h.id} value={h.id}>
-                        {h.name} ({h.location || "Sans nom"})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <HectareSelector
+                  hectares={hectaresList}
+                  selectedId={parcelleForm.hectare_id}
+                  onSelect={handleDashboardHectareChange}
+                  getOccupancy={getHectareOccupancyDash}
+                  placeholder="Sélectionner un hectare"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
