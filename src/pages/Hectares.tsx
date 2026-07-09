@@ -708,6 +708,15 @@ const Hectares = () => {
                       variant="ghost" 
                       size="icon"
                       className="h-9 w-9 hover:bg-primary/10 hover:text-primary transition-colors"
+                      onClick={() => navigate(`/localisation?hectare=${hectare.id}`)}
+                      title="Localiser sur la carte"
+                    >
+                      <MapPin className="w-4 h-4 text-primary" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-9 w-9 hover:bg-primary/10 hover:text-primary transition-colors"
                       onClick={() => handleEdit(hectare)}
                     >
                       <Edit className="w-4 h-4" />

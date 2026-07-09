@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -23,8 +23,11 @@ interface Hectare {
 
 const Localisation = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  const hectaresMarkersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [hectares, setHectares] = useState<Hectare[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,6 +100,10 @@ const Localisation = () => {
 
       map.current.addControl(new mapboxgl.FullscreenControl(), "top-right");
 
+      // Réinitialiser les marqueurs
+      hectaresMarkersRef.current = {};
+      markersRef.current = {};
+
       // Ajouter des marqueurs pour chaque hectare
       hectares.forEach((hectare, index) => {
         if (map.current) {
@@ -124,28 +131,40 @@ const Localisation = () => {
             </div>
           `);
 
-          new mapboxgl.Marker(el)
+          const marker = new mapboxgl.Marker(el)
             .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map.current);
+
+          hectaresMarkersRef.current[hectare.id] = marker;
         }
       });
 
-      // Récupérer aussi les parcelles avec coordonnées GPS
+      // Récupérer toutes les parcelles (avec jointure hectares pour fallback de localisation)
       const { data: parcellesData, error: parcellesError } = await supabase
         .from("parcelles")
-        .select("*")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
+        .select("*, hectares(name, latitude, longitude)")
         .order("numero");
 
       if (parcellesError) {
         console.error("Erreur parcelles:", parcellesError);
       }
 
-      // Ajouter des marqueurs pour chaque parcelle avec coordonnées GPS
+      // Ajouter des marqueurs pour chaque parcelle
       (parcellesData || []).forEach((parcelle: any) => {
-        if (map.current && parcelle.latitude && parcelle.longitude) {
+        let lat = parcelle.latitude;
+        let lng = parcelle.longitude;
+        let isFallback = false;
+
+        // Si la parcelle n'a pas de coordonnées GPS, on utilise celles de l'hectare parent avec un léger décalage aléatoire
+        if ((lat === null || lng === null) && parcelle.hectares && parcelle.hectares.latitude && parcelle.hectares.longitude) {
+          // Un léger décalage aléatoire évite que toutes les parcelles sans GPS se superposent sur le même point
+          lng = parcelle.hectares.longitude + (Math.random() - 0.5) * 0.0015;
+          lat = parcelle.hectares.latitude + (Math.random() - 0.5) * 0.0015;
+          isFallback = true;
+        }
+
+        if (map.current && lat && lng) {
           const el = document.createElement("div");
           el.className = "marker";
           el.style.backgroundColor = parcelle.status === "disponible" ? "#22c55e" : "#3b82f6";
@@ -162,16 +181,69 @@ const Localisation = () => {
               <p style="margin: 4px 0; font-size: 13px;">Surface: ${parcelle.surface} m²</p>
               <p style="margin: 4px 0; font-size: 13px;">Statut: ${parcelle.status === "disponible" ? "Disponible" : "Vendu"}</p>
               ${parcelle.buyer_name ? `<p style="margin: 4px 0; font-size: 13px;">Acheteur: ${parcelle.buyer_name}</p>` : ""}
-              <p style="margin: 4px 0; font-size: 11px; color: #666;">GPS: ${parcelle.latitude.toFixed(6)}, ${parcelle.longitude.toFixed(6)}</p>
+              ${isFallback ? `<p style="margin: 4px 0; font-size: 11px; color: #d97706; font-style: italic;">Localisation estimée (Centre de l'hectare)</p>` : ""}
+              <p style="margin: 4px 0; font-size: 11px; color: #666;">GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
             </div>
           `);
 
-          new mapboxgl.Marker(el)
-            .setLngLat([parcelle.longitude, parcelle.latitude])
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map.current);
+
+          markersRef.current[parcelle.id] = marker;
         }
       });
+
+      // Centrer la carte sur la parcelle ciblée par l'URL si présente
+      const targetParcelleId = searchParams.get("parcelle");
+      const targetHectareId = searchParams.get("hectare");
+
+      if (targetParcelleId) {
+        const targetParcelle = (parcellesData || []).find(p => p.id === targetParcelleId);
+        if (targetParcelle) {
+          let targetLat = targetParcelle.latitude;
+          let targetLng = targetParcelle.longitude;
+          
+          if ((targetLat === null || targetLng === null) && targetParcelle.hectares && targetParcelle.hectares.latitude && targetParcelle.hectares.longitude) {
+            targetLat = targetParcelle.hectares.latitude;
+            targetLng = targetParcelle.hectares.longitude;
+          }
+
+          if (targetLat && targetLng && map.current) {
+            map.current.flyTo({
+              center: [targetLng, targetLat],
+              zoom: 17,
+              essential: true
+            });
+
+            setTimeout(() => {
+              const marker = markersRef.current[targetParcelleId];
+              if (marker) {
+                marker.togglePopup();
+              }
+            }, 1200);
+          } else {
+            toast.info("Cette parcelle n'a pas de coordonnées de localisation configurées.");
+          }
+        }
+      } else if (targetHectareId) {
+        const targetHectare = hectares.find(h => h.id === targetHectareId);
+        if (targetHectare && targetHectare.latitude && targetHectare.longitude && map.current) {
+          map.current.flyTo({
+            center: [targetHectare.longitude, targetHectare.latitude],
+            zoom: 16,
+            essential: true
+          });
+
+          setTimeout(() => {
+            const marker = hectaresMarkersRef.current[targetHectareId];
+            if (marker) {
+              marker.togglePopup();
+            }
+          }, 1200);
+        }
+      }
 
       // Ajouter un effet de survol
       map.current.on("style.load", () => {
