@@ -137,8 +137,16 @@ const Rapports = () => {
       const soldParcelles = filterBySaleType(filterByPeriod(allSoldParcelles));
       const soldHectares = filterBySaleType(filterByPeriod(allSoldHectares));
       
-      setSoldParcellesList(soldParcelles);
-      setSoldHectaresList(soldHectares);
+      // Trier par ordre croissant (alphanumérique)
+      const sortedParcelles = [...soldParcelles].sort((a, b) => 
+        (a.numero || "").localeCompare(b.numero || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
+      const sortedHectares = [...soldHectares].sort((a, b) => 
+        (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
+      
+      setSoldParcellesList(sortedParcelles);
+      setSoldHectaresList(sortedHectares);
       
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
       
@@ -629,8 +637,12 @@ const Rapports = () => {
         .or("status.eq.sold,sale_type.eq.onereux")
         .not("buyer_name", "is", null);
       
-      const parcellesFiltered = filterBySaleType(filterByPeriod(parcellesWithBuyers || []));
-      const hectaresFiltered = filterBySaleType(filterByPeriod(hectaresWithBuyers || []));
+      const parcellesFiltered = [...filterBySaleType(filterByPeriod(parcellesWithBuyers || []))].sort((a, b) => 
+        (a.numero || "").localeCompare(b.numero || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
+      const hectaresFiltered = [...filterBySaleType(filterByPeriod(hectaresWithBuyers || []))].sort((a, b) => 
+        (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
 
       const buyers: Array<{
         name: string;
@@ -772,8 +784,12 @@ const Rapports = () => {
       const { data: parcelles } = await supabase.from("parcelles").select("*, hectares(id, name)");
       const { data: hectares } = await supabase.from("hectares").select("*");
 
-      const soldParcelles = filterBySaleType(filterMonth(parcelles?.filter(p => p.status === "vendu") || []));
-      const soldHectares = filterBySaleType(filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []));
+      const soldParcelles = [...filterBySaleType(filterMonth(parcelles?.filter(p => p.status === "vendu") || []))].sort((a, b) => 
+        (a.numero || "").localeCompare(b.numero || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
+      const soldHectares = [...filterBySaleType(filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []))].sort((a, b) => 
+        (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: 'base' })
+      );
 
       const totalRevenue = soldParcelles.reduce((s, p) => s + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0)
         + soldHectares.reduce((s, h) => s + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0))), 0);
