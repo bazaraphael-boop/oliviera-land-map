@@ -659,6 +659,53 @@ const Dashboard = () => {
     }
   };
 
+  const getHectarePrefix = (name: string) => {
+    const cleanName = name.replace(/\s+/g, ' ').trim();
+    const deIndex = cleanName.toLowerCase().indexOf(" de ");
+    if (deIndex > 0) {
+      return cleanName.substring(0, deIndex).trim();
+    }
+    const parIndex = cleanName.toLowerCase().indexOf(" par ");
+    if (parIndex > 0) {
+      return cleanName.substring(0, parIndex).trim();
+    }
+    const words = cleanName.split(' ');
+    if (words.length >= 2 && words[0].toUpperCase() === "RMB") {
+      return `${words[0]} ${words[1]}`;
+    }
+    return words[0];
+  };
+
+  const handleDashboardHectareChange = async (hectareId: string) => {
+    setParcelleForm(prev => ({ ...prev, hectare_id: hectareId }));
+    if (!hectareId) return;
+
+    try {
+      const selectedHec = hectaresList.find(h => h.id === hectareId);
+      if (!selectedHec) return;
+
+      const prefix = getHectarePrefix(selectedHec.name);
+
+      // Compter le nombre de parcelles déjà existantes dans cet hectare
+      const { count, error } = await supabase
+        .from("parcelles")
+        .select("id", { count: "exact", head: true })
+        .eq("hectare_id", hectareId);
+
+      if (error) throw error;
+
+      const nextNum = (count || 0) + 1;
+      const autoNumero = `${prefix}/${nextNum}`;
+
+      setParcelleForm(prev => ({
+        ...prev,
+        numero: autoNumero
+      }));
+    } catch (err) {
+      console.error("Erreur lors du calcul du numéro de parcelle:", err);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1124,7 +1171,7 @@ const Dashboard = () => {
                 <Label htmlFor="p-hectare">Hectare associé *</Label>
                 <Select
                   value={parcelleForm.hectare_id}
-                  onValueChange={(val) => setParcelleForm({ ...parcelleForm, hectare_id: val })}
+                  onValueChange={handleDashboardHectareChange}
                 >
                   <SelectTrigger id="p-hectare">
                     <SelectValue placeholder="Sélectionner un hectare" />

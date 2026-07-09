@@ -120,6 +120,53 @@ const Parcelles = () => {
     longitude: "",
   });
 
+  const getHectarePrefix = (name: string) => {
+    const cleanName = name.replace(/\s+/g, ' ').trim();
+    const deIndex = cleanName.toLowerCase().indexOf(" de ");
+    if (deIndex > 0) {
+      return cleanName.substring(0, deIndex).trim();
+    }
+    const parIndex = cleanName.toLowerCase().indexOf(" par ");
+    if (parIndex > 0) {
+      return cleanName.substring(0, parIndex).trim();
+    }
+    const words = cleanName.split(' ');
+    if (words.length >= 2 && words[0].toUpperCase() === "RMB") {
+      return `${words[0]} ${words[1]}`;
+    }
+    return words[0];
+  };
+
+  const handleHectareChange = async (hectareId: string) => {
+    setFormData(prev => ({ ...prev, hectare_id: hectareId }));
+    if (!hectareId) return;
+
+    try {
+      const selectedHec = hectares.find(h => h.id === hectareId);
+      if (!selectedHec) return;
+
+      const prefix = getHectarePrefix(selectedHec.name);
+
+      // Compter le nombre de parcelles déjà existantes dans cet hectare
+      const { count, error } = await supabase
+        .from("parcelles")
+        .select("id", { count: "exact", head: true })
+        .eq("hectare_id", hectareId);
+
+      if (error) throw error;
+
+      const nextNum = (count || 0) + 1;
+      const autoNumero = `${prefix}/${nextNum}`;
+
+      setFormData(prev => ({
+        ...prev,
+        numero: autoNumero
+      }));
+    } catch (err) {
+      console.error("Erreur lors du calcul automatique du numéro de parcelle:", err);
+    }
+  };
+
   useEffect(() => {
     checkAuth();
     fetchHectares();
@@ -568,9 +615,7 @@ const Parcelles = () => {
                     <Label className="text-sm font-medium">Hectare *</Label>
                     <Select
                       value={formData.hectare_id}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, hectare_id: value })
-                      }
+                      onValueChange={handleHectareChange}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Sélectionner un hectare" />
