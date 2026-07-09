@@ -145,6 +145,13 @@ const Parcelles = () => {
       const selectedHec = hectares.find(h => h.id === hectareId);
       if (!selectedHec) return;
 
+      // Exclure les hectares contenant "ISETECH"
+      if (selectedHec.name.toUpperCase().includes("ISETECH")) {
+        // Optionnel : on peut vider le numéro existant ou le laisser tel quel
+        setFormData(prev => ({ ...prev, numero: "" }));
+        return;
+      }
+
       const prefix = getHectarePrefix(selectedHec.name);
 
       // Compter le nombre de parcelles déjà existantes dans cet hectare
