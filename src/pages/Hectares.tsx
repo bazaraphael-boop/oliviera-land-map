@@ -688,7 +688,7 @@ const Hectares = () => {
                       </Badge>
                       {(() => {
                         const count = parcelleCountByHectare[hectare.id] || 0;
-                        const percentage = Math.round((count / 15) * 100);
+                        const percentage = Math.round((count / 16) * 100);
                         const isNearFull = percentage >= 80;
                         const isFull = percentage >= 100;
                         return (
@@ -696,7 +696,7 @@ const Hectares = () => {
                             variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
                             className="text-xs font-medium"
                           >
-                            {count}/15 • {percentage}%
+                            {count}/16 • {percentage}%
                           </Badge>
                         );
                       })()}
@@ -862,7 +862,7 @@ const Hectares = () => {
                 <div className="text-2xl font-bold">Parcelles - {selectedHectare?.name}</div>
                 <div className="text-sm text-muted-foreground font-normal mt-1">
                   {selectedHectare?.location && `${selectedHectare.location} • `}
-                  {parcelles.filter(p => p.status === 'vendu').length} vendue(s) sur 15
+                  {parcelles.filter(p => p.status === 'vendu').length} vendue(s) sur 16
                 </div>
               </div>
             </DialogTitle>
@@ -914,7 +914,7 @@ const Hectares = () => {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-700">
-                      {15 - parcelles.filter(p => p.status === 'vendu').length}
+                      {16 - parcelles.filter(p => p.status === 'vendu').length}
                     </div>
                     <div className="text-xs text-muted-foreground">Disponibles</div>
                   </div>
@@ -942,7 +942,7 @@ const Hectares = () => {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-primary">
-                      {Math.round((parcelles.filter(p => p.status === 'vendu').length / 15) * 100)}%
+                      {Math.round((parcelles.filter(p => p.status === 'vendu').length / 16) * 100)}%
                     </div>
                     <div className="text-xs text-muted-foreground">Taux de vente</div>
                   </div>

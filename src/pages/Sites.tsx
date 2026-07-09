@@ -510,7 +510,7 @@ const Sites = () => {
                   const isExpanded = expandedHectare === hectare.id;
                   const isSold = hectare.status === "sold" || hectare.status === "vendu";
                   const isWholeHectareSold = isSold && hectare.parcelle_count === 0 && hectare.buyer_name;
-                  const totalSlots = 15;
+                  const totalSlots = 16;
                   const parcelleCount = hectare.parcelle_count || 0;
                   const occupiedParcelles = parcelles.filter((p: any) => p.status === "vendue" || p.status === "occupée" || p.buyer_name);
 
@@ -549,7 +549,7 @@ const Sites = () => {
                                 <span>{hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "Prix N/A"}</span>
                                 <span>•</span>
                                 <span className="font-medium">
-                                  {isWholeHectareSold ? "15/15 occupées" : `${parcelleCount}/${totalSlots} parcelles`}
+                                  {isWholeHectareSold ? "16/16 occupées" : `${parcelleCount}/${totalSlots} parcelles`}
                                 </span>
                               </div>
                             </div>
@@ -565,7 +565,7 @@ const Sites = () => {
                                   ? "text-orange-500"
                                   : "text-primary"
                               }`}>
-                                {isWholeHectareSold ? "15" : parcelleCount}
+                                {isWholeHectareSold ? "16" : parcelleCount}
                               </span>
                             </div>
                             {isExpanded ? (
@@ -600,7 +600,7 @@ const Sites = () => {
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
                                   <span className="text-sm font-semibold text-destructive">
-                                    15 / 15 — Complet
+                                    16 / 16 — Complet
                                   </span>
                                 </div>
                                 <Progress value={100} className="h-2.5" />

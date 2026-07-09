@@ -99,8 +99,8 @@ const Parcelles = () => {
     }, 0);
     return {
       occupied: occupiedEffectif,
-      remaining: 15 - occupiedEffectif,
-      total: 15
+      remaining: 16 - occupiedEffectif,
+      total: 16
     };
   };
   const [editFormData, setEditFormData] = useState({
@@ -207,7 +207,7 @@ const Parcelles = () => {
       if (countError) throw countError;
 
       // Calculer l'effectif occupé (somme de Math.ceil(surface/600))
-      // Un hectare peut avoir max 15 en effectif
+      // Un hectare peut avoir max 16 en effectif
       const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
         return total + Math.ceil(p.surface / 600);
       }, 0);
@@ -215,9 +215,9 @@ const Parcelles = () => {
       // La nouvelle parcelle contribue à l'effectif selon sa surface
       const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
 
-      // Un hectare ne peut avoir que 15 en effectif maximum
-      if (occupiedEffectif + newParcelleEffectif > 15) {
-        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${15 - occupiedEffectif} en effectif disponible)`);
+      // Un hectare ne peut avoir que 16 en effectif maximum
+      if (occupiedEffectif + newParcelleEffectif > 16) {
+        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${16 - occupiedEffectif} en effectif disponible)`);
         return;
       }
 
@@ -326,8 +326,8 @@ const Parcelles = () => {
         // Calculer l'effectif que cette parcelle va ajouter
         const newParcelleEffectif = Math.ceil(selectedParcelle.surface / 600);
 
-        if (occupiedEffectif + newParcelleEffectif > 15) {
-          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${15 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
+        if (occupiedEffectif + newParcelleEffectif > 16) {
+          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${16 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
           return;
         }
       }
@@ -580,7 +580,7 @@ const Parcelles = () => {
                           const occupancy = getHectareOccupancy(h.id);
                           return (
                             <SelectItem key={h.id} value={h.id}>
-                              {h.name} ({occupancy.remaining}/15 dispo)
+                              {h.name} ({occupancy.remaining}/16 dispo)
                             </SelectItem>
                           );
                         })}
