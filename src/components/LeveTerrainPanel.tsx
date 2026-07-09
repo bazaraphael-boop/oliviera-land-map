@@ -51,6 +51,7 @@ interface CapturedPoint {
   lng: number;
   accuracy: number;
   timestamp: number;
+  source?: "gps" | "manual";
 }
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
