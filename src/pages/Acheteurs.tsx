@@ -542,10 +542,7 @@ const Acheteurs = () => {
     }
   };
 
-  const handleLocaliser = (parcelleId: string) => {
-    // Rediriger vers la page de localisation avec l'ID de la parcelle
-    navigate(`/localisation?parcelle=${parcelleId}`);
-  };
+
 
   const loadAvailableItems = async () => {
     try {
@@ -864,7 +861,6 @@ const Acheteurs = () => {
           open={showDetails}
           onOpenChange={setShowDetails}
           acheteur={selectedAcheteur}
-          onLocaliser={handleLocaliser}
           onEditIdentification={handleOpenEditIdentification}
         />
 

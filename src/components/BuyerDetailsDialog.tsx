@@ -76,7 +76,6 @@ interface BuyerDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   acheteur: Acheteur | null;
-  onLocaliser: (parcelleId: string) => void;
   onEditIdentification?: (acheteur: Acheteur) => void;
 }
 
@@ -151,7 +150,7 @@ function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, b
   );
 }
 
-export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser, onEditIdentification }: BuyerDetailsDialogProps) {
+export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentification }: BuyerDetailsDialogProps) {
   if (!acheteur) return null;
 
   return (
@@ -363,14 +362,7 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onLocaliser, 
                               </p>
                             )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onLocaliser(parcelle.id)}
-                            className="h-7 px-2 shrink-0"
-                          >
-                            <MapPin className="w-3.5 h-3.5" />
-                          </Button>
+
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {parcelle.surface} m² • {parcelle.prix.toLocaleString()} USD
