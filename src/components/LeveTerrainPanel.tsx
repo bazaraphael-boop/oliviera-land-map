@@ -51,6 +51,7 @@ interface CapturedPoint {
   lng: number;
   accuracy: number;
   timestamp: number;
+  source?: "gps" | "manual";
 }
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -77,6 +78,11 @@ const LeveTerrainPanel = () => {
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [manualMode, setManualMode] = useState(false);
+  const manualModeRef = useRef(false);
+  const isClosedRef = useRef(false);
+  useEffect(() => { manualModeRef.current = manualMode; }, [manualMode]);
+  useEffect(() => { isClosedRef.current = isClosed; }, [isClosed]);
   const [collisionAlert, setCollisionAlert] = useState<{
     point: CapturedPoint;
     conflicts: { id: string; nom_agent: string; nom_client: string | null }[];
@@ -194,6 +200,12 @@ const LeveTerrainPanel = () => {
           });
           loadExistingPolygons();
           startWatch();
+
+          // Manual drawing: click on the map to add a vertex when manual mode is on
+          map.current!.on("click", (e) => {
+            if (!manualModeRef.current || isClosedRef.current) return;
+            addManualPoint(e.lngLat.lat, e.lngLat.lng);
+          });
         });
       } catch (e) {
         console.error(e);
@@ -445,7 +457,39 @@ const LeveTerrainPanel = () => {
     setPoints((prev) => {
       const next = [...prev, point];
       renderPoints(next, false);
-      toast.success(`Point ${LETTERS[next.length - 1] || next.length} capturé (±${point.accuracy.toFixed(1)}m)`);
+      const label = point.source === "manual" ? "Point manuel" : "Point";
+      toast.success(`${label} ${LETTERS[next.length - 1] || next.length} ajouté${point.source === "manual" ? "" : ` (±${point.accuracy.toFixed(1)}m)`}`);
+      return next;
+    });
+  };
+
+  const addManualPoint = async (lat: number, lng: number) => {
+    const point: CapturedPoint = { lat, lng, accuracy: 0, timestamp: Date.now(), source: "manual" };
+    try {
+      const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", { _lat: lat, _lng: lng });
+      if (conflicts && (conflicts as any[]).length > 0) {
+        setCollisionAlert({ point, conflicts: conflicts as any });
+        return;
+      }
+    } catch (e) {
+      console.warn("Collision check failed:", e);
+    }
+    addPoint(point);
+  };
+
+  const updatePointPosition = (index: number, lat: number, lng: number) => {
+    setPoints((prev) => {
+      const next = prev.map((p, i) => (i === index ? { ...p, lat, lng, source: "manual" as const } : p));
+      const closed = isClosedRef.current && next.length >= 3;
+      renderPoints(next, closed);
+      if (closed) {
+        const ring = next.map((p) => [p.lng, p.lat]);
+        ring.push(ring[0]);
+        try {
+          const area = turf.area(turf.polygon([ring]));
+          setSurfaceM2(area);
+        } catch {}
+      }
       return next;
     });
   };
@@ -482,14 +526,14 @@ const LeveTerrainPanel = () => {
   const renderPoints = (pts: CapturedPoint[], closed: boolean) => {
     if (!map.current || !mapReady.current) return;
 
-    // Markers
+    // Markers (draggable for manual fine-tuning)
     pointMarkers.current.forEach((m) => m.remove());
     pointMarkers.current = pts.map((p, i) => {
       const el = document.createElement("div");
       el.style.width = "26px";
       el.style.height = "26px";
       el.style.borderRadius = "50%";
-      el.style.background = "#16a34a";
+      el.style.background = p.source === "manual" ? "#6366f1" : "#16a34a";
       el.style.color = "white";
       el.style.fontWeight = "bold";
       el.style.fontSize = "13px";
@@ -498,8 +542,19 @@ const LeveTerrainPanel = () => {
       el.style.justifyContent = "center";
       el.style.border = "2px solid white";
       el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+      el.style.cursor = "grab";
+      el.title = "Glissez pour ajuster ce sommet";
       el.textContent = LETTERS[i] || String(i + 1);
-      return new mapboxgl.Marker(el).setLngLat([p.lng, p.lat]).addTo(map.current!);
+      const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map.current!);
+      marker.on("dragstart", () => { el.style.cursor = "grabbing"; });
+      marker.on("dragend", () => {
+        el.style.cursor = "grab";
+        const ll = marker.getLngLat();
+        updatePointPosition(i, ll.lat, ll.lng);
+      });
+      return marker;
     });
 
     // Line
@@ -890,7 +945,33 @@ const LeveTerrainPanel = () => {
 
       {/* ---------- Map ---------- */}
       <Card className="relative overflow-hidden min-h-[400px] border-border/60">
-        <div ref={mapContainer} className="absolute inset-0" />
+        <div
+          ref={mapContainer}
+          className="absolute inset-0"
+          style={{ cursor: manualMode && !isClosed ? "crosshair" : undefined }}
+        />
+
+        {/* Mode toggle */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-md">
+          <button
+            onClick={() => setManualMode(false)}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors ${!manualMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Crosshair className="w-3 h-3 inline mr-1" /> GPS
+          </button>
+          <button
+            onClick={() => setManualMode(true)}
+            disabled={isClosed}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors disabled:opacity-40 ${manualMode ? "bg-indigo-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            ✏️ Dessin manuel
+          </button>
+        </div>
+        {manualMode && !isClosed && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10.5px] px-3 py-1 rounded-full shadow-md animate-pulse">
+            Cliquez sur la carte pour ajouter un sommet • Glissez les points pour ajuster
+          </div>
+        )}
 
         {/* Legend */}
         <div className="absolute top-3 left-3 rounded-lg bg-card/90 backdrop-blur-md border border-border/60 px-2.5 py-1.5 text-[10.5px] space-y-1 shadow-sm">
