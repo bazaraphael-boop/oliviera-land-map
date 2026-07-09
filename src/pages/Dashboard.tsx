@@ -1188,7 +1188,6 @@ const Dashboard = () => {
             </form>
           </DialogContent>
         </Dialog>
-      </main>
       </div>
     </div>
   );
