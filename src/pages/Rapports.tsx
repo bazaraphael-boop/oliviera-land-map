@@ -1342,9 +1342,27 @@ const Rapports = () => {
                     soldParcellesList.map((p) => {
                       const isFree = p.sale_type === "onereux";
                       const remaining = isFree ? 0 : (p.prix - (p.amount_paid || 0));
+                      const isDuplicateRMB = p.rmb_number && duplicateRMBs.includes(p.rmb_number);
                       return (
-                        <tr key={p.id} className="border-b border-border/40 hover:bg-muted/10 transition-colors">
-                          <td className="p-3 font-semibold text-foreground">Parcelle {p.numero}</td>
+                        <tr 
+                          key={p.id} 
+                          className={`border-b border-border/40 hover:bg-muted/10 transition-colors ${
+                            isDuplicateRMB ? "bg-red-500/10 hover:bg-red-500/15 dark:bg-red-950/20" : ""
+                          }`}
+                        >
+                          <td className="p-3 font-semibold text-foreground">
+                            <div className="flex flex-col">
+                              <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>Parcelle {p.numero}</span>
+                              {p.rmb_number && (
+                                <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${
+                                  isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
+                                }`}>
+                                  {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
+                                  RMB: {p.rmb_number} {isDuplicateRMB && "(Doublon)"}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-3 text-muted-foreground">{p.hectares?.name || "N/A"}</td>
                           <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
                           <td className="p-3">
@@ -1388,9 +1406,27 @@ const Rapports = () => {
                     soldHectaresList.map((h) => {
                       const isFree = h.sale_type === "onereux";
                       const remaining = isFree ? 0 : (h.prix - (h.amount_paid || 0));
+                      const isDuplicateRMB = h.rmb_number && duplicateRMBs.includes(h.rmb_number);
                       return (
-                        <tr key={h.id} className="border-b border-border/40 hover:bg-muted/10 transition-colors">
-                          <td className="p-3 font-semibold text-foreground">{h.name}</td>
+                        <tr 
+                          key={h.id} 
+                          className={`border-b border-border/40 hover:bg-muted/10 transition-colors ${
+                            isDuplicateRMB ? "bg-red-500/10 hover:bg-red-500/15 dark:bg-red-950/20" : ""
+                          }`}
+                        >
+                          <td className="p-3 font-semibold text-foreground">
+                            <div className="flex flex-col">
+                              <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>{h.name}</span>
+                              {h.rmb_number && (
+                                <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${
+                                  isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
+                                }`}>
+                                  {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
+                                  RMB: {h.rmb_number} {isDuplicateRMB && "(Doublon)"}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-3 font-medium text-foreground">{h.buyer_name || "N/A"}</td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
