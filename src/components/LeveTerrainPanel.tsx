@@ -200,6 +200,12 @@ const LeveTerrainPanel = () => {
           });
           loadExistingPolygons();
           startWatch();
+
+          // Manual drawing: click on the map to add a vertex when manual mode is on
+          map.current!.on("click", (e) => {
+            if (!manualModeRef.current || isClosedRef.current) return;
+            addManualPoint(e.lngLat.lat, e.lngLat.lng);
+          });
         });
       } catch (e) {
         console.error(e);
