@@ -526,14 +526,14 @@ const LeveTerrainPanel = () => {
   const renderPoints = (pts: CapturedPoint[], closed: boolean) => {
     if (!map.current || !mapReady.current) return;
 
-    // Markers
+    // Markers (draggable for manual fine-tuning)
     pointMarkers.current.forEach((m) => m.remove());
     pointMarkers.current = pts.map((p, i) => {
       const el = document.createElement("div");
       el.style.width = "26px";
       el.style.height = "26px";
       el.style.borderRadius = "50%";
-      el.style.background = "#16a34a";
+      el.style.background = p.source === "manual" ? "#6366f1" : "#16a34a";
       el.style.color = "white";
       el.style.fontWeight = "bold";
       el.style.fontSize = "13px";
@@ -542,8 +542,19 @@ const LeveTerrainPanel = () => {
       el.style.justifyContent = "center";
       el.style.border = "2px solid white";
       el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+      el.style.cursor = "grab";
+      el.title = "Glissez pour ajuster ce sommet";
       el.textContent = LETTERS[i] || String(i + 1);
-      return new mapboxgl.Marker(el).setLngLat([p.lng, p.lat]).addTo(map.current!);
+      const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map.current!);
+      marker.on("dragstart", () => { el.style.cursor = "grabbing"; });
+      marker.on("dragend", () => {
+        el.style.cursor = "grab";
+        const ll = marker.getLngLat();
+        updatePointPosition(i, ll.lat, ll.lng);
+      });
+      return marker;
     });
 
     // Line
