@@ -260,14 +260,6 @@ const Localisation = () => {
                         <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white"></div>
                         <span className="text-xs text-muted-foreground">Hectare Vendu</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-600 border-2 border-white"></div>
-                        <span className="text-xs text-muted-foreground">Parcelle Disponible</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
-                        <span className="text-xs text-muted-foreground">Parcelle Vendue</span>
-                      </div>
                     </div>
                   </Card>
 
