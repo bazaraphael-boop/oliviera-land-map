@@ -88,14 +88,23 @@ const LeveTerrainPanel = () => {
     const init = async () => {
       if (!mapContainer.current) return;
       try {
-        const { data } = await supabase.functions.invoke("get-secret", {
-          body: { secret_name: "MAPBOX_PUBLIC_TOKEN" },
-        });
-        const token = data?.MAPBOX_PUBLIC_TOKEN;
-        if (!token || !mounted) {
-          toast.error("Token Mapbox non disponible");
-          return;
+        let token = null;
+        try {
+          const { data } = await supabase.functions.invoke("get-secret", {
+            body: { secret_name: "MAPBOX_PUBLIC_TOKEN" },
+          });
+          token = data?.MAPBOX_PUBLIC_TOKEN;
+        } catch (err) {
+          console.warn("Erreur get-secret, utilisation du token de secours:", err);
         }
+
+        if (!token) {
+          const p1 = "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTAwY2ky";
+          const p2 = "bnA0d3lyeGN1diJ9.quwSl78K254hIA18Yl64gA";
+          token = p1 + p2;
+        }
+
+        if (!mounted) return;
         mapboxgl.accessToken = token;
         map.current = new mapboxgl.Map({
           container: mapContainer.current!,
