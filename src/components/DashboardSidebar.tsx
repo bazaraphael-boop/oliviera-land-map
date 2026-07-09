@@ -12,7 +12,6 @@ const menuItems = [
   { icon: Map, label: "Hectares", path: "/hectares" },
   { icon: Grid3x3, label: "Parcelles", path: "/parcelles" },
   { icon: ShoppingCart, label: "Acheteurs", path: "/acheteurs" },
-  { icon: Navigation, label: "Localisation", path: "/localisation" },
   { icon: BarChart3, label: "Rapports", path: "/rapports" },
   { icon: FileText, label: "Documents", path: "/documents" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
