@@ -78,6 +78,11 @@ const LeveTerrainPanel = () => {
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [manualMode, setManualMode] = useState(false);
+  const manualModeRef = useRef(false);
+  const isClosedRef = useRef(false);
+  useEffect(() => { manualModeRef.current = manualMode; }, [manualMode]);
+  useEffect(() => { isClosedRef.current = isClosed; }, [isClosed]);
   const [collisionAlert, setCollisionAlert] = useState<{
     point: CapturedPoint;
     conflicts: { id: string; nom_agent: string; nom_client: string | null }[];
