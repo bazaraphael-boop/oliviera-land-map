@@ -853,10 +853,13 @@ const Parcelles = () => {
                 Modifiez les informations de la parcelle et de la vente
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleUpdateParcelle} className="space-y-6">
+            <form onSubmit={handleUpdateParcelle} className="space-y-5 pt-3">
               {/* Section: Informations de base */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-foreground">Informations de base</h3>
+              <div className="bg-muted/40 p-4 rounded-xl border border-border/40 space-y-4">
+                <div className="flex items-center gap-2 pb-1 border-b border-border/30">
+                  <Grid3x3 className="w-4.5 h-4.5 text-muted-foreground" />
+                  <h3 className="font-semibold text-foreground text-sm">Informations de base</h3>
+                </div>
                 
                 <div>
                   <Label className="text-sm font-medium">Hectare *</Label>
@@ -866,10 +869,10 @@ const Parcelles = () => {
                       setEditFormData({ ...editFormData, hectare_id: value })
                     }
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1 bg-background">
                       <SelectValue placeholder="Sélectionner un hectare" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover">
                       {hectares.map((h) => (
                         <SelectItem key={h.id} value={h.id}>
                           {h.name}
@@ -879,7 +882,7 @@ const Parcelles = () => {
                   </Select>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Statut *</Label>
                     <Select
@@ -888,10 +891,10 @@ const Parcelles = () => {
                         setEditFormData({ ...editFormData, status: value })
                       }
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger className="mt-1 bg-background">
                         <SelectValue placeholder="Sélectionner un statut" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-popover">
                         <SelectItem value="disponible">Disponible</SelectItem>
                         <SelectItem value="reserve">Réservé</SelectItem>
                         <SelectItem value="vendu">Vendu</SelectItem>
@@ -899,10 +902,10 @@ const Parcelles = () => {
                     </Select>
                   </div>
                   
-                  {editFormData.sale_type !== "onéreux" && editFormData.sale_type !== "onereux" && (
+                  {editFormData.sale_type !== "onereux" && (
                     <div>
                       <Label className="text-sm font-medium flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" />
+                        <DollarSign className="w-3.5 h-3.5" />
                         Prix (USD) *
                       </Label>
                       <Input
@@ -913,57 +916,56 @@ const Parcelles = () => {
                           setEditFormData({ ...editFormData, prix: e.target.value })
                         }
                         placeholder="Modifier le prix"
-                        className="mt-1"
+                        className="mt-1 bg-background"
                       />
                     </div>
                   )}
                 </div>
                 
-                <div>
-                  <Label className="text-sm font-medium">Type de vente</Label>
-                  <Select
-                    value={editFormData.sale_type}
-                    onValueChange={(value) =>
-                      setEditFormData({ ...editFormData, sale_type: value })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="normal">Vente normale</SelectItem>
-                      <SelectItem value="onereux">À titre gratuit</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label className="text-sm font-medium">Numéro RMB</Label>
-                  <Input
-                    value={editFormData.rmb_number}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, rmb_number: e.target.value })
-                    }
-                    placeholder="Ex: RMB-001"
-                    className="mt-1"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Type de vente</Label>
+                    <Select
+                      value={editFormData.sale_type}
+                      onValueChange={(value) =>
+                        setEditFormData({ ...editFormData, sale_type: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1 bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="normal">Vente normale</SelectItem>
+                        <SelectItem value="onereux">À titre gratuit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Numéro RMB</Label>
+                    <Input
+                      value={editFormData.rmb_number}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, rmb_number: e.target.value })
+                      }
+                      placeholder="Ex: RMB-001"
+                      className="mt-1 bg-background"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <Separator />
 
               {editFormData.status === "vendu" && (
                 <>
                   {/* Section: Informations Acheteur */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Informations Acheteur
-                    </h3>
+                  <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 border-l-4 border-l-emerald-500 space-y-4">
+                    <div className="flex items-center gap-2 pb-1 border-b border-emerald-500/10">
+                      <User className="w-4.5 h-4.5 text-emerald-600" />
+                      <h3 className="font-semibold text-foreground text-sm">Informations Acheteur</h3>
+                    </div>
                     
                     <div>
                       <Label className="text-sm font-medium flex items-center gap-2">
-                        <User className="w-3 h-3" />
                         Nom complet *
                       </Label>
                       <Input
@@ -973,11 +975,11 @@ const Parcelles = () => {
                         }
                         placeholder="Ex: Jean Dupont"
                         required
-                        className="mt-1"
+                        className="mt-1 bg-background"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-medium flex items-center gap-2">
                           <Phone className="w-3 h-3" />
@@ -989,7 +991,7 @@ const Parcelles = () => {
                             setEditFormData({ ...editFormData, buyer_phone: e.target.value })
                           }
                           placeholder="+243 123 456 789"
-                          className="mt-1"
+                          className="mt-1 bg-background"
                         />
                       </div>
 
@@ -1005,7 +1007,7 @@ const Parcelles = () => {
                             setEditFormData({ ...editFormData, buyer_email: e.target.value })
                           }
                           placeholder="email@exemple.com"
-                          className="mt-1"
+                          className="mt-1 bg-background"
                         />
                       </div>
                     </div>
@@ -1021,22 +1023,20 @@ const Parcelles = () => {
                         onChange={(e) =>
                           setEditFormData({ ...editFormData, sale_date: e.target.value })
                         }
-                        className="mt-1"
+                        className="mt-1 bg-background"
                       />
                     </div>
                   </div>
 
-                  <Separator />
-
                   {/* Section: Détails de paiement */}
-                  {editFormData.sale_type !== "onéreux" && editFormData.sale_type !== "onereux" && (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <CreditCard className="w-4 h-4" />
-                        Détails de paiement
-                      </h3>
+                  {editFormData.sale_type !== "onereux" && (
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 border-l-4 border-l-primary space-y-4">
+                      <div className="flex items-center gap-2 pb-1 border-b border-primary/10">
+                        <CreditCard className="w-4.5 h-4.5 text-primary" />
+                        <h3 className="font-semibold text-foreground text-sm">Détails de paiement</h3>
+                      </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-sm font-medium">Type de paiement *</Label>
                           <Select
@@ -1045,10 +1045,10 @@ const Parcelles = () => {
                               setEditFormData({ ...editFormData, payment_type: value })
                             }
                           >
-                            <SelectTrigger className="mt-1">
+                            <SelectTrigger className="mt-1 bg-background">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-popover">
                               <SelectItem value="total">Paiement total</SelectItem>
                               <SelectItem value="partiel">Paiement partiel</SelectItem>
                             </SelectContent>
@@ -1066,10 +1066,10 @@ const Parcelles = () => {
                               setEditFormData({ ...editFormData, purchase_type: value })
                             }
                           >
-                            <SelectTrigger className="mt-1">
+                            <SelectTrigger className="mt-1 bg-background">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-popover">
                               <SelectItem value="parcelle">Parcelle</SelectItem>
                               <SelectItem value="hectare">Hectare</SelectItem>
                               <SelectItem value="demi-hectare">Demi-hectare</SelectItem>
@@ -1080,7 +1080,7 @@ const Parcelles = () => {
                       
                       {editFormData.payment_type === "partiel" && (
                         <div>
-                          <Label>Montant payé (USD) *</Label>
+                          <Label className="text-sm font-medium">Montant payé (USD) *</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -1090,10 +1090,12 @@ const Parcelles = () => {
                             }
                             placeholder="Montant déjà payé"
                             required
+                            className="mt-1 bg-background"
                           />
                           {editFormData.amount_paid && editFormData.prix && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Restant: ${(parseFloat(editFormData.prix) - parseFloat(editFormData.amount_paid)).toLocaleString()}
+                            <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                              Restant à payer : <span className="font-semibold text-orange-600">${(parseFloat(editFormData.prix) - parseFloat(editFormData.amount_paid)).toLocaleString()} USD</span>
                             </p>
                           )}
                         </div>

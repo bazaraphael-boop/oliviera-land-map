@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
@@ -56,6 +56,10 @@ const Rapports = () => {
   });
   const [hectareStats, setHectareStats] = useState<HectareStats[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null); // format: "YYYY-MM" or null for all
+  const [selectedSaleType, setSelectedSaleType] = useState<string>("all"); // "all", "normal", "onereux"
+  const [soldParcellesList, setSoldParcellesList] = useState<any[]>([]);
+  const [soldHectaresList, setSoldHectaresList] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"parcelles" | "hectares">("parcelles");
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [allParcelles, setAllParcelles] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -63,7 +67,7 @@ const Rapports = () => {
   useEffect(() => {
     checkAuth();
     loadStats();
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedSaleType]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -81,6 +85,12 @@ const Rapports = () => {
       const itemMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       return itemMonth === selectedMonth;
     });
+  };
+
+  // Fonction pour filtrer par type de vente
+  const filterBySaleType = <T extends { sale_type?: string | null }>(items: T[]): T[] => {
+    if (selectedSaleType === "all") return items;
+    return items.filter(item => item.sale_type === selectedSaleType);
   };
 
   // Générer la liste des mois disponibles (12 derniers mois)
@@ -123,9 +133,12 @@ const Rapports = () => {
       const allSoldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
       const allSoldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
       
-      // Appliquer le filtre de période
-      const soldParcelles = filterByPeriod(allSoldParcelles);
-      const soldHectares = filterByPeriod(allSoldHectares);
+      // Appliquer le filtre de période et de type de vente
+      const soldParcelles = filterBySaleType(filterByPeriod(allSoldParcelles));
+      const soldHectares = filterBySaleType(filterByPeriod(allSoldHectares));
+      
+      setSoldParcellesList(soldParcelles);
+      setSoldHectaresList(soldHectares);
       
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
       
@@ -154,12 +167,12 @@ const Rapports = () => {
         salesRate,
       });
 
-      // Calculer les statistiques par hectare (filtré par période)
+      // Calculer les statistiques par hectare (filtré par période et type de vente)
       const hectareStatsData = hectares?.map(hectare => {
         const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
         const allSoldInHectare = hectareParcelles.filter(p => p.status === "vendu");
-        // Appliquer le filtre de période aux parcelles vendues dans cet hectare
-        const soldInHectare = filterByPeriod(allSoldInHectare);
+        // Appliquer le filtre de période et de type de vente aux parcelles vendues dans cet hectare
+        const soldInHectare = filterBySaleType(filterByPeriod(allSoldInHectare));
         const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0);
         const salesRateInHectare = hectareParcelles.length > 0
           ? (soldInHectare.length / hectareParcelles.length) * 100
@@ -177,11 +190,11 @@ const Rapports = () => {
 
       setHectareStats(hectareStatsData.sort((a, b) => b.revenue - a.revenue));
 
-      // Calculer les données mensuelles (toujours sur toutes les ventes, pas filtrées)
+      // Calculer les données mensuelles (filtrées par type de vente)
       const salesByMonth = new Map<string, { ventes: number; revenus: number }>();
       
-      // Ajouter les ventes de parcelles (non filtrées)
-      allSoldParcelles.forEach(p => {
+      // Ajouter les ventes de parcelles (filtrées par type de vente)
+      filterBySaleType(allSoldParcelles).forEach(p => {
         if (p.sale_date) {
           const date = new Date(p.sale_date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -193,8 +206,8 @@ const Rapports = () => {
         }
       });
 
-      // Ajouter les ventes d'hectares (non filtrées)
-      allSoldHectares.forEach(h => {
+      // Ajouter les ventes d'hectares (filtrées par type de vente)
+      filterBySaleType(allSoldHectares).forEach(h => {
         if (h.sale_date) {
           const date = new Date(h.sale_date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -616,6 +629,9 @@ const Rapports = () => {
         .or("status.eq.sold,sale_type.eq.onereux")
         .not("buyer_name", "is", null);
       
+      const parcellesFiltered = filterBySaleType(filterByPeriod(parcellesWithBuyers || []));
+      const hectaresFiltered = filterBySaleType(filterByPeriod(hectaresWithBuyers || []));
+
       const buyers: Array<{
         name: string;
         phone: string;
@@ -627,7 +643,7 @@ const Rapports = () => {
       }> = [];
       
       // Ajouter les acheteurs de parcelles
-      parcellesWithBuyers?.forEach(p => {
+      parcellesFiltered.forEach(p => {
         const saleTypeLabel = p.sale_type === "onereux" ? " (Gratuit)" : "";
         buyers.push({
           name: p.buyer_name || "N/A",
@@ -641,7 +657,7 @@ const Rapports = () => {
       });
       
       // Ajouter les acheteurs d'hectares
-      hectaresWithBuyers?.forEach(h => {
+      hectaresFiltered.forEach(h => {
         const saleTypeLabel = h.sale_type === "onereux" ? " (Gratuit)" : "";
         buyers.push({
           name: h.buyer_name || "N/A",
@@ -756,8 +772,8 @@ const Rapports = () => {
       const { data: parcelles } = await supabase.from("parcelles").select("*, hectares(id, name)");
       const { data: hectares } = await supabase.from("hectares").select("*");
 
-      const soldParcelles = filterMonth(parcelles?.filter(p => p.status === "vendu") || []);
-      const soldHectares = filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []);
+      const soldParcelles = filterBySaleType(filterMonth(parcelles?.filter(p => p.status === "vendu") || []));
+      const soldHectares = filterBySaleType(filterMonth(hectares?.filter(h => h.status === "sold" || h.status === "vendu") || []));
 
       const totalRevenue = soldParcelles.reduce((s, p) => s + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0)
         + soldHectares.reduce((s, h) => s + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0))), 0);
@@ -977,9 +993,9 @@ const Rapports = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-wrap">
             <select 
-              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm flex-1 sm:flex-none"
+              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm"
               value={selectedMonth || "all"}
               onChange={(e) => setSelectedMonth(e.target.value === "all" ? null : e.target.value)}
             >
@@ -988,6 +1004,17 @@ const Rapports = () => {
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
             </select>
+            
+            <select 
+              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm"
+              value={selectedSaleType}
+              onChange={(e) => setSelectedSaleType(e.target.value)}
+            >
+              <option value="all">Tous les types</option>
+              <option value="normal">Ventes payantes</option>
+              <option value="onereux">À titre gratuit</option>
+            </select>
+
             <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4">
               <Download className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Exporter PDF</span>
@@ -1231,6 +1258,142 @@ const Rapports = () => {
               </p>
             </div>
           </div>
+        </Card>
+
+        {/* Détails des Ventes (Filtrable) */}
+        <Card className="p-4 sm:p-6 mt-6 sm:mt-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
+                Détail des Transactions
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "onereux" ? "Gratuits" : "Payants"})
+              </p>
+            </div>
+            
+            {/* Tabs Header */}
+            <div className="flex gap-1.5 bg-muted/60 p-1 rounded-lg self-start sm:self-auto border border-border/20">
+              <button
+                type="button"
+                onClick={() => setActiveTab("parcelles")}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                  activeTab === "parcelles"
+                    ? "bg-background shadow-sm text-foreground border border-border/10"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Grid3x3 className="w-3.5 h-3.5" />
+                Parcelles ({soldParcellesList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("hectares")}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                  activeTab === "hectares"
+                    ? "bg-background shadow-sm text-foreground border border-border/10"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                Hectares ({soldHectaresList.length})
+              </button>
+            </div>
+          </div>
+
+          {activeTab === "parcelles" ? (
+            <div className="overflow-x-auto rounded-lg border border-border/40">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-muted-foreground font-medium bg-muted/30">
+                    <th className="p-3">Numéro</th>
+                    <th className="p-3">Hectare</th>
+                    <th className="p-3">Acheteur</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3 text-right">Prix</th>
+                    <th className="p-3 text-right">Payé</th>
+                    <th className="p-3 text-right">Reste</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {soldParcellesList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                        Aucune parcelle vendue sur cette période avec ces filtres
+                      </td>
+                    </tr>
+                  ) : (
+                    soldParcellesList.map((p) => {
+                      const isFree = p.sale_type === "onereux";
+                      const remaining = isFree ? 0 : (p.prix - (p.amount_paid || 0));
+                      return (
+                        <tr key={p.id} className="border-b border-border/40 hover:bg-muted/10 transition-colors">
+                          <td className="p-3 font-semibold text-foreground">Parcelle {p.numero}</td>
+                          <td className="p-3 text-muted-foreground">{p.hectares?.name || "N/A"}</td>
+                          <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              isFree ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                            }`}>
+                              {isFree ? "Gratuit" : "Normal"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${p.prix?.toLocaleString()}`}</td>
+                          <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(p.amount_paid || 0).toLocaleString()}`}</td>
+                          <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border/40">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 text-muted-foreground font-medium bg-muted/30">
+                    <th className="p-3">Hectare</th>
+                    <th className="p-3">Acheteur</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3 text-right">Prix</th>
+                    <th className="p-3 text-right">Payé</th>
+                    <th className="p-3 text-right">Reste</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {soldHectaresList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center p-8 text-muted-foreground">
+                        Aucun hectare vendu sur cette période avec ces filtres
+                      </td>
+                    </tr>
+                  ) : (
+                    soldHectaresList.map((h) => {
+                      const isFree = h.sale_type === "onereux";
+                      const remaining = isFree ? 0 : (h.prix - (h.amount_paid || 0));
+                      return (
+                        <tr key={h.id} className="border-b border-border/40 hover:bg-muted/10 transition-colors">
+                          <td className="p-3 font-semibold text-foreground">{h.name}</td>
+                          <td className="p-3 font-medium text-foreground">{h.buyer_name || "N/A"}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              isFree ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                            }`}>
+                              {isFree ? "Gratuit" : "Normal"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${h.prix?.toLocaleString()}`}</td>
+                          <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(h.amount_paid || 0).toLocaleString()}`}</td>
+                          <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
 
