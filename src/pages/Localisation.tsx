@@ -224,7 +224,7 @@ const Localisation = () => {
             <TabsList className="mb-4 self-start">
               <TabsTrigger value="carte">
                 <MapPin className="w-4 h-4 mr-2" />
-                Carte des parcelles
+                Carte des hectares
               </TabsTrigger>
               <TabsTrigger value="leve">
                 <Crosshair className="w-4 h-4 mr-2" />
