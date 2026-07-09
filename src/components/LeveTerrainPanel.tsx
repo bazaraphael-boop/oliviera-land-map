@@ -945,7 +945,33 @@ const LeveTerrainPanel = () => {
 
       {/* ---------- Map ---------- */}
       <Card className="relative overflow-hidden min-h-[400px] border-border/60">
-        <div ref={mapContainer} className="absolute inset-0" />
+        <div
+          ref={mapContainer}
+          className="absolute inset-0"
+          style={{ cursor: manualMode && !isClosed ? "crosshair" : undefined }}
+        />
+
+        {/* Mode toggle */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-md">
+          <button
+            onClick={() => setManualMode(false)}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors ${!manualMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Crosshair className="w-3 h-3 inline mr-1" /> GPS
+          </button>
+          <button
+            onClick={() => setManualMode(true)}
+            disabled={isClosed}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors disabled:opacity-40 ${manualMode ? "bg-indigo-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            ✏️ Dessin manuel
+          </button>
+        </div>
+        {manualMode && !isClosed && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10.5px] px-3 py-1 rounded-full shadow-md animate-pulse">
+            Cliquez sur la carte pour ajouter un sommet • Glissez les points pour ajuster
+          </div>
+        )}
 
         {/* Legend */}
         <div className="absolute top-3 left-3 rounded-lg bg-card/90 backdrop-blur-md border border-border/60 px-2.5 py-1.5 text-[10.5px] space-y-1 shadow-sm">
