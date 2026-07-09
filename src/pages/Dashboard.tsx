@@ -57,6 +57,11 @@ const Dashboard = () => {
     prix: "0",
     latitude: "",
     longitude: "",
+    transaction_type: "disponible",
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    amount_paid: "0",
     docTitle: "",
     docType: "Contrat",
     docFile: null as File | null
@@ -540,15 +545,60 @@ const Dashboard = () => {
         return;
       }
 
+      // Déterminer les valeurs selon le type de transaction
+      let status = "disponible";
+      let sale_type = null;
+      let payment_type = null;
+      let buyer_name = null;
+      let buyer_phone = null;
+      let buyer_email = null;
+      let prix = 0;
+      let amountPaid = 0;
+
+      if (parcelleForm.transaction_type === "disponible") {
+        prix = parseFloat(parcelleForm.prix) || 0;
+      } else if (parcelleForm.transaction_type === "gratuit") {
+        status = "vendu";
+        sale_type = "onereux";
+        payment_type = "total";
+        buyer_name = parcelleForm.buyer_name || null;
+        buyer_phone = parcelleForm.buyer_phone || null;
+        buyer_email = parcelleForm.buyer_email || null;
+      } else if (parcelleForm.transaction_type === "total") {
+        status = "vendu";
+        sale_type = "normal";
+        payment_type = "total";
+        buyer_name = parcelleForm.buyer_name || null;
+        buyer_phone = parcelleForm.buyer_phone || null;
+        buyer_email = parcelleForm.buyer_email || null;
+        prix = parseFloat(parcelleForm.prix) || 0;
+        amountPaid = prix;
+      } else if (parcelleForm.transaction_type === "partiel") {
+        status = "vendu";
+        sale_type = "normal";
+        payment_type = "partiel";
+        buyer_name = parcelleForm.buyer_name || null;
+        buyer_phone = parcelleForm.buyer_phone || null;
+        buyer_email = parcelleForm.buyer_email || null;
+        prix = parseFloat(parcelleForm.prix) || 0;
+        amountPaid = parseFloat(parcelleForm.amount_paid) || 0;
+      }
+
       const parcelleData = {
         numero: parcelleForm.numero,
         surface: parseFloat(parcelleForm.surface),
-        prix: parseFloat(parcelleForm.prix) || 0,
-        status: "disponible",
-        sale_type: "normal",
+        prix: prix,
+        status: status,
+        sale_type: sale_type,
+        payment_type: payment_type,
+        buyer_name: buyer_name,
+        buyer_phone: buyer_phone,
+        buyer_email: buyer_email,
+        amount_paid: amountPaid,
         hectare_id: parcelleForm.hectare_id,
         latitude: parcelleForm.latitude ? parseFloat(parcelleForm.latitude) : null,
         longitude: parcelleForm.longitude ? parseFloat(parcelleForm.longitude) : null,
+        sale_date: status === "vendu" ? new Date().toISOString() : null,
       };
 
       const { data: newParcelle, error } = await supabase
@@ -593,6 +643,11 @@ const Dashboard = () => {
         prix: "0",
         latitude: "",
         longitude: "",
+        transaction_type: "disponible",
+        buyer_name: "",
+        buyer_phone: "",
+        buyer_email: "",
+        amount_paid: "0",
         docTitle: "",
         docType: "Contrat",
         docFile: null
@@ -1012,12 +1067,26 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="h-file">Fichier</Label>
-                  <div className="flex items-center gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="h-file">Sélectionner un document</Label>
                     <Input
                       id="h-file"
                       type="file"
+                      className="cursor-pointer text-xs"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setHectareForm({ ...hectareForm, docFile: file });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="h-camera">Prendre une photo (Caméra)</Label>
+                    <Input
+                      id="h-camera"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
                       className="cursor-pointer text-xs"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
@@ -1094,37 +1163,152 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="p-prix">Prix (USD)</Label>
-                  <Input
-                    id="p-prix"
-                    type="number"
-                    value={parcelleForm.prix}
-                    onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
-                    placeholder="0"
-                  />
+              <div className="space-y-2">
+                <Label htmlFor="p-transaction">Type de transaction *</Label>
+                <Select
+                  value={parcelleForm.transaction_type}
+                  onValueChange={(val) => setParcelleForm({ ...parcelleForm, transaction_type: val })}
+                >
+                  <SelectTrigger id="p-transaction">
+                    <SelectValue placeholder="Sélectionner le type de transaction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disponible">Disponible (Pas encore vendue)</SelectItem>
+                    <SelectItem value="gratuit">À titre gratuit</SelectItem>
+                    <SelectItem value="total">Achat totalement payé</SelectItem>
+                    <SelectItem value="partiel">Achat partiellement payé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {parcelleForm.transaction_type !== "disponible" && (
+                <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 space-y-4">
+                  <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-500 uppercase tracking-wider">
+                    Informations Acheteur / Bénéficiaire
+                  </h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="p-buyer-name">Nom complet *</Label>
+                    <Input
+                      id="p-buyer-name"
+                      required
+                      value={parcelleForm.buyer_name}
+                      onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_name: e.target.value })}
+                      placeholder="Ex: Jean Dupont"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="p-buyer-phone">Téléphone</Label>
+                      <Input
+                        id="p-buyer-phone"
+                        value={parcelleForm.buyer_phone}
+                        onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_phone: e.target.value })}
+                        placeholder="+243..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="p-buyer-email">Email</Label>
+                      <Input
+                        id="p-buyer-email"
+                        type="email"
+                        value={parcelleForm.buyer_email}
+                        onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_email: e.target.value })}
+                        placeholder="jean.dupont@example.com"
+                      />
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {(parcelleForm.transaction_type === "total" || parcelleForm.transaction_type === "partiel") && (
+                <div className="p-3.5 rounded-lg bg-primary/5 border border-primary/10 space-y-4">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider">
+                    Finances
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="p-prix">Prix total (USD) *</Label>
+                      <Input
+                        id="p-prix"
+                        type="number"
+                        required
+                        value={parcelleForm.prix}
+                        onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    {parcelleForm.transaction_type === "partiel" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="p-paid">Acompte payé (USD) *</Label>
+                        <Input
+                          id="p-paid"
+                          type="number"
+                          required
+                          value={parcelleForm.amount_paid}
+                          onChange={(e) => setParcelleForm({ ...parcelleForm, amount_paid: e.target.value })}
+                          placeholder="0"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {parcelleForm.transaction_type === "disponible" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="p-prix">Prix (USD)</Label>
+                    <Input
+                      id="p-prix"
+                      type="number"
+                      value={parcelleForm.prix}
+                      onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Coordonnées (Optionnel)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="Lat"
+                        value={parcelleForm.latitude}
+                        onChange={(e) => setParcelleForm({ ...parcelleForm, latitude: e.target.value })}
+                      />
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="Lng"
+                        value={parcelleForm.longitude}
+                        onChange={(e) => setParcelleForm({ ...parcelleForm, longitude: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {parcelleForm.transaction_type !== "disponible" && (
                 <div className="space-y-2">
                   <Label>Coordonnées (Optionnel)</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="number"
                       step="any"
-                      placeholder="Lat"
+                      placeholder="Latitude"
                       value={parcelleForm.latitude}
                       onChange={(e) => setParcelleForm({ ...parcelleForm, latitude: e.target.value })}
                     />
                     <Input
                       type="number"
                       step="any"
-                      placeholder="Lng"
+                      placeholder="Longitude"
                       value={parcelleForm.longitude}
                       onChange={(e) => setParcelleForm({ ...parcelleForm, longitude: e.target.value })}
                     />
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Document upload section */}
               <div className="border-t border-border pt-4 mt-2 space-y-4">
@@ -1163,12 +1347,26 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="p-file">Fichier</Label>
-                  <div className="flex items-center gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="p-file">Sélectionner un document</Label>
                     <Input
                       id="p-file"
                       type="file"
+                      className="cursor-pointer text-xs"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setParcelleForm({ ...parcelleForm, docFile: file });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="p-camera">Prendre une photo (Caméra)</Label>
+                    <Input
+                      id="p-camera"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
                       className="cursor-pointer text-xs"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
