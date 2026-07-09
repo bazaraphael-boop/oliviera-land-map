@@ -4,13 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download, AlertTriangle, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
 import { jsPDF } from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
+import landManagementGradient from "@/assets/land_management_gradient.png";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -28,6 +32,35 @@ const Dashboard = () => {
   });
   const [monthlyData, setMonthlyData] = useState<Array<{ month: string; ventes: number; revenus: number }>>([]);
   const [hectareStats, setHectareStats] = useState<Array<{ id: string; name: string; revenue: number; salesRate: number }>>([]);
+  
+  // Nouveaux états pour l'ajout rapide d'hectares et parcelles
+  const [showAddHectareDialog, setShowAddHectareDialog] = useState(false);
+  const [showAddParcelleDialog, setShowAddParcelleDialog] = useState(false);
+  const [hectaresList, setHectaresList] = useState<any[]>([]);
+  
+  const [hectareForm, setHectareForm] = useState({
+    name: "",
+    surface: "1",
+    location: "",
+    prix: "0",
+    latitude: "",
+    longitude: "",
+    docTitle: "",
+    docType: "Contrat",
+    docFile: null as File | null
+  });
+  
+  const [parcelleForm, setParcelleForm] = useState({
+    hectare_id: "",
+    numero: "",
+    surface: "600",
+    prix: "0",
+    latitude: "",
+    longitude: "",
+    docTitle: "",
+    docType: "Contrat",
+    docFile: null as File | null
+  });
 
   useEffect(() => {
     checkUser();
@@ -87,6 +120,8 @@ const Dashboard = () => {
         .select("*");
 
       if (hectaresError) throw hectaresError;
+
+      setHectaresList(hectares || []);
 
       // Calculer les statistiques globales (même logique que Rapports.tsx)
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
@@ -403,6 +438,172 @@ const Dashboard = () => {
     }
   };
 
+  const handleAddHectare = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hectareForm.name || !hectareForm.surface) {
+      toast.error("Veuillez remplir le nom et la surface");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const hectareData = {
+        name: hectareForm.name,
+        surface: parseFloat(hectareForm.surface),
+        location: hectareForm.location || null,
+        prix: parseFloat(hectareForm.prix) || 0,
+        status: "disponible",
+        latitude: hectareForm.latitude ? parseFloat(hectareForm.latitude) : null,
+        longitude: hectareForm.longitude ? parseFloat(hectareForm.longitude) : null,
+      };
+
+      const { data: newHectare, error } = await supabase
+        .from("hectares")
+        .insert(hectareData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Si un fichier de document est fourni
+      if (hectareForm.docFile && hectareForm.docTitle) {
+        const fileExt = hectareForm.docFile.name.split(".").pop();
+        const filePath = `hectares/${newHectare.id}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("buyer-documents")
+          .upload(filePath, hectareForm.docFile);
+
+        if (uploadError) throw uploadError;
+
+        // Enregistrer le document
+        const { error: docError } = await supabase
+          .from("documents")
+          .insert({
+            title: `${hectareForm.name} - ${hectareForm.docTitle}`,
+            type: hectareForm.docType,
+            file_url: filePath,
+            uploaded_by: user?.id,
+            parcelle_id: null,
+          });
+
+        if (docError) throw docError;
+      }
+
+      toast.success("Hectare et document ajoutés avec succès !");
+      setShowAddHectareDialog(false);
+      setHectareForm({
+        name: "",
+        surface: "1",
+        location: "",
+        prix: "0",
+        latitude: "",
+        longitude: "",
+        docTitle: "",
+        docType: "Contrat",
+        docFile: null
+      });
+      loadStats();
+    } catch (error: any) {
+      console.error("Erreur lors de la création de l'hectare:", error);
+      toast.error("Erreur lors de la création de l'hectare");
+    }
+  };
+
+  const handleAddParcelle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parcelleForm.hectare_id || !parcelleForm.numero || !parcelleForm.surface) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Vérifier la limite d'occupation (16 parcelles de 600m² par hectare)
+      const { data: existingParcelles, error: countError } = await supabase
+        .from("parcelles")
+        .select("id, surface")
+        .eq("hectare_id", parcelleForm.hectare_id);
+
+      if (countError) throw countError;
+
+      const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
+        return total + Math.ceil(p.surface / 600);
+      }, 0);
+      
+      const newParcelleEffectif = Math.ceil(parseFloat(parcelleForm.surface) / 600);
+
+      if (occupiedEffectif + newParcelleEffectif > 16) {
+        toast.error(`Limite de capacité atteinte sur cet hectare (${16 - occupiedEffectif} slots de 600m² disponibles, ${newParcelleEffectif} requis)`);
+        return;
+      }
+
+      const parcelleData = {
+        numero: parcelleForm.numero,
+        surface: parseFloat(parcelleForm.surface),
+        prix: parseFloat(parcelleForm.prix) || 0,
+        status: "disponible",
+        sale_type: "normal",
+        hectare_id: parcelleForm.hectare_id,
+        latitude: parcelleForm.latitude ? parseFloat(parcelleForm.latitude) : null,
+        longitude: parcelleForm.longitude ? parseFloat(parcelleForm.longitude) : null,
+      };
+
+      const { data: newParcelle, error } = await supabase
+        .from("parcelles")
+        .insert(parcelleData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Si un document est fourni
+      if (parcelleForm.docFile && parcelleForm.docTitle) {
+        const fileExt = parcelleForm.docFile.name.split(".").pop();
+        const filePath = `parcelles/${newParcelle.id}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("buyer-documents")
+          .upload(filePath, parcelleForm.docFile);
+
+        if (uploadError) throw uploadError;
+
+        // Enregistrer le document
+        const { error: docError } = await supabase
+          .from("documents")
+          .insert({
+            title: parcelleForm.docTitle,
+            type: parcelleForm.docType,
+            file_url: filePath,
+            uploaded_by: user?.id,
+            parcelle_id: newParcelle.id,
+          });
+
+        if (docError) throw docError;
+      }
+
+      toast.success("Parcelle et document ajoutés avec succès !");
+      setShowAddParcelleDialog(false);
+      setParcelleForm({
+        hectare_id: "",
+        numero: "",
+        surface: "600",
+        prix: "0",
+        latitude: "",
+        longitude: "",
+        docTitle: "",
+        docType: "Contrat",
+        docFile: null
+      });
+      loadStats();
+    } catch (error: any) {
+      console.error("Erreur lors de la création de la parcelle:", error);
+      toast.error("Erreur lors de la création de la parcelle");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -487,14 +688,50 @@ const Dashboard = () => {
 
         {/* Dashboard Content */}
         <main className="flex-1 p-4 sm:p-8 overflow-auto">
-          {/* Page Header */}
+          {/* Welcome Banner Card */}
+          <Card className="relative overflow-hidden mb-6 sm:mb-8 bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 rounded-xl border border-white/10 shadow-lg">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="max-w-xl space-y-3">
+                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-200 to-indigo-200 bg-clip-text text-transparent">
+                  Bienvenue, {profile?.full_name || "Administrateur"} !
+                </h1>
+                <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
+                  Gérez vos parcelles, suivez les transactions foncières en temps réel, et administrez vos hectares de manière simple et sécurisée.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button 
+                    onClick={() => setShowAddHectareDialog(true)}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
+                  >
+                    + Nouvel Hectare
+                  </Button>
+                  <Button 
+                    onClick={() => setShowAddParcelleDialog(true)}
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white border-0 text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-950/40"
+                  >
+                    + Nouvelle Parcelle
+                  </Button>
+                </div>
+              </div>
+              <div className="hidden md:block w-48 lg:w-64 h-32 lg:h-40 shrink-0 relative rounded-lg overflow-hidden border border-white/20 shadow-inner">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent z-10"></div>
+                <img 
+                  src={landManagementGradient} 
+                  alt="Gestion des terres" 
+                  className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Page Header / Subtitle */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h1 className="text-xl sm:text-3xl font-bold text-foreground mb-1">
-                Rapports & Analyses
-              </h1>
+              <h2 className="text-lg sm:text-2xl font-bold text-foreground mb-1">
+                Statistiques de Performance
+              </h2>
               <p className="text-muted-foreground text-xs sm:text-sm">
-                Performances de vos terrains
+                Performances et synthèse financière de vos concessions
               </p>
             </div>
 
@@ -657,6 +894,301 @@ const Dashboard = () => {
             </Card>
           </div>
         </main>
+
+        {/* Dialog Ajouter un Hectare */}
+        <Dialog open={showAddHectareDialog} onOpenChange={setShowAddHectareDialog}>
+          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Upload className="w-5 h-5 text-primary" />
+                </div>
+                Nouveau Hectare
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddHectare} className="space-y-4 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="h-name">Nom de l'hectare *</Label>
+                  <Input
+                    id="h-name"
+                    required
+                    value={hectareForm.name}
+                    onChange={(e) => setHectareForm({ ...hectareForm, name: e.target.value })}
+                    placeholder="Ex: Hectare G"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="h-surface">Surface (ha) *</Label>
+                  <Input
+                    id="h-surface"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={hectareForm.surface}
+                    onChange={(e) => setHectareForm({ ...hectareForm, surface: e.target.value })}
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="h-location">Localisation / Secteur</Label>
+                <Input
+                  id="h-location"
+                  value={hectareForm.location}
+                  onChange={(e) => setHectareForm({ ...hectareForm, location: e.target.value })}
+                  placeholder="Ex: Oliviera Sector"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="h-prix">Prix (USD)</Label>
+                  <Input
+                    id="h-prix"
+                    type="number"
+                    value={hectareForm.prix}
+                    onChange={(e) => setHectareForm({ ...hectareForm, prix: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Coordonnées (Optionnel)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Lat"
+                      value={hectareForm.latitude}
+                      onChange={(e) => setHectareForm({ ...hectareForm, latitude: e.target.value })}
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Lng"
+                      value={hectareForm.longitude}
+                      onChange={(e) => setHectareForm({ ...hectareForm, longitude: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Document upload section */}
+              <div className="border-t border-border pt-4 mt-2 space-y-4">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  Document Associé (Optionnel)
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="h-doc-title">Titre du document</Label>
+                    <Input
+                      id="h-doc-title"
+                      value={hectareForm.docTitle}
+                      onChange={(e) => setHectareForm({ ...hectareForm, docTitle: e.target.value })}
+                      placeholder="Ex: Titre de propriété"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="h-doc-type">Type de document</Label>
+                    <Select
+                      value={hectareForm.docType}
+                      onValueChange={(val) => setHectareForm({ ...hectareForm, docType: val })}
+                    >
+                      <SelectTrigger id="h-doc-type">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Contrat">Contrat</SelectItem>
+                        <SelectItem value="Acte de vente">Acte de vente</SelectItem>
+                        <SelectItem value="Plan">Plan</SelectItem>
+                        <SelectItem value="Certificat">Certificat</SelectItem>
+                        <SelectItem value="Autre">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="h-file">Fichier</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="h-file"
+                      type="file"
+                      className="cursor-pointer text-xs"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setHectareForm({ ...hectareForm, docFile: file });
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-4 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => setShowAddHectareDialog(false)}>
+                  Annuler
+                </Button>
+                <Button type="submit">Ajouter Hectare</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Ajouter une Parcelle */}
+        <Dialog open={showAddParcelleDialog} onOpenChange={setShowAddParcelleDialog}>
+          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Upload className="w-5 h-5 text-primary" />
+                </div>
+                Nouvelle Parcelle
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddParcelle} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="p-hectare">Hectare associé *</Label>
+                <Select
+                  value={parcelleForm.hectare_id}
+                  onValueChange={(val) => setParcelleForm({ ...parcelleForm, hectare_id: val })}
+                >
+                  <SelectTrigger id="p-hectare">
+                    <SelectValue placeholder="Sélectionner un hectare" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hectaresList.map((h) => (
+                      <SelectItem key={h.id} value={h.id}>
+                        {h.name} ({h.location || "Sans nom"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="p-num">Numéro de la parcelle *</Label>
+                  <Input
+                    id="p-num"
+                    required
+                    value={parcelleForm.numero}
+                    onChange={(e) => setParcelleForm({ ...parcelleForm, numero: e.target.value })}
+                    placeholder="Ex: RMB-001"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="p-surface">Surface (m²) *</Label>
+                  <Input
+                    id="p-surface"
+                    type="number"
+                    required
+                    value={parcelleForm.surface}
+                    onChange={(e) => setParcelleForm({ ...parcelleForm, surface: e.target.value })}
+                    placeholder="600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="p-prix">Prix (USD)</Label>
+                  <Input
+                    id="p-prix"
+                    type="number"
+                    value={parcelleForm.prix}
+                    onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Coordonnées (Optionnel)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Lat"
+                      value={parcelleForm.latitude}
+                      onChange={(e) => setParcelleForm({ ...parcelleForm, latitude: e.target.value })}
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Lng"
+                      value={parcelleForm.longitude}
+                      onChange={(e) => setParcelleForm({ ...parcelleForm, longitude: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Document upload section */}
+              <div className="border-t border-border pt-4 mt-2 space-y-4">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  Document Associé (Optionnel)
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="p-doc-title">Titre du document</Label>
+                    <Input
+                      id="p-doc-title"
+                      value={parcelleForm.docTitle}
+                      onChange={(e) => setParcelleForm({ ...parcelleForm, docTitle: e.target.value })}
+                      placeholder="Ex: Fiche parcellaire"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="p-doc-type">Type de document</Label>
+                    <Select
+                      value={parcelleForm.docType}
+                      onValueChange={(val) => setParcelleForm({ ...parcelleForm, docType: val })}
+                    >
+                      <SelectTrigger id="p-doc-type">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Contrat">Contrat</SelectItem>
+                        <SelectItem value="Acte de vente">Acte de vente</SelectItem>
+                        <SelectItem value="Plan">Plan</SelectItem>
+                        <SelectItem value="Certificat">Certificat</SelectItem>
+                        <SelectItem value="Autre">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="p-file">Fichier</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="p-file"
+                      type="file"
+                      className="cursor-pointer text-xs"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setParcelleForm({ ...parcelleForm, docFile: file });
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-4 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => setShowAddParcelleDialog(false)}>
+                  Annuler
+                </Button>
+                <Button type="submit">Ajouter Parcelle</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </main>
       </div>
     </div>
   );
