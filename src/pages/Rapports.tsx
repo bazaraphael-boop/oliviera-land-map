@@ -87,10 +87,37 @@ const Rapports = () => {
     });
   };
 
-  // Fonction pour filtrer par type de vente
-  const filterBySaleType = <T extends { sale_type?: string | null }>(items: T[]): T[] => {
+  // Fonction pour filtrer par type de transaction / statut de paiement
+  const filterBySaleType = <T extends { sale_type?: string | null; payment_type?: string | null; amount_paid?: number | null; prix?: number | null; remaining_amount?: number | null }>(items: T[]): T[] => {
     if (selectedSaleType === "all") return items;
-    return items.filter(item => item.sale_type === selectedSaleType);
+    
+    return items.filter(item => {
+      const isFree = item.sale_type === "onereux";
+      
+      if (selectedSaleType === "onereux") {
+        return isFree;
+      }
+      
+      if (isFree) return false;
+      
+      const price = Number(item.prix || 0);
+      const paid = Number(item.amount_paid || 0);
+      const remaining = Number(item.remaining_amount || 0);
+      
+      if (selectedSaleType === "total") {
+        return item.payment_type === "total" || (paid === price && price > 0);
+      }
+      
+      if (selectedSaleType === "partiel") {
+        return item.payment_type === "partiel" && paid > 0 && remaining > 0;
+      }
+      
+      if (selectedSaleType === "impaye") {
+        return paid === 0 || !paid;
+      }
+      
+      return true;
+    });
   };
 
   // Générer la liste des mois disponibles (12 derniers mois)
@@ -422,9 +449,13 @@ const Rapports = () => {
       pdf.text("RAPPORT D'ANALYSES", 105, yPos, { align: "center" });
       yPos += 10;
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
       pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
+      yPos += 5;
+      const periodLabel = selectedMonth ? `Période : ${selectedMonth}` : "Période : Toutes";
+      const filterLabel = `Filtre : ${selectedSaleType === "all" ? "Toutes les transactions" : selectedSaleType === "onereux" ? "À titre gratuit" : selectedSaleType === "total" ? "Payé totalement" : selectedSaleType === "partiel" ? "Payé partiellement" : "Impayé"}`;
+      pdf.text(`${periodLabel} | ${filterLabel}`, 105, yPos, { align: "center" });
       yPos += 15;
       
       // Statistiques globales - Grille
@@ -1026,9 +1057,11 @@ const Rapports = () => {
               value={selectedSaleType}
               onChange={(e) => setSelectedSaleType(e.target.value)}
             >
-              <option value="all">Tous les types</option>
-              <option value="normal">Ventes payantes</option>
+              <option value="all">Toutes les transactions</option>
               <option value="onereux">À titre gratuit</option>
+              <option value="total">Payé totalement</option>
+              <option value="partiel">Payé partiellement</option>
+              <option value="impaye">Impayé</option>
             </select>
 
             <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4">
@@ -1284,7 +1317,7 @@ const Rapports = () => {
                 Détail des Transactions
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "onereux" ? "Gratuits" : "Payants"})
+                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "onereux" ? "Gratuits" : selectedSaleType === "total" ? "Payés totalement" : selectedSaleType === "partiel" ? "Payés partiellement" : "Impayés"})
               </p>
             </div>
             
