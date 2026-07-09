@@ -457,7 +457,39 @@ const LeveTerrainPanel = () => {
     setPoints((prev) => {
       const next = [...prev, point];
       renderPoints(next, false);
-      toast.success(`Point ${LETTERS[next.length - 1] || next.length} capturé (±${point.accuracy.toFixed(1)}m)`);
+      const label = point.source === "manual" ? "Point manuel" : "Point";
+      toast.success(`${label} ${LETTERS[next.length - 1] || next.length} ajouté${point.source === "manual" ? "" : ` (±${point.accuracy.toFixed(1)}m)`}`);
+      return next;
+    });
+  };
+
+  const addManualPoint = async (lat: number, lng: number) => {
+    const point: CapturedPoint = { lat, lng, accuracy: 0, timestamp: Date.now(), source: "manual" };
+    try {
+      const { data: conflicts } = await supabase.rpc("point_in_existing_parcelle", { _lat: lat, _lng: lng });
+      if (conflicts && (conflicts as any[]).length > 0) {
+        setCollisionAlert({ point, conflicts: conflicts as any });
+        return;
+      }
+    } catch (e) {
+      console.warn("Collision check failed:", e);
+    }
+    addPoint(point);
+  };
+
+  const updatePointPosition = (index: number, lat: number, lng: number) => {
+    setPoints((prev) => {
+      const next = prev.map((p, i) => (i === index ? { ...p, lat, lng, source: "manual" as const } : p));
+      const closed = isClosedRef.current && next.length >= 3;
+      renderPoints(next, closed);
+      if (closed) {
+        const ring = next.map((p) => [p.lng, p.lat]);
+        ring.push(ring[0]);
+        try {
+          const area = turf.area(turf.polygon([ring]));
+          setSurfaceM2(area);
+        } catch {}
+      }
       return next;
     });
   };
