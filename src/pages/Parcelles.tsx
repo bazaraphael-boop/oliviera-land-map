@@ -11,6 +11,7 @@ import DashboardSidebar from "@/components/DashboardSidebar";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { HectareSelector } from "@/components/HectareSelector";
+import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
@@ -91,6 +92,13 @@ const Parcelles = () => {
     latitude: "",
     longitude: "",
   });
+
+  // Documents pour le formulaire de création
+  const [newDocs, setNewDocs] = useState<DocEntry[]>([]);
+  // Documents pour le formulaire d'édition
+  const [editDocs, setEditDocs] = useState<DocEntry[]>([]);
+  // Documents existants pour la parcelle en cours d'édition
+  const [existingDocs, setExistingDocs] = useState<{id:string;title:string;type:string;file_url:string}[]>([]);
 
   // Calculer l'effectif restant pour un hectare donné
   const getHectareOccupancy = (hectareId: string) => {
@@ -295,8 +303,25 @@ const Parcelles = () => {
 
       if (error) throw error;
 
+      // Récupérer l'ID de la nouvelle parcelle pour uploader les documents
+      const { data: newParcelleData } = await supabase
+        .from("parcelles")
+        .select("id")
+        .eq("numero", formData.numero)
+        .eq("hectare_id", formData.hectare_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (newParcelleData && newDocs.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const uploaded = await uploadDocEntries(newDocs, newParcelleData.id, user?.id);
+        if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
+      }
+
       toast.success("Parcelle créée avec succès");
       setIsDialogOpen(false);
+      setNewDocs([]);
       setFormData({ 
         numero: "", 
         surface: "", 
@@ -331,7 +356,7 @@ const Parcelles = () => {
     }
   };
 
-  const handleEdit = (parcelle: Parcelle) => {
+  const handleEdit = async (parcelle: Parcelle) => {
     setSelectedParcelle(parcelle);
     setEditFormData({
       status: parcelle.status || "disponible",
@@ -349,6 +374,18 @@ const Parcelles = () => {
       latitude: parcelle.latitude?.toString() || "",
       longitude: parcelle.longitude?.toString() || "",
     });
+    setEditDocs([]);
+    // Charger les documents existants
+    try {
+      const { data } = await supabase
+        .from("documents")
+        .select("id, title, type, file_url")
+        .eq("parcelle_id", parcelle.id)
+        .order("created_at");
+      setExistingDocs(data || []);
+    } catch {
+      setExistingDocs([]);
+    }
     setIsEditDialogOpen(true);
   };
 
@@ -435,6 +472,13 @@ const Parcelles = () => {
 
       if (error) throw error;
 
+      // Upload des nouveaux documents
+      if (editDocs.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const uploaded = await uploadDocEntries(editDocs, selectedParcelle.id, user?.id);
+        if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
+      }
+
       toast.success("Parcelle mise à jour avec succès");
       
       // Générer la facture si vendu
@@ -444,6 +488,8 @@ const Parcelles = () => {
       
       setIsEditDialogOpen(false);
       setSelectedParcelle(null);
+      setEditDocs([]);
+      setExistingDocs([]);
       fetchParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
@@ -730,6 +776,13 @@ const Parcelles = () => {
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <MultiDocumentUploader
+                    docs={newDocs}
+                    onChange={setNewDocs}
+                  />
                 </div>
 
                 <div className="flex gap-3">
@@ -1116,6 +1169,19 @@ const Parcelles = () => {
                   )}
                 </>
               )}
+
+              <div className="border-t border-border pt-4">
+                <MultiDocumentUploader
+                  existingDocs={existingDocs}
+                  onDeleteExisting={async (docId) => {
+                    await supabase.from("documents").delete().eq("id", docId);
+                    setExistingDocs(prev => prev.filter(d => d.id !== docId));
+                    toast.success("Document supprimé");
+                  }}
+                  docs={editDocs}
+                  onChange={setEditDocs}
+                />
+              </div>
 
               <div className="flex gap-2 pt-4">
                 <Button
