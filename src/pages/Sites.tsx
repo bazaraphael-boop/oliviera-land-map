@@ -285,16 +285,21 @@ const Sites = () => {
     );
   }
 
+  const totalSurface = sites.reduce((s, x) => s + (x.surface_totale || 0), 0);
+  const totalVendue = Object.values(siteStats).reduce((s, x) => s + x.surface_vendue, 0);
+  const totalHectares = Object.values(siteStats).reduce((s, x) => s + x.hectares_count, 0);
+
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
           {/* Header */}
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Gestion des Sites</h1>
-              <p className="text-muted-foreground">Gérez vos différents sites et leurs quotas de vente</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Portefeuille foncier</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Gestion des Sites</h1>
+              <p className="text-sm text-muted-foreground mt-1">Suivi des surfaces, quotas de vente et occupation par site</p>
             </div>
             
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -302,12 +307,13 @@ const Sites = () => {
               if (!open) resetForm();
             }}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2 w-full sm:w-auto shadow-elegant">
                   <Plus className="w-4 h-4" />
                   Nouveau Site
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
+
                 <DialogHeader>
                   <DialogTitle>{isEditMode ? "Modifier le Site" : "Nouveau Site"}</DialogTitle>
                   <DialogDescription>
