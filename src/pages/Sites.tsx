@@ -382,8 +382,27 @@ const Sites = () => {
             </Dialog>
           </div>
 
+          {/* Résumé global */}
+          {sites.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: "Sites", value: sites.length.toString(), sub: "enregistrés" },
+                { label: "Surface totale", value: `${totalSurface.toFixed(2)} ha`, sub: "portefeuille" },
+                { label: "Surface vendue", value: `${totalVendue.toFixed(2)} ha`, sub: `${totalSurface > 0 ? ((totalVendue / totalSurface) * 100).toFixed(1) : "0"}% du total` },
+                { label: "Hectares suivis", value: totalHectares.toString(), sub: "tous sites" },
+              ].map((kpi) => (
+                <Card key={kpi.label} className="p-3 sm:p-4 border-border/60">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground truncate">{kpi.label}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-foreground mt-1 tabular-nums truncate">{kpi.value}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{kpi.sub}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+
           {/* Sites Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+
             {sites.map((site) => {
               const stats = siteStats[site.id] || { hectares_count: 0, surface_vendue: 0 };
               const percentageVendu = site.surface_totale > 0 
