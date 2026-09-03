@@ -285,16 +285,21 @@ const Sites = () => {
     );
   }
 
+  const totalSurface = sites.reduce((s, x) => s + (x.surface_totale || 0), 0);
+  const totalVendue = Object.values(siteStats).reduce((s, x) => s + x.surface_vendue, 0);
+  const totalHectares = Object.values(siteStats).reduce((s, x) => s + x.hectares_count, 0);
+
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
           {/* Header */}
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Gestion des Sites</h1>
-              <p className="text-muted-foreground">Gérez vos différents sites et leurs quotas de vente</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Portefeuille foncier</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Gestion des Sites</h1>
+              <p className="text-sm text-muted-foreground mt-1">Suivi des surfaces, quotas de vente et occupation par site</p>
             </div>
             
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -302,12 +307,13 @@ const Sites = () => {
               if (!open) resetForm();
             }}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2 w-full sm:w-auto shadow-elegant">
                   <Plus className="w-4 h-4" />
                   Nouveau Site
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
+
                 <DialogHeader>
                   <DialogTitle>{isEditMode ? "Modifier le Site" : "Nouveau Site"}</DialogTitle>
                   <DialogDescription>
@@ -376,8 +382,27 @@ const Sites = () => {
             </Dialog>
           </div>
 
+          {/* Résumé global */}
+          {sites.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: "Sites", value: sites.length.toString(), sub: "enregistrés" },
+                { label: "Surface totale", value: `${totalSurface.toFixed(2)} ha`, sub: "portefeuille" },
+                { label: "Surface vendue", value: `${totalVendue.toFixed(2)} ha`, sub: `${totalSurface > 0 ? ((totalVendue / totalSurface) * 100).toFixed(1) : "0"}% du total` },
+                { label: "Hectares suivis", value: totalHectares.toString(), sub: "tous sites" },
+              ].map((kpi) => (
+                <Card key={kpi.label} className="p-3 sm:p-4 border-border/60">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground truncate">{kpi.label}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-foreground mt-1 tabular-nums truncate">{kpi.value}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{kpi.sub}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+
           {/* Sites Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+
             {sites.map((site) => {
               const stats = siteStats[site.id] || { hectares_count: 0, surface_vendue: 0 };
               const percentageVendu = site.surface_totale > 0 
@@ -389,99 +414,102 @@ const Sites = () => {
                 : 0;
 
               return (
-                <Card key={site.id} className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <MapPin className="w-5 h-5 text-primary" />
+                <Card key={site.id} className="overflow-hidden border-border/60 hover:shadow-elegant transition-shadow flex flex-col">
+                  {/* En-tête */}
+                  <div className="flex items-start justify-between gap-2 p-4 sm:p-5 bg-muted/40 border-b border-border/60">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-hero flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5 text-primary-foreground" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{site.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {site.surface_totale} ha
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-foreground truncate">{site.name}</h3>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {site.surface_totale} ha · {stats.hectares_count} hectare{stats.hectares_count > 1 ? "s" : ""}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(site)}
-                      >
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(site)}>
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(site.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(site.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div 
-                      className="cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
-                      onClick={() => showSiteHectares(site.id, site.name)}
-                    >
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Hectares occupés</span>
-                        <span className="text-foreground font-medium">
-                          {stats.hectares_count} / {Math.floor(site.surface_totale)}
-                        </span>
+                  {/* Indicateurs */}
+                  <div className="p-4 sm:p-5 space-y-4 flex-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-border/60 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendue</p>
+                        <p className={`text-base font-semibold tabular-nums ${getQuotaColor(percentageVendu)}`}>
+                          {stats.surface_vendue.toFixed(2)} ha
+                        </p>
                       </div>
-                      <Progress 
-                        value={(stats.hectares_count / Math.floor(site.surface_totale)) * 100} 
-                        className="h-2" 
-                      />
-                      <p className="text-xs text-muted-foreground mt-1 text-center">
-                        Cliquez pour voir les détails
-                      </p>
+                      <div className="rounded-lg border border-border/60 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Disponible</p>
+                        <p className="text-base font-semibold text-foreground tabular-nums">
+                          {remainingSurface.toFixed(2)} ha
+                        </p>
+                      </div>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Surface vendue</span>
-                        <span className={getQuotaColor(percentageVendu)}>
-                          {stats.surface_vendue.toFixed(2)} ha ({percentageVendu.toFixed(1)}%)
-                        </span>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-muted-foreground">Taux de vente</span>
+                        <span className={`font-medium tabular-nums ${getQuotaColor(percentageVendu)}`}>{percentageVendu.toFixed(1)}%</span>
                       </div>
-                      <Progress value={percentageVendu} className="h-2" />
+                      <Progress value={percentageVendu} className="h-1.5" />
                     </div>
 
                     {site.quota_percentage > 0 && (
                       <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-muted-foreground">Quota vendu</span>
-                          <span className={getQuotaColor(quotaUsed)}>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-muted-foreground">Quota consommé</span>
+                          <span className={`font-medium tabular-nums ${getQuotaColor(quotaUsed)}`}>
                             {quotaUsed.toFixed(1)}% / {site.quota_percentage}%
                           </span>
                         </div>
-                        <Progress value={Math.min(quotaUsed, 100)} className="h-2" />
+                        <Progress value={Math.min(quotaUsed, 100)} className="h-1.5" />
                       </div>
                     )}
 
-                    <div className="pt-4 border-t border-border">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Surface disponible</span>
-                        <span className="font-medium text-foreground">
-                          {remainingSurface.toFixed(2)} ha
+                    <div>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-muted-foreground">Hectares occupés</span>
+                        <span className="text-foreground font-medium tabular-nums">
+                          {stats.hectares_count} / {Math.floor(site.surface_totale)}
                         </span>
                       </div>
+                      <Progress
+                        value={(stats.hectares_count / Math.max(Math.floor(site.surface_totale), 1)) * 100}
+                        className="h-1.5"
+                      />
                     </div>
                   </div>
+
+                  {/* Pied de carte */}
+                  <button
+                    onClick={() => showSiteHectares(site.id, site.name)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-primary border-t border-border/60 hover:bg-muted/60 transition-colors"
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                    Voir les hectares & parcelles
+                  </button>
                 </Card>
               );
             })}
           </div>
 
           {sites.length === 0 && (
-            <div className="text-center py-12">
-              <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Aucun site trouvé</p>
-            </div>
+            <Card className="text-center py-14 border-dashed">
+              <MapPin className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium text-foreground">Aucun site enregistré</p>
+              <p className="text-sm text-muted-foreground mt-1">Créez votre premier site pour commencer le suivi.</p>
+            </Card>
           )}
+
         </div>
       </div>
 
