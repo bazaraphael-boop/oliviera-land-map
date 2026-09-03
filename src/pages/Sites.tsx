@@ -414,99 +414,102 @@ const Sites = () => {
                 : 0;
 
               return (
-                <Card key={site.id} className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <MapPin className="w-5 h-5 text-primary" />
+                <Card key={site.id} className="overflow-hidden border-border/60 hover:shadow-elegant transition-shadow flex flex-col">
+                  {/* En-tête */}
+                  <div className="flex items-start justify-between gap-2 p-4 sm:p-5 bg-muted/40 border-b border-border/60">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-hero flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5 text-primary-foreground" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{site.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {site.surface_totale} ha
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-foreground truncate">{site.name}</h3>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {site.surface_totale} ha · {stats.hectares_count} hectare{stats.hectares_count > 1 ? "s" : ""}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(site)}
-                      >
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(site)}>
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(site.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(site.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div 
-                      className="cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
-                      onClick={() => showSiteHectares(site.id, site.name)}
-                    >
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Hectares occupés</span>
-                        <span className="text-foreground font-medium">
-                          {stats.hectares_count} / {Math.floor(site.surface_totale)}
-                        </span>
+                  {/* Indicateurs */}
+                  <div className="p-4 sm:p-5 space-y-4 flex-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-border/60 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Vendue</p>
+                        <p className={`text-base font-semibold tabular-nums ${getQuotaColor(percentageVendu)}`}>
+                          {stats.surface_vendue.toFixed(2)} ha
+                        </p>
                       </div>
-                      <Progress 
-                        value={(stats.hectares_count / Math.floor(site.surface_totale)) * 100} 
-                        className="h-2" 
-                      />
-                      <p className="text-xs text-muted-foreground mt-1 text-center">
-                        Cliquez pour voir les détails
-                      </p>
+                      <div className="rounded-lg border border-border/60 p-3">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Disponible</p>
+                        <p className="text-base font-semibold text-foreground tabular-nums">
+                          {remainingSurface.toFixed(2)} ha
+                        </p>
+                      </div>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Surface vendue</span>
-                        <span className={getQuotaColor(percentageVendu)}>
-                          {stats.surface_vendue.toFixed(2)} ha ({percentageVendu.toFixed(1)}%)
-                        </span>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-muted-foreground">Taux de vente</span>
+                        <span className={`font-medium tabular-nums ${getQuotaColor(percentageVendu)}`}>{percentageVendu.toFixed(1)}%</span>
                       </div>
-                      <Progress value={percentageVendu} className="h-2" />
+                      <Progress value={percentageVendu} className="h-1.5" />
                     </div>
 
                     {site.quota_percentage > 0 && (
                       <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-muted-foreground">Quota vendu</span>
-                          <span className={getQuotaColor(quotaUsed)}>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-muted-foreground">Quota consommé</span>
+                          <span className={`font-medium tabular-nums ${getQuotaColor(quotaUsed)}`}>
                             {quotaUsed.toFixed(1)}% / {site.quota_percentage}%
                           </span>
                         </div>
-                        <Progress value={Math.min(quotaUsed, 100)} className="h-2" />
+                        <Progress value={Math.min(quotaUsed, 100)} className="h-1.5" />
                       </div>
                     )}
 
-                    <div className="pt-4 border-t border-border">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Surface disponible</span>
-                        <span className="font-medium text-foreground">
-                          {remainingSurface.toFixed(2)} ha
+                    <div>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-muted-foreground">Hectares occupés</span>
+                        <span className="text-foreground font-medium tabular-nums">
+                          {stats.hectares_count} / {Math.floor(site.surface_totale)}
                         </span>
                       </div>
+                      <Progress
+                        value={(stats.hectares_count / Math.max(Math.floor(site.surface_totale), 1)) * 100}
+                        className="h-1.5"
+                      />
                     </div>
                   </div>
+
+                  {/* Pied de carte */}
+                  <button
+                    onClick={() => showSiteHectares(site.id, site.name)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-primary border-t border-border/60 hover:bg-muted/60 transition-colors"
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                    Voir les hectares & parcelles
+                  </button>
                 </Card>
               );
             })}
           </div>
 
           {sites.length === 0 && (
-            <div className="text-center py-12">
-              <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Aucun site trouvé</p>
-            </div>
+            <Card className="text-center py-14 border-dashed">
+              <MapPin className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium text-foreground">Aucun site enregistré</p>
+              <p className="text-sm text-muted-foreground mt-1">Créez votre premier site pour commencer le suivi.</p>
+            </Card>
           )}
+
         </div>
       </div>
 
