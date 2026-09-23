@@ -156,8 +156,15 @@ const Acheteurs = () => {
   });
 
   useEffect(() => {
-    checkAuth();
-    loadAcheteurs();
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      await loadAcheteurs();
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -204,7 +211,10 @@ const Acheteurs = () => {
         .eq("status", "vendu")
         .not("buyer_name", "is", null);
 
-      if (parcellesError) throw parcellesError;
+      if (parcellesError) {
+        console.error("Erreur parcelles:", parcellesError);
+        throw parcellesError;
+      }
       
       // Récupérer tous les hectares vendus
       const { data: hectares, error: hectaresError } = await supabase
@@ -213,7 +223,10 @@ const Acheteurs = () => {
         .or("status.eq.vendu,status.eq.sold")
         .not("buyer_name", "is", null);
 
-      if (hectaresError) throw hectaresError;
+      if (hectaresError) {
+        console.error("Erreur hectares:", hectaresError);
+        throw hectaresError;
+      }
 
       // Regrouper par acheteur
       const acheteursMap = new Map<string, Acheteur>();
