@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, Map, Phone, Mail } from "lucide-react";
+import { Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, Map as MapIcon, Phone, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -899,7 +899,7 @@ const Acheteurs = () => {
                     <span className="flex items-center gap-1"><Grid3x3 className="w-3.5 h-3.5" /> Parcelles</span>
                   </th>
                   <th className="text-left px-4 py-3 font-semibold text-foreground text-xs uppercase tracking-wider whitespace-nowrap">
-                    <span className="flex items-center gap-1"><Map className="w-3.5 h-3.5" /> Hectares</span>
+                    <span className="flex items-center gap-1"><MapIcon className="w-3.5 h-3.5" /> Hectares</span>
                   </th>
                   <th className="text-right px-4 py-3 font-semibold text-foreground text-xs uppercase tracking-wider whitespace-nowrap">Total payé</th>
                   <th className="px-4 py-3 w-24"></th>

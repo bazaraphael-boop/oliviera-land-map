@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map } from "lucide-react";
+import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon } from "lucide-react";
 
 interface Acheteur {
   id: string;
@@ -108,7 +108,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
         {hectareRmbs.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pl-0 sm:pl-[52px]">
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mr-1">
-              <Map className="w-3 h-3" /> Hectares :
+              <MapIcon className="w-3 h-3" /> Hectares :
             </span>
             {hectareRmbs.map((h, i) => (
               <Badge
@@ -135,7 +135,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
           )}
           {acheteur.nombreHectares > 0 && (
             <Badge className="text-[10px] sm:text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
-              <Map className="w-3 h-3 mr-1" />
+              <MapIcon className="w-3 h-3 mr-1" />
               {acheteur.nombreHectares} hectare{acheteur.nombreHectares > 1 ? 's' : ''}
             </Badge>
           )}
