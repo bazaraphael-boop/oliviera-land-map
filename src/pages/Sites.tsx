@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, MapPin, ChevronDown, ChevronUp, Users, Grid3X3 } from "lucide-react";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {

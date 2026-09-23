@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import LeveTerrainPanel from "@/components/LeveTerrainPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

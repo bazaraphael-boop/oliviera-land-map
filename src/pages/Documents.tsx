@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, FileText, Upload, Download, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import {
   Dialog,
   DialogContent,

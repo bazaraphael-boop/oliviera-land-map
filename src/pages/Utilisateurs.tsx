@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, UserPlus, Shield, User, Mail, Calendar, Eye, Edit, Trash, FileText, MapPin, Users, Settings, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import {
   Dialog,
   DialogContent,

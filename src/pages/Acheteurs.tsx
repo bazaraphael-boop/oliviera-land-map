@@ -8,6 +8,7 @@ import { Search, User, Plus, MapPin, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import {
   Dialog,
   DialogContent,

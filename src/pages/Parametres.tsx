@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { User, Lock, Save, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Profile {
