@@ -201,18 +201,7 @@ const Acheteurs = () => {
       // Récupérer toutes les parcelles vendues
       const { data: parcelles, error: parcellesError } = await supabase
         .from("parcelles")
-        .select(`
-          id, numero, surface, prix, sale_date, hectare_id,
-          payment_type, amount_paid, remaining_amount,
-          sale_type, purchase_type, rmb_number, status,
-          buyer_name, buyer_phone, buyer_email,
-          buyer_last_name, buyer_first_name, buyer_profession,
-          buyer_birth_place, buyer_birth_date, buyer_marital_status,
-          buyer_children_count, buyer_address, buyer_village_origin,
-          buyer_groupement, buyer_secteur, buyer_territoire, buyer_province,
-          paper_form_completed,
-          hectares ( name, location )
-        `)
+        .select(`*, hectares ( name, location )`)
         .eq("status", "vendu")
         .not("buyer_name", "is", null);
 
@@ -224,17 +213,7 @@ const Acheteurs = () => {
       // Récupérer tous les hectares vendus
       const { data: hectares, error: hectaresError } = await supabase
         .from("hectares")
-        .select(`
-          id, name, surface, prix, sale_date, location,
-          payment_type, amount_paid, remaining_amount,
-          sale_type, purchase_type, rmb_number, status,
-          buyer_name, buyer_phone, buyer_email,
-          buyer_last_name, buyer_first_name, buyer_profession,
-          buyer_birth_place, buyer_birth_date, buyer_marital_status,
-          buyer_children_count, buyer_address, buyer_village_origin,
-          buyer_groupement, buyer_secteur, buyer_territoire, buyer_province,
-          paper_form_completed
-        `)
+        .select("*")
         .or("status.eq.vendu,status.eq.sold")
         .not("buyer_name", "is", null);
 
