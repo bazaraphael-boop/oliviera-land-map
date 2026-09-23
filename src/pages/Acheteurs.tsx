@@ -8,6 +8,7 @@ import { Search, User, Plus, MapPin, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -774,14 +775,10 @@ const Acheteurs = () => {
 
       <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
-            Gestion des Acheteurs
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Consultez et gérez la liste des acheteurs
-          </p>
-        </div>
+        <PageHeader
+          title="Acheteurs & paiements"
+          description="Suivez chaque client, ses achats et l'état de ses versements."
+        />
 
         {/* Search and Actions - Mobile optimized */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">

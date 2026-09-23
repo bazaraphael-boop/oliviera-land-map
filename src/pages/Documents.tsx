@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, FileText, Upload, Download, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -257,15 +258,11 @@ const Documents = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Gestion des Documents
-          </h1>
-          <p className="text-muted-foreground">
-            Gérez tous vos documents importants
-          </p>
-        </div>
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+        <PageHeader
+          title="Documents"
+          description="Archivez les pièces liées aux ventes : contrats, reçus, pièces d'identité."
+        />
 
         <div className="flex items-center gap-4 mb-6">
           <div className="flex-1 relative">

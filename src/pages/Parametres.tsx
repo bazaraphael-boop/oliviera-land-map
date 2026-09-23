@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { User, Lock, Save, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Profile {
@@ -149,14 +150,9 @@ const Parametres = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Paramètres</h1>
-            <p className="text-muted-foreground">
-              Gérez votre profil et vos préférences
-            </p>
-          </div>
+          <PageHeader title="Paramètres" description="Gérez votre profil et vos préférences." />
 
           <Tabs defaultValue="profile" className="space-y-6">
             <TabsList>

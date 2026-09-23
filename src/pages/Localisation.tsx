@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import LeveTerrainPanel from "@/components/LeveTerrainPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -196,30 +197,20 @@ const Localisation = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                Localisation des Terrains
-              </h1>
-              <p className="text-muted-foreground">
-                Visualisez vos hectares sur la carte de Muanda, RDC
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => navigate("/hectares")}>
-                <Layers className="w-4 h-4 mr-2" />
-                Gérer les hectares
-              </Button>
-            </div>
-          </div>
-        </div>
+      <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 min-w-0">
+        <PageHeader
+          title="Localisation & levé GPS"
+          description="Visualisez les hectares sur la carte de Muanda ou mesurez une parcelle sur le terrain."
+          actions={
+            <Button variant="outline" onClick={() => navigate("/hectares")}>
+              <Layers className="w-4 h-4 mr-2" />
+              Gérer les hectares
+            </Button>
+          }
+        />
 
         {/* Tabs */}
-        <div className="flex-1 p-6">
+        <div className="flex-1">
           <Tabs defaultValue="carte" className="h-full flex flex-col">
             <TabsList className="mb-4 self-start">
               <TabsTrigger value="carte">

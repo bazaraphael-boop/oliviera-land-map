@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, MapPin, ChevronDown, ChevronUp, Users, Grid3X3 } from "lucide-react";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import PageHeader from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -295,23 +296,21 @@ const Sites = () => {
       <div className="flex-1 overflow-auto">
         <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
           {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Portefeuille foncier</p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Gestion des Sites</h1>
-              <p className="text-sm text-muted-foreground mt-1">Suivi des surfaces, quotas de vente et occupation par site</p>
-            </div>
-            
+          <PageHeader
+            title="Gestion des Sites"
+            description="Point de départ : créez vos zones foncières, puis découpez-les en hectares."
+            actions={
+              <Button className="gap-2 w-full sm:w-auto shadow-elegant" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4" />
+                Nouveau Site
+              </Button>
+            }
+          />
+          <div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) resetForm();
             }}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 w-full sm:w-auto shadow-elegant">
-                  <Plus className="w-4 h-4" />
-                  Nouveau Site
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-2xl">
 
                 <DialogHeader>
