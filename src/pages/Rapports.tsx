@@ -1031,15 +1031,11 @@ const Rapports = () => {
 
       <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1">
-              Rapports & Analyses
-            </h1>
-            <p className="text-muted-foreground text-xs sm:text-sm">
-              Performances de vos terrains
-            </p>
-          </div>
+        <PageHeader
+          title="Rapports & Analyses"
+          description="Dernière étape : analysez les ventes, les revenus et l'occupation des terrains."
+        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-6">
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-wrap">
             <select 

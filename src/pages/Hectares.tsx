@@ -355,13 +355,11 @@ const Hectares = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Gestion des Hectares
-          </h1>
-          <p className="text-muted-foreground text-lg">Gérez vos hectares et parcelles de manière efficace</p>
-        </div>
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+        <PageHeader
+          title="Gestion des Hectares"
+          description="Découpez chaque site en hectares, puis ouvrez un hectare pour gérer ses parcelles."
+        />
 
         <div className="flex items-center gap-4 mb-8">
           <div className="flex-1 relative">

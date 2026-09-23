@@ -618,11 +618,11 @@ const Parcelles = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Gestion des Parcelles</h1>
-          <p className="text-muted-foreground">Gérez vos parcelles par hectare</p>
-        </div>
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+        <PageHeader
+          title="Gestion des Parcelles"
+          description="Attribuez les emplacements de chaque hectare à vos acheteurs."
+        />
 
         <div className="flex items-center gap-4 mb-6 flex-wrap">
           <Select value={selectedHectare} onValueChange={setSelectedHectare}>

@@ -359,17 +359,14 @@ const Utilisateurs = () => {
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
 
-      <div className="flex-1 p-8">
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Gestion des Utilisateurs
-            </h1>
-            <p className="text-muted-foreground">
-              Gérez les utilisateurs et leurs permissions
-            </p>
-          </div>
-          <div className="flex gap-2">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+        <PageHeader
+          title="Utilisateurs"
+          description="Gérez les comptes de l'équipe et leurs permissions."
+          className="mb-4"
+        />
+        <div className="mb-6 flex justify-end">
+          <div className="flex flex-wrap gap-2">
             <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
