@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard, ListOrdered, CheckCircle2, Copy, Search, Hash } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
@@ -63,7 +66,10 @@ const Rapports = () => {
   const [activeTab, setActiveTab] = useState<"parcelles" | "hectares">("parcelles");
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [allParcelles, setAllParcelles] = useState<any[]>([]);
+  const [allHectares, setAllHectares] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [rmbFilterMode, setRmbFilterMode] = useState<"all" | "missing" | "assigned">("all");
+  const [rmbSearchTerm, setRmbSearchTerm] = useState("");
 
   useEffect(() => {
     checkAuth();
@@ -156,6 +162,8 @@ const Rapports = () => {
         .select("*");
 
       if (hectaresError) throw hectaresError;
+      
+      setAllHectares(hectares || []);
 
       // Filtrer les ventes par période
       const allSoldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
@@ -420,6 +428,257 @@ const Rapports = () => {
     } catch (error) {
       console.error("Erreur export doublons:", error);
       toast.error("Erreur lors de l'export du rapport des doublons");
+    }
+  };
+
+  // Suite logique des numéros RMB (de RMB 001 à ...)
+  const rmbSequence = useMemo(() => {
+    const rmbMap = new Map<number, any[]>();
+    let maxFound = 0;
+
+    const extractNum = (rmb?: string | null) => {
+      if (!rmb) return null;
+      const digits = rmb.replace(/\D/g, "");
+      if (!digits) return null;
+      const val = parseInt(digits, 10);
+      return isNaN(val) || val <= 0 ? null : val;
+    };
+
+    allParcelles.forEach((p) => {
+      const num = extractNum(p.rmb_number);
+      if (num !== null) {
+        if (num > maxFound) maxFound = num;
+        const list = rmbMap.get(num) || [];
+        list.push({ ...p, _entityType: "parcelle" });
+        rmbMap.set(num, list);
+      }
+    });
+
+    allHectares.forEach((h) => {
+      const num = extractNum(h.rmb_number);
+      if (num !== null) {
+        if (num > maxFound) maxFound = num;
+        const list = rmbMap.get(num) || [];
+        list.push({ ...h, _entityType: "hectare" });
+        rmbMap.set(num, list);
+      }
+    });
+
+    if (maxFound === 0) return [];
+
+    const limit = Math.min(maxFound, 1000);
+    const seq: Array<{
+      num: number;
+      rmbFormatted: string;
+      isMissing: boolean;
+      items: any[];
+    }> = [];
+
+    for (let i = 1; i <= limit; i++) {
+      const rmbFormatted = `RMB ${String(i).padStart(3, "0")}`;
+      const items = rmbMap.get(i) || [];
+      seq.push({
+        num: i,
+        rmbFormatted,
+        isMissing: items.length === 0,
+        items,
+      });
+    }
+
+    return seq;
+  }, [allParcelles, allHectares]);
+
+  const filteredRmbSequence = useMemo(() => {
+    return rmbSequence.filter((entry) => {
+      if (rmbFilterMode === "missing" && !entry.isMissing) return false;
+      if (rmbFilterMode === "assigned" && entry.isMissing) return false;
+
+      if (rmbSearchTerm.trim()) {
+        const term = rmbSearchTerm.toLowerCase();
+        const matchNum =
+          entry.rmbFormatted.toLowerCase().includes(term) ||
+          String(entry.num).includes(term);
+        const matchItems = entry.items?.some((it: any) =>
+          (it.buyer_name || "").toLowerCase().includes(term) ||
+          (it.numero || "").toLowerCase().includes(term) ||
+          (it.name || "").toLowerCase().includes(term)
+        );
+        return matchNum || Boolean(matchItems);
+      }
+
+      return true;
+    });
+  }, [rmbSequence, rmbFilterMode, rmbSearchTerm]);
+
+  const totalMissingRmb = useMemo(() => {
+    return rmbSequence.filter((i) => i.isMissing).length;
+  }, [rmbSequence]);
+
+  const exportRmbSequencePDF = async () => {
+    try {
+      const pdf = new jsPDF();
+      const img = new Image();
+      img.src = headerImage;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const pdfWidth = 210;
+      const imgRatio = img.height / img.width;
+      const headerHeight = Math.min(pdfWidth * imgRatio, 38);
+      const imgWidth = headerHeight / imgRatio;
+      const imgX = (pdfWidth - imgWidth) / 2;
+      pdf.addImage(headerImage, "JPEG", imgX, 5, imgWidth, headerHeight);
+
+      let yPos = headerHeight + 15;
+
+      // Titre
+      pdf.setFontSize(15);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(30, 60, 110);
+      const maxNum = rmbSequence.length > 0 ? rmbSequence[rmbSequence.length - 1].num : 0;
+      pdf.text(
+        `RAPPORT DE CONTINUITÉ RMB - SUITE LOGIQUE (RMB 001 À RMB ${String(maxNum).padStart(3, "0")})`,
+        105,
+        yPos,
+        { align: "center" }
+      );
+      yPos += 7;
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(
+        `Généré le ${new Date().toLocaleDateString("fr-FR")} · Concession Manuel Joaquim d'Oliveira`,
+        105,
+        yPos,
+        { align: "center" }
+      );
+      pdf.setTextColor(0, 0, 0);
+      yPos += 10;
+
+      // Résumé
+      pdf.setFillColor(245, 247, 250);
+      pdf.roundedRect(20, yPos, 170, 16, 2, 2, "F");
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Total numéros dans la suite : ${rmbSequence.length}`, 25, yPos + 6);
+      pdf.text(`Numéros attribués : ${rmbSequence.length - totalMissingRmb}`, 25, yPos + 12);
+
+      if (totalMissingRmb > 0) {
+        pdf.setTextColor(194, 65, 12);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Trous détectés : ${totalMissingRmb} numéro(s) manquant(s)`, 110, yPos + 6);
+      } else {
+        pdf.setTextColor(22, 101, 52);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Continuité parfaite : Aucun trou`, 110, yPos + 6);
+      }
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        `Taux de continuité : ${
+          rmbSequence.length > 0
+            ? (((rmbSequence.length - totalMissingRmb) / rmbSequence.length) * 100).toFixed(1)
+            : 0
+        }%`,
+        110,
+        yPos + 12
+      );
+
+      yPos += 22;
+
+      // Tableau des numéros
+      const colWidths = [30, 45, 55, 40];
+      const headers = ["Numéro", "Statut séquence", "Détail de l'emplacement", "Concessionnaire"];
+
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFillColor(30, 60, 110);
+      pdf.setTextColor(255, 255, 255);
+      let cx = 20;
+      headers.forEach((h, i) => {
+        pdf.rect(cx, yPos, colWidths[i], 7, "F");
+        pdf.text(h, cx + 2, yPos + 4.8);
+        cx += colWidths[i];
+      });
+      yPos += 7;
+      pdf.setTextColor(0, 0, 0);
+
+      rmbSequence.forEach((item, idx) => {
+        if (yPos > 275) {
+          pdf.addPage();
+          yPos = 20;
+          pdf.setFontSize(8);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFillColor(30, 60, 110);
+          pdf.setTextColor(255, 255, 255);
+          let rcx = 20;
+          headers.forEach((h, i) => {
+            pdf.rect(rcx, yPos, colWidths[i], 7, "F");
+            pdf.text(h, rcx + 2, yPos + 4.8);
+            rcx += colWidths[i];
+          });
+          yPos += 7;
+          pdf.setTextColor(0, 0, 0);
+        }
+
+        cx = 20;
+        if (item.isMissing) {
+          pdf.setFillColor(255, 237, 213);
+          colWidths.forEach((w) => {
+            pdf.rect(cx, yPos, w, 7, "FD");
+            cx += w;
+          });
+
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(194, 65, 12);
+          pdf.text(item.rmbFormatted, 22, yPos + 4.8);
+          pdf.text(`MANQUANT ${item.rmbFormatted}`, 52, yPos + 4.8);
+
+          pdf.setFont("helvetica", "italic");
+          pdf.setTextColor(120, 120, 120);
+          pdf.text("Emplacement non attribué", 97, yPos + 4.8);
+          pdf.text("—", 152, yPos + 4.8);
+          pdf.setTextColor(0, 0, 0);
+        } else {
+          pdf.setFillColor(
+            idx % 2 === 0 ? 250 : 255,
+            idx % 2 === 0 ? 250 : 255,
+            idx % 2 === 0 ? 250 : 255
+          );
+          colWidths.forEach((w) => {
+            pdf.rect(cx, yPos, w, 7, "FD");
+            cx += w;
+          });
+
+          const primaryItem = item.items[0];
+          const itemName =
+            primaryItem._entityType === "parcelle"
+              ? `Parcelle ${primaryItem.numero}`
+              : primaryItem.name;
+          const buyer = primaryItem.buyer_name || "Disponible";
+
+          pdf.setFont("helvetica", "bold");
+          pdf.text(item.rmbFormatted, 22, yPos + 4.8);
+
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(22, 101, 52);
+          pdf.text("Attribué", 52, yPos + 4.8);
+          pdf.setTextColor(0, 0, 0);
+
+          pdf.text((itemName || "").substring(0, 24), 97, yPos + 4.8);
+          pdf.text((buyer || "").substring(0, 18), 152, yPos + 4.8);
+        }
+
+        yPos += 7;
+      });
+
+      pdf.save(`rapport-suite-logique-rmb-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success("Rapport de suite logique RMB téléchargé");
+    } catch (error) {
+      console.error("Erreur export suite logique RMB:", error);
+      toast.error("Erreur lors de la génération du rapport RMB");
     }
   };
 
@@ -1476,6 +1735,275 @@ const Rapports = () => {
               </table>
             </div>
           )}
+        </Card>
+
+        {/* Suite logique des numéros RMB (de RMB 001 à ...) avec détection des trous */}
+        <Card className="p-4 sm:p-6 mt-6 sm:mt-8 border-border">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                <ListOrdered className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground">
+                    Suite Logique des Numéros RMB
+                  </h3>
+                  <Badge variant="outline" className="text-xs font-mono bg-muted">
+                    {rmbSequence.length > 0
+                      ? `RMB 001 → ${rmbSequence[rmbSequence.length - 1].rmbFormatted}`
+                      : "Aucun RMB"}
+                  </Badge>
+                  {totalMissingRmb > 0 ? (
+                    <Badge className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold">
+                      {totalMissingRmb} trou{totalMissingRmb > 1 ? "s" : ""} détecté{totalMissingRmb > 1 ? "s" : ""}
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-emerald-600 text-white text-xs">
+                      Séquence continue sans trou
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Suivi séquentiel continu de chaque numéro RMB de RMB 001 à la fin. Les trous dans la suite logique sont clairement signalés en orange.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportRmbSequencePDF}
+                disabled={rmbSequence.length === 0}
+                className="gap-2 text-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Exporter PDF (Suite RMB)</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="p-3 rounded-xl border border-border bg-muted/20">
+              <span className="text-[11px] text-muted-foreground font-medium">Plage analysée</span>
+              <p className="text-sm sm:text-base font-bold text-foreground mt-0.5">
+                {rmbSequence.length > 0
+                  ? `RMB 001 à ${rmbSequence[rmbSequence.length - 1].rmbFormatted}`
+                  : "—"}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl border border-border bg-muted/20">
+              <span className="text-[11px] text-muted-foreground font-medium">Attribués</span>
+              <p className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {rmbSequence.length - totalMissingRmb}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl border border-border bg-muted/20">
+              <span className="text-[11px] text-muted-foreground font-medium">Trous dans la suite</span>
+              <p
+                className={cn(
+                  "text-sm sm:text-base font-bold mt-0.5",
+                  totalMissingRmb > 0 ? "text-orange-600 dark:text-orange-400" : "text-emerald-600"
+                )}
+              >
+                {totalMissingRmb} manquant{totalMissingRmb > 1 ? "s" : ""}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl border border-border bg-muted/20">
+              <span className="text-[11px] text-muted-foreground font-medium">Taux d'ordre</span>
+              <p className="text-sm sm:text-base font-bold text-foreground mt-0.5">
+                {rmbSequence.length > 0
+                  ? `${(
+                      ((rmbSequence.length - totalMissingRmb) / rmbSequence.length) *
+                      100
+                    ).toFixed(1)}%`
+                  : "100%"}
+              </p>
+            </div>
+          </div>
+
+          {/* Filtres et recherche */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/30 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setRmbFilterMode("all")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
+                  rmbFilterMode === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Tous ({rmbSequence.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRmbFilterMode("missing")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
+                  rmbFilterMode === "missing"
+                    ? "bg-orange-500 text-white font-bold shadow-sm"
+                    : "text-orange-600 hover:text-orange-700"
+                )}
+              >
+                Trous manquants ({totalMissingRmb})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRmbFilterMode("assigned")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
+                  rmbFilterMode === "assigned"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Attribués ({rmbSequence.length - totalMissingRmb})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher RMB (ex: 007)..."
+                value={rmbSearchTerm}
+                onChange={(e) => setRmbSearchTerm(e.target.value)}
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Tableau de la séquence logique */}
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
+                    Numéro RMB
+                  </th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-48">
+                    État dans la suite
+                  </th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px]">
+                    Emplacement cadastral
+                  </th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px]">
+                    Concessionnaire / Titulaire
+                  </th>
+                  <th className="text-center px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
+                    Statut
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredRmbSequence.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      Aucun numéro correspondant aux critères sélectionnés.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRmbSequence.map((entry) => {
+                    if (entry.isMissing) {
+                      return (
+                        <tr
+                          key={entry.num}
+                          className="bg-orange-500/10 hover:bg-orange-500/15 transition-colors border-l-4 border-l-orange-500"
+                        >
+                          <td className="px-4 py-3 font-mono font-bold text-orange-700 dark:text-orange-400">
+                            {entry.rmbFormatted}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] gap-1 px-2 py-0.5">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Manquant {entry.rmbFormatted}</span>
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground italic">
+                            Numéro sauté dans la suite logique — non enregistré
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            —
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">
+                              Trou
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const firstItem = entry.items![0];
+                    const isParcelle = firstItem._entityType === "parcelle";
+                    const hasDup = entry.items!.length > 1;
+
+                    return (
+                      <tr
+                        key={entry.num}
+                        className={cn(
+                          "hover:bg-muted/40 transition-colors",
+                          hasDup && "bg-red-500/10 hover:bg-red-500/15"
+                        )}
+                      >
+                        <td className="px-4 py-3 font-mono font-bold text-foreground">
+                          {entry.rmbFormatted}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-medium"
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                              Attribué
+                            </Badge>
+                            {hasDup && (
+                              <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
+                                Doublon ({entry.items!.length})
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          <div>
+                            {isParcelle ? `Parcelle ${firstItem.numero}` : firstItem.name}
+                          </div>
+                          {firstItem.hectares?.name && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {firstItem.hectares.name}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold text-foreground">
+                            {firstItem.buyer_name || "Disponible (sans acquéreur)"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-semibold",
+                              firstItem.status === "vendu" || firstItem.status === "sold"
+                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                            )}
+                          >
+                            {firstItem.status === "vendu" || firstItem.status === "sold"
+                              ? "Vendu"
+                              : "Disponible"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
 

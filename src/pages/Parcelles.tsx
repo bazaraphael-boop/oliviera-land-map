@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { HectareSelector } from "@/components/HectareSelector";
 import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
-import { MissingNumbersDialog } from "@/components/MissingNumbersDialog";
 import { auditHectare } from "@/lib/numberingAudit";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
@@ -80,7 +79,6 @@ const Parcelles = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [missingDialogOpen, setMissingDialogOpen] = useState(false);
   const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedHectare, setSelectedHectare] = useState<string>(
@@ -656,16 +654,6 @@ const Parcelles = () => {
             />
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => setMissingDialogOpen(true)}
-            className="gap-2 border-orange-500/30 hover:bg-orange-500/10 text-foreground"
-          >
-            <ListOrdered className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-            <span className="hidden sm:inline">Numéros manquants</span>
-            <span className="sm:hidden">Ordre</span>
-          </Button>
-
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -1236,21 +1224,6 @@ const Parcelles = () => {
           />
         )}
 
-        <MissingNumbersDialog
-          open={missingDialogOpen}
-          onOpenChange={setMissingDialogOpen}
-          hectares={hectares}
-          parcelles={allParcelles.length > 0 ? allParcelles : parcelles}
-          defaultHectareId={selectedHectare !== "all" ? selectedHectare : undefined}
-          onCreateParcelle={(hectareId, suggestedNumero) => {
-            setFormData((prev) => ({
-              ...prev,
-              hectare_id: hectareId,
-              numero: suggestedNumero,
-            }));
-            setIsDialogOpen(true);
-          }}
-        />
       </div>
     </div>
   );
