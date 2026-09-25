@@ -257,6 +257,7 @@ const Acheteurs = () => {
           });
         }
 
+        const acheteur = acheteursMap.get(buyerKey)!;
         const parcelleCount = Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
         acheteur.parcelles.push({
           id: parcelle.id,
