@@ -1,0 +1,32 @@
+{
+  "name": "Concession Manuel Joaquim d'Oliveira",
+  "short_name": "Concession MJO",
+  "description": "Système moderne de gestion cadastrale et foncière pour la Concession Manuel Joaquim d'Oliveira à Muanda",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1528",
+  "theme_color": "#0F172A",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

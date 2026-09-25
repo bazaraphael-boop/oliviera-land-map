@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { homeItem, processSteps, toolItems, adminItems, type NavItem } from "@/lib/navigation";
+import { InstallAppButton } from "./InstallAppButton";
 
 const SimpleLink = ({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate?: () => void }) => (
   <Link
@@ -144,10 +145,11 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
         </div>
       </nav>
 
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border space-y-2">
+        <InstallAppButton />
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <LogOut className="w-4 h-4" />
           Déconnexion
