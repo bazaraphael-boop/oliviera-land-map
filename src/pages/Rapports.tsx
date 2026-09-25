@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard, ListOrdered, CheckCircle2, Copy, Search, Hash } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard, ListOrdered, CheckCircle2, Copy, Search, Hash, Edit, Check, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -70,6 +70,10 @@ const Rapports = () => {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [rmbFilterMode, setRmbFilterMode] = useState<"all" | "missing" | "assigned">("all");
   const [rmbSearchTerm, setRmbSearchTerm] = useState("");
+  const [selectedDuplicateEntry, setSelectedDuplicateEntry] = useState<any | null>(null);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [editedRmbValues, setEditedRmbValues] = useState<{ [id: string]: string }>({});
+  const [savingRmbId, setSavingRmbId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -513,6 +517,70 @@ const Rapports = () => {
   const totalMissingRmb = useMemo(() => {
     return rmbSequence.filter((i) => i.isMissing).length;
   }, [rmbSequence]);
+
+  const missingRmbSuggestions = useMemo(() => {
+    return rmbSequence
+      .filter((i) => i.isMissing)
+      .map((i) => i.rmbFormatted)
+      .slice(0, 15);
+  }, [rmbSequence]);
+
+  const handleOpenDuplicateModal = (entry: any) => {
+    setSelectedDuplicateEntry(entry);
+    const initialVals: { [id: string]: string } = {};
+    entry.items?.forEach((it: any) => {
+      initialVals[it.id] = it.rmb_number || entry.rmbFormatted;
+    });
+    setEditedRmbValues(initialVals);
+    setDuplicateModalOpen(true);
+  };
+
+  const handleSaveRmbChange = async (item: any, newRmb: string) => {
+    if (!newRmb || !newRmb.trim()) {
+      toast.error("Le numéro RMB ne peut pas être vide");
+      return;
+    }
+
+    try {
+      setSavingRmbId(item.id);
+      const isParcelle = item._entityType === "parcelle" || item.hectare_id !== undefined;
+      const targetTable = isParcelle ? "parcelles" : "hectares";
+
+      const { error } = await supabase
+        .from(targetTable)
+        .update({ rmb_number: newRmb.trim() })
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      toast.success(`Numéro RMB mis à jour avec succès : ${newRmb.trim()}`);
+      await loadStats();
+
+      setSelectedDuplicateEntry((prev: any) => {
+        if (!prev) return null;
+        const updatedItems = prev.items.map((it: any) =>
+          it.id === item.id ? { ...it, rmb_number: newRmb.trim() } : it
+        );
+        const currentNumStr = String(prev.num);
+        const stillMatching = updatedItems.filter(
+          (it: any) =>
+            it.rmb_number?.trim() === prev.rmbFormatted ||
+            it.rmb_number?.replace(/\D/g, "") === currentNumStr
+        );
+        if (stillMatching.length <= 1) {
+          toast.success("Doublon résolu !");
+          setDuplicateModalOpen(false);
+          return null;
+        }
+        return { ...prev, items: updatedItems };
+      });
+    } catch (err: any) {
+      console.error("Erreur mise à jour RMB:", err);
+      toast.error(`Erreur lors de la modification : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setSavingRmbId(null);
+    }
+  };
 
   const exportRmbSequencePDF = async () => {
     try {
@@ -1647,7 +1715,27 @@ const Rapports = () => {
                                   isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
                                 }`}>
                                   {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
-                                  RMB: {p.rmb_number} {isDuplicateRMB && "(Doublon)"}
+                                  <span>RMB: {p.rmb_number}</span>
+                                  {isDuplicateRMB && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const num = parseInt(p.rmb_number.replace(/\D/g, ""), 10) || 0;
+                                        const matchingParcelles = allParcelles.filter((item) => item.rmb_number === p.rmb_number).map((item) => ({ ...item, _entityType: "parcelle" }));
+                                        const matchingHectares = allHectares.filter((item) => item.rmb_number === p.rmb_number).map((item) => ({ ...item, _entityType: "hectare" }));
+                                        handleOpenDuplicateModal({
+                                          num,
+                                          rmbFormatted: p.rmb_number,
+                                          items: [...matchingParcelles, ...matchingHectares],
+                                        });
+                                      }}
+                                      className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer inline-flex items-center gap-0.5 shadow-sm transition-transform hover:scale-105"
+                                      title="Cliquer pour voir et modifier ce doublon"
+                                    >
+                                      Doublon <Edit className="w-2.5 h-2.5 ml-0.5" />
+                                    </button>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -1711,7 +1799,27 @@ const Rapports = () => {
                                   isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
                                 }`}>
                                   {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
-                                  RMB: {h.rmb_number} {isDuplicateRMB && "(Doublon)"}
+                                  <span>RMB: {h.rmb_number}</span>
+                                  {isDuplicateRMB && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const num = parseInt(h.rmb_number.replace(/\D/g, ""), 10) || 0;
+                                        const matchingParcelles = allParcelles.filter((item) => item.rmb_number === h.rmb_number).map((item) => ({ ...item, _entityType: "parcelle" }));
+                                        const matchingHectares = allHectares.filter((item) => item.rmb_number === h.rmb_number).map((item) => ({ ...item, _entityType: "hectare" }));
+                                        handleOpenDuplicateModal({
+                                          num,
+                                          rmbFormatted: h.rmb_number,
+                                          items: [...matchingParcelles, ...matchingHectares],
+                                        });
+                                      }}
+                                      className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer inline-flex items-center gap-0.5 shadow-sm transition-transform hover:scale-105"
+                                      title="Cliquer pour voir et modifier ce doublon"
+                                    >
+                                      Doublon <Edit className="w-2.5 h-2.5 ml-0.5" />
+                                    </button>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -1896,12 +2004,15 @@ const Rapports = () => {
                   <th className="text-center px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
                     Statut
                   </th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredRmbSequence.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                       Aucun numéro correspondant aux critères sélectionnés.
                     </td>
                   </tr>
@@ -1933,6 +2044,9 @@ const Rapports = () => {
                               Trou
                             </span>
                           </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">
+                            —
+                          </td>
                         </tr>
                       );
                     }
@@ -1944,16 +2058,21 @@ const Rapports = () => {
                     return (
                       <tr
                         key={entry.num}
+                        onClick={() => {
+                          if (hasDup) handleOpenDuplicateModal(entry);
+                        }}
                         className={cn(
-                          "hover:bg-muted/40 transition-colors",
-                          hasDup && "bg-red-500/10 hover:bg-red-500/15"
+                          "transition-colors",
+                          hasDup
+                            ? "bg-red-500/10 hover:bg-red-500/15 cursor-pointer"
+                            : "hover:bg-muted/40"
                         )}
                       >
                         <td className="px-4 py-3 font-mono font-bold text-foreground">
                           {entry.rmbFormatted}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge
                               variant="outline"
                               className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-medium"
@@ -1962,9 +2081,19 @@ const Rapports = () => {
                               Attribué
                             </Badge>
                             {hasDup && (
-                              <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
-                                Doublon ({entry.items!.length})
-                              </Badge>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDuplicateModal(entry);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-transform hover:scale-105 cursor-pointer ring-2 ring-red-400/30"
+                                title="Cliquer pour voir et modifier ce doublon"
+                              >
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>Doublon ({entry.items!.length})</span>
+                                <Edit className="w-2.5 h-2.5 ml-0.5 opacity-80" />
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1997,6 +2126,25 @@ const Rapports = () => {
                               : "Disponible"}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-right">
+                          {hasDup ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDuplicateModal(entry);
+                              }}
+                              className="h-7 text-xs px-2.5 font-medium shadow-sm gap-1 hover:bg-red-700"
+                              title="Voir et modifier ce doublon"
+                            >
+                              <Edit className="w-3 h-3" />
+                              <span>Gérer</span>
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px]">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -2026,13 +2174,29 @@ const Rapports = () => {
 
             {Array.from(duplicateRMBDetails.entries()).map(([rmb, parcelles]) => (
               <Card key={rmb} className="p-3 sm:p-4 border-red-200">
-                <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b">
+                <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h3 className="font-semibold text-sm sm:text-lg text-red-600">
                     RMB: {rmb}
                     <span className="ml-2 text-xs text-muted-foreground">
                       ({parcelles.length} parcelles)
                     </span>
                   </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs gap-1.5 w-fit"
+                    onClick={() => {
+                      setDuplicatesReportOpen(false);
+                      handleOpenDuplicateModal({
+                        num: parseInt(rmb.replace(/\D/g, ""), 10) || 0,
+                        rmbFormatted: rmb,
+                        items: parcelles.map((p) => ({ ...p, _entityType: "parcelle" })),
+                      });
+                    }}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Modifier ce doublon</span>
+                  </Button>
                 </div>
                 
                 <div className="space-y-3">
@@ -2078,6 +2242,205 @@ const Rapports = () => {
               </Card>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal pour voir et modifier directement les doublons RMB */}
+      <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 text-base sm:text-lg">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>Gestion du Doublon {selectedDuplicateEntry?.rmbFormatted}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedDuplicateEntry && (
+            <div className="space-y-4 pt-1">
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs sm:text-sm text-foreground space-y-1">
+                <p className="font-semibold text-red-700 dark:text-red-400">
+                  {selectedDuplicateEntry.items?.length || 0} éléments partagent actuellement le numéro {selectedDuplicateEntry.rmbFormatted}.
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Vous pouvez réattribuer un numéro distinct à l'un des éléments ci-dessous pour résoudre immédiatement le doublon.
+                </p>
+              </div>
+
+              {/* Suggestions de numéros manquants pour combler les trous */}
+              {missingRmbSuggestions.length > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    <ListOrdered className="w-4 h-4 shrink-0" />
+                    <span>Numéros manquants dans la suite logique (suggérés pour combler les trous) :</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Cliquez sur un numéro manquant pour l'assigner à l'élément de votre choix :
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {missingRmbSuggestions.map((sug) => (
+                      <Badge
+                        key={sug}
+                        variant="outline"
+                        className="bg-background border-amber-400/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer text-xs py-1 px-2.5 transition-colors font-mono font-bold"
+                        title={`Pré-remplir ${sug}`}
+                        onClick={() => {
+                          const targetItem =
+                            selectedDuplicateEntry.items?.[1] ||
+                            selectedDuplicateEntry.items?.[0];
+                          if (targetItem) {
+                            setEditedRmbValues((prev) => ({
+                              ...prev,
+                              [targetItem.id]: sug,
+                            }));
+                            toast.info(`Numéro ${sug} pré-rempli pour ${targetItem._entityType === "parcelle" ? `Parcelle ${targetItem.numero}` : targetItem.name}`);
+                          }
+                        }}
+                      >
+                        + {sug}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Liste des éléments en doublon avec champ d'édition */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Éléments enregistrés avec {selectedDuplicateEntry.rmbFormatted}
+                </h4>
+
+                {selectedDuplicateEntry.items?.map((item: any) => {
+                  const isParcelle = item._entityType === "parcelle" || item.hectare_id !== undefined || item.numero !== undefined;
+                  const currentVal = editedRmbValues[item.id] ?? item.rmb_number ?? selectedDuplicateEntry.rmbFormatted;
+                  const isSaving = savingRmbId === item.id;
+                  const hasChanged = currentVal.trim() !== (item.rmb_number || selectedDuplicateEntry.rmbFormatted).trim();
+
+                  return (
+                    <Card key={item.id} className="p-3.5 sm:p-4 border border-border shadow-sm bg-card hover:border-primary/40 transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm sm:text-base text-foreground">
+                              {isParcelle ? `Parcelle ${item.numero}` : item.name}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                              {isParcelle ? "Parcelle" : "Hectare"}
+                            </Badge>
+                            <Badge
+                              className={cn(
+                                "text-[10px] font-semibold",
+                                item.status === "vendu" || item.status === "sold"
+                                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              )}
+                            >
+                              {item.status === "vendu" || item.status === "sold" ? "Vendu" : "Disponible"}
+                            </Badge>
+                          </div>
+                          {item.hectares?.name && (
+                            <p className="text-xs text-muted-foreground">
+                              Site / Hectare : <span className="font-medium text-foreground">{item.hectares.name}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="text-right text-xs text-muted-foreground">
+                          {item.surface && <span>{item.surface} m²</span>}
+                          {item.prix && <span className="ml-2 font-semibold text-foreground">• {Number(item.prix).toLocaleString()} USD</span>}
+                        </div>
+                      </div>
+
+                      {/* Info acquéreur si vendu */}
+                      {(item.buyer_name || item.status === "vendu") && (
+                        <div className="py-2 text-xs text-muted-foreground grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-border/40">
+                          <div>
+                            <span className="font-medium text-foreground">Acquéreur :</span> {item.buyer_name || "Non renseigné"}
+                          </div>
+                          <div>
+                            <span className="font-medium text-foreground">Téléphone :</span> {item.buyer_phone || "—"}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Modification et attribution du numéro RMB */}
+                      <div className="pt-3 space-y-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <div className="flex-1 flex items-center gap-2">
+                            <label className="text-xs font-semibold whitespace-nowrap text-foreground">
+                              Numéro RMB :
+                            </label>
+                            <Input
+                              value={currentVal}
+                              onChange={(e) =>
+                                setEditedRmbValues((prev) => ({
+                                  ...prev,
+                                  [item.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="ex: RMB 374"
+                              className="h-9 font-mono text-sm font-semibold max-w-[220px]"
+                            />
+                          </div>
+
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveRmbChange(item, currentVal)}
+                            disabled={isSaving || !currentVal.trim()}
+                            className="h-9 px-3 gap-1.5 shrink-0"
+                            variant={hasChanged ? "default" : "outline"}
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Enregistrement...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Enregistrer</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Raccourcis pour assigner un numéro manquant à cet élément précis */}
+                        {missingRmbSuggestions.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-muted-foreground">
+                            <span>Assigner un trou :</span>
+                            {missingRmbSuggestions.slice(0, 6).map((sug) => (
+                              <button
+                                key={sug}
+                                type="button"
+                                onClick={() =>
+                                  setEditedRmbValues((prev) => ({
+                                    ...prev,
+                                    [item.id]: sug,
+                                  }))
+                                }
+                                className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors"
+                              >
+                                {sug}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDuplicateModalOpen(false)}
+                  className="text-xs"
+                >
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
