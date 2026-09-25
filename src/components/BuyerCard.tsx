@@ -29,7 +29,12 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
 
   // Collecter tous les RMB de parcelles
   const parcelleRmbs = acheteur.parcelles
-    .map(p => ({ numero: p.numero, rmb: p.rmb_number }))
+    .map(p => ({
+      numero: p.numero,
+      rmb: p.rmb_number,
+      surface: p.surface,
+      nombreParcelles: p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))
+    }))
     .filter(p => p.numero || p.rmb);
 
   // Collecter tous les RMB d'hectares
@@ -93,11 +98,14 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
               <Badge
                 key={i}
                 variant="secondary"
-                className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium"
               >
                 {p.numero || p.rmb}
                 {p.rmb && p.numero && p.rmb !== p.numero && (
                   <span className="ml-1 opacity-60">· {p.rmb}</span>
+                )}
+                {p.nombreParcelles > 1 && (
+                  <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({p.nombreParcelles} p.)</span>
                 )}
               </Badge>
             ))}

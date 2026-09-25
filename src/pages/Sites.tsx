@@ -684,24 +684,30 @@ const Sites = () => {
                           ) : (
                             <div className="p-4 space-y-3">
                               {/* Quota bar */}
-                              <div className="p-3 rounded-lg bg-card border border-border">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
-                                  <span className="text-sm font-semibold text-foreground">
-                                    {parcelles.length} / {totalSlots} parcelles
-                                  </span>
-                                </div>
-                                <Progress value={(parcelles.length / totalSlots) * 100} className="h-2.5" />
-                                <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
-                                  <span>{occupiedParcelles.length} occupée{occupiedParcelles.length > 1 ? 's' : ''}</span>
-                                  <span>{totalSlots - parcelles.length} disponible{totalSlots - parcelles.length > 1 ? 's' : ''}</span>
-                                </div>
-                              </div>
+                              {(() => {
+                                const occupiedEffectif = parcelles.reduce((total: number, p: any) => total + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+                                return (
+                                  <div className="p-3 rounded-lg bg-card border border-border">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
+                                      <span className="text-sm font-semibold text-foreground">
+                                        {occupiedEffectif} / {totalSlots} parcelles
+                                      </span>
+                                    </div>
+                                    <Progress value={(occupiedEffectif / totalSlots) * 100} className="h-2.5" />
+                                    <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+                                      <span>{occupiedEffectif} occupée{occupiedEffectif > 1 ? 's' : ''}</span>
+                                      <span>{Math.max(0, totalSlots - occupiedEffectif)} disponible{totalSlots - occupiedEffectif > 1 ? 's' : ''}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
 
                               {/* Parcelles list */}
                               <div className="grid gap-2">
                                 {parcelles.map((parcelle: any) => {
-                                  const isOccupied = parcelle.status === "vendue" || parcelle.status === "occupée" || parcelle.buyer_name;
+                                  const isOccupied = parcelle.status === "vendue" || parcelle.status === "occupée" || parcelle.status === "vendu" || parcelle.buyer_name;
+                                  const pCount = Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
                                   return (
                                     <div
                                       key={parcelle.id}
@@ -713,10 +719,15 @@ const Sites = () => {
                                     >
                                       <div className="flex items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 mb-1">
+                                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                                             <span className="font-medium text-sm text-foreground">
                                               Parcelle {parcelle.numero}
                                             </span>
+                                            {pCount > 1 && (
+                                              <Badge className="text-[10px] bg-emerald-600 text-white font-semibold px-1.5 py-0">
+                                                {pCount} parcelles ({parcelle.surface} m²)
+                                              </Badge>
+                                            )}
                                             <Badge
                                               variant={isOccupied ? "destructive" : "secondary"}
                                               className="text-[10px] px-1.5 py-0"

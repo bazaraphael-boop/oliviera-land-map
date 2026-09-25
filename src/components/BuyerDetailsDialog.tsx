@@ -329,44 +329,51 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
                 ))}
 
                 {/* Parcelles */}
-                {acheteur.parcelles.map((parcelle) => (
-                  <div 
-                    key={parcelle.id} 
-                    className="p-2.5 sm:p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20"
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
-                        <MapPin className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <h5 className="font-semibold text-foreground text-sm">
-                                Parcelle {parcelle.numero}
-                              </h5>
-                              {parcelle.rmb_number && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  RMB {parcelle.rmb_number}
+                {acheteur.parcelles.map((parcelle) => {
+                  const pCount = parcelle.nombreParcelles || Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
+                  return (
+                    <div 
+                      key={parcelle.id} 
+                      className="p-2.5 sm:p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20"
+                    >
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h5 className="font-semibold text-foreground text-sm">
+                                  Parcelle {parcelle.numero}
+                                </h5>
+                                {parcelle.rmb_number && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    RMB {parcelle.rmb_number}
+                                  </Badge>
+                                )}
+                                {pCount > 1 && (
+                                  <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600 text-white font-semibold">
+                                    {pCount} parcelles ({parcelle.surface} m²)
+                                  </Badge>
+                                )}
+                              </div>
+                              {parcelle.sale_type === "onereux" && (
+                                <Badge variant="secondary" className="text-[10px] mt-1">
+                                  À titre gratuit
                                 </Badge>
                               )}
+                              {parcelle.hectares?.name && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Hectare {parcelle.hectares.name}
+                                </p>
+                              )}
                             </div>
-                            {parcelle.sale_type === "onereux" && (
-                              <Badge variant="secondary" className="text-[10px] mt-1">
-                                À titre gratuit
-                              </Badge>
-                            )}
-                            {parcelle.hectares?.name && (
-                              <p className="text-[10px] text-muted-foreground">
-                                Hectare {parcelle.hectares.name}
-                              </p>
-                            )}
-                          </div>
 
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {parcelle.surface} m² • {parcelle.prix.toLocaleString()} USD
-                        </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {parcelle.surface} m² {pCount > 1 ? `(${pCount} parcelles de 600 m²)` : ''} • {parcelle.prix.toLocaleString()} USD
+                          </p>
                         {parcelle.payment_type === "partiel" && (
                           <p className="text-[10px] text-orange-600">
                             Reste: {parcelle.remaining_amount.toLocaleString()} USD
@@ -383,7 +390,8 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+              })}
 
                 {acheteur.parcelles.length === 0 && acheteur.hectares.length === 0 && (
                   <p className="text-center text-muted-foreground py-6 text-sm">

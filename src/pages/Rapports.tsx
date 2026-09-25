@@ -196,21 +196,25 @@ const Rapports = () => {
         return sum + (h.sale_type === 'onereux' ? 0 : (h.payment_type === 'partiel' ? Number(h.amount_paid || 0) : Number(h.prix || 0)));
       }, 0);
       
+      const allParcellesCount = parcelles?.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0) || 0;
+      const soldParcellesCount = soldParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+      const availableCount = availableParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+      
       // Prix moyen basé sur toutes les parcelles (non filtré)
-      const averagePrice = parcelles && parcelles.length > 0 
-        ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / parcelles.length 
+      const averagePrice = allParcellesCount > 0 
+        ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / allParcellesCount 
         : 0;
       
       // Taux de vente basé sur la période sélectionnée
-      const salesRate = parcelles && parcelles.length > 0
-        ? (soldParcelles.length / parcelles.length) * 100
+      const salesRate = allParcellesCount > 0
+        ? (soldParcellesCount / allParcellesCount) * 100
         : 0;
 
       setStats({
         totalRevenue,
-        salesCount: soldParcelles.length + soldHectares.length,
-        availableCount: availableParcelles.length,
-        soldCount: soldParcelles.length + soldHectares.length,
+        salesCount: soldParcellesCount + soldHectares.length,
+        availableCount: availableCount,
+        soldCount: soldParcellesCount + soldHectares.length,
         averagePrice,
         salesRate,
       });
@@ -221,16 +225,18 @@ const Rapports = () => {
         const allSoldInHectare = hectareParcelles.filter(p => p.status === "vendu");
         // Appliquer le filtre de période et de type de vente aux parcelles vendues dans cet hectare
         const soldInHectare = filterBySaleType(filterByPeriod(allSoldInHectare));
+        const totalParcellesInHectare = hectareParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+        const soldCountInHectare = soldInHectare.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
         const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : (p.payment_type === 'partiel' ? Number(p.amount_paid || 0) : Number(p.prix || 0))), 0);
-        const salesRateInHectare = hectareParcelles.length > 0
-          ? (soldInHectare.length / hectareParcelles.length) * 100
+        const salesRateInHectare = totalParcellesInHectare > 0
+          ? (soldCountInHectare / totalParcellesInHectare) * 100
           : 0;
 
         return {
           id: hectare.id,
           name: hectare.name,
-          totalParcelles: hectareParcelles.length,
-          soldParcelles: soldInHectare.length,
+          totalParcelles: totalParcellesInHectare,
+          soldParcelles: soldCountInHectare,
           revenue: revenueInHectare,
           salesRate: salesRateInHectare,
         };
@@ -1195,10 +1201,11 @@ const Rapports = () => {
       pdf.text("RÉSUMÉ DU MOIS", 20, yPos);
       yPos += 10;
 
+      const soldParcellesUnits = soldParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
       const summaryData = [
-        ["Nombre de ventes (parcelles)", `${soldParcelles.length}`],
-        ["Nombre de ventes (hectares)", `${soldHectares.length}`],
-        ["Total ventes", `${soldParcelles.length + soldHectares.length}`],
+        ["Nombre de parcelles vendues", `${soldParcellesUnits}`],
+        ["Nombre d'hectares vendus", `${soldHectares.length}`],
+        ["Total acquisitions", `${soldParcellesUnits + soldHectares.length}`],
         ["Revenus total", `${formatPrice(totalRevenue)} USD`],
       ];
 
@@ -1657,7 +1664,7 @@ const Rapports = () => {
                 }`}
               >
                 <Grid3x3 className="w-3.5 h-3.5" />
-                Parcelles ({soldParcellesList.length})
+                Parcelles ({soldParcellesList.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0)})
               </button>
               <button
                 type="button"
@@ -1700,6 +1707,7 @@ const Rapports = () => {
                       const isFree = p.sale_type === "onereux";
                       const remaining = isFree ? 0 : (p.prix - (p.amount_paid || 0));
                       const isDuplicateRMB = p.rmb_number && duplicateRMBs.includes(p.rmb_number);
+                      const pCount = Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
                       return (
                         <tr 
                           key={p.id} 
@@ -1709,7 +1717,14 @@ const Rapports = () => {
                         >
                           <td className="p-3 font-semibold text-foreground">
                             <div className="flex flex-col">
-                              <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>Parcelle {p.numero}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>Parcelle {p.numero}</span>
+                                {pCount > 1 && (
+                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                    {pCount} parcelles ({p.surface} m²)
+                                  </span>
+                                )}
+                              </div>
                               {p.rmb_number && (
                                 <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${
                                   isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"

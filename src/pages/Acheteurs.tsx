@@ -257,7 +257,7 @@ const Acheteurs = () => {
           });
         }
 
-        const acheteur = acheteursMap.get(buyerKey)!;
+        const parcelleCount = Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
         acheteur.parcelles.push({
           id: parcelle.id,
           numero: parcelle.numero,
@@ -273,9 +273,10 @@ const Acheteurs = () => {
           rmb_number: parcelle.rmb_number,
           paper_form_completed: parcelle.paper_form_completed ?? false,
           hectares: parcelle.hectares,
+          nombreParcelles: parcelleCount,
         });
         acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : (parcelle.payment_type === 'partiel' ? Number(parcelle.amount_paid || 0) : Number(parcelle.prix || 0));
-        acheteur.nombreParcelles += 1;
+        acheteur.nombreParcelles += parcelleCount;
         
         // Si une parcelle n'est pas complétée, l'acheteur n'est pas complété
         if (!parcelle.paper_form_completed) {
@@ -952,18 +953,24 @@ const Acheteurs = () => {
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
-                            {acheteur.parcelles.map((p, i) => (
-                              <Badge
-                                key={i}
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium whitespace-nowrap"
-                              >
-                                {p.numero}
-                                {p.rmb_number && p.rmb_number !== p.numero && (
-                                  <span className="ml-1 opacity-60">· {p.rmb_number}</span>
-                                )}
-                              </Badge>
-                            ))}
+                            {acheteur.parcelles.map((p, i) => {
+                              const pCount = p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
+                              return (
+                                <Badge
+                                  key={i}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium whitespace-nowrap"
+                                >
+                                  {p.numero}
+                                  {p.rmb_number && p.rmb_number !== p.numero && (
+                                    <span className="ml-1 opacity-60">· {p.rmb_number}</span>
+                                  )}
+                                  {pCount > 1 && (
+                                    <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({pCount} p.)</span>
+                                  )}
+                                </Badge>
+                              );
+                            })}
                           </div>
                         )}
                       </td>

@@ -812,7 +812,14 @@ const Parcelles = () => {
                     <Grid3x3 className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm">Parcelle {parcelle.numero}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-sm">Parcelle {parcelle.numero}</h3>
+                      {Math.ceil(Number(parcelle.surface || 600) / 600) > 1 && (
+                        <Badge className="text-[10px] bg-emerald-600 text-white font-semibold px-1.5 py-0">
+                          {Math.ceil(Number(parcelle.surface || 600) / 600)} parcelles
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{parcelle.surface} m²</p>
                   </div>
                 </div>

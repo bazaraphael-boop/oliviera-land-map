@@ -144,21 +144,24 @@ const Dashboard = () => {
         return sum + (h.sale_type === 'onereux' ? 0 : Number(h.amount_paid || h.prix));
       }, 0);
 
-      const totalParcelles = parcelles?.length || 0;
+      const totalParcelles = parcelles?.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0) || 0;
+      const soldParcellesCount = soldParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+      const availableCount = availableParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+
       const averagePrice = totalParcelles > 0
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / totalParcelles
         : 0;
       const salesRate = totalParcelles > 0
-        ? (soldParcelles.length / totalParcelles) * 100
+        ? (soldParcellesCount / totalParcelles) * 100
         : 0;
 
       setStats({
         totalRevenue,
         salesRate,
         averagePrice,
-        available: availableParcelles.length,
+        available: availableCount,
         totalParcelles,
-        soldParcelles: soldParcelles.length + soldHectares.length,
+        soldParcelles: soldParcellesCount + soldHectares.length,
       });
 
       // Calculer les données mensuelles
@@ -208,9 +211,11 @@ const Dashboard = () => {
       const hectareStatsData = hectares?.map(hectare => {
         const hectareParcelles = parcelles?.filter(p => p.hectare_id === hectare.id) || [];
         const soldInHectare = hectareParcelles.filter(p => p.status === "vendu");
+        const totalInHectare = hectareParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
+        const soldCountInHectare = soldInHectare.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
         const revenueInHectare = soldInHectare.reduce((sum, p) => sum + (p.sale_type === 'onereux' ? 0 : Number(p.amount_paid || p.prix)), 0);
-        const salesRateInHectare = hectareParcelles.length > 0
-          ? (soldInHectare.length / hectareParcelles.length) * 100
+        const salesRateInHectare = totalInHectare > 0
+          ? (soldCountInHectare / totalInHectare) * 100
           : 0;
 
         return {
