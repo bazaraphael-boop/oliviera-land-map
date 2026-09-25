@@ -5,12 +5,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, Package } from "lucide-react";
+import { Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, Package, ListOrdered, Hash } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
+import { MissingNumbersDialog } from "@/components/MissingNumbersDialog";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,7 @@ const Hectares = () => {
   const [selectedParcelle, setSelectedParcelle] = useState<any | null>(null);
   const [parcelleDetailsOpen, setParcelleDetailsOpen] = useState(false);
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
+  const [missingDialogOpen, setMissingDialogOpen] = useState(false);
   const [parcelleCountByHectare, setParcelleCountByHectare] = useState<{ [key: string]: number }>({});
   const [formData, setFormData] = useState({
     name: "",
@@ -371,6 +373,16 @@ const Hectares = () => {
               className="pl-12 h-12 text-base border-2"
             />
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setMissingDialogOpen(true)}
+            className="h-12 gap-2 border-orange-500/30 hover:bg-orange-500/10 text-foreground"
+          >
+            <ListOrdered className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            <span className="hidden sm:inline">Numéros manquants</span>
+            <span className="sm:hidden">Ordre</span>
+          </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
@@ -1348,6 +1360,14 @@ const Hectares = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <MissingNumbersDialog
+        open={missingDialogOpen}
+        onOpenChange={setMissingDialogOpen}
+        hectares={hectares}
+        parcelles={parcelles}
+        defaultHectareId={selectedHectare?.id}
+      />
     </div>
   );
 };

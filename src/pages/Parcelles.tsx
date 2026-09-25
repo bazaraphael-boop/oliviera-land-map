@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { HectareSelector } from "@/components/HectareSelector";
 import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
+import { MissingNumbersDialog } from "@/components/MissingNumbersDialog";
+import { auditHectare } from "@/lib/numberingAudit";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
@@ -78,6 +80,7 @@ const Parcelles = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [missingDialogOpen, setMissingDialogOpen] = useState(false);
   const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedHectare, setSelectedHectare] = useState<string>(
@@ -157,28 +160,32 @@ const Parcelles = () => {
 
       // Exclure les hectares contenant "ISETECH"
       if (selectedHec.name.toUpperCase().includes("ISETECH")) {
-        // Optionnel : on peut vider le numéro existant ou le laisser tel quel
         setFormData(prev => ({ ...prev, numero: "" }));
         return;
       }
 
-      const prefix = getHectarePrefix(selectedHec.name);
-
-      // Compter le nombre de parcelles déjà existantes dans cet hectare
-      const { count, error } = await supabase
+      // Récupérer toutes les parcelles déjà créées pour cet hectare
+      const { data: hParcelles, error } = await supabase
         .from("parcelles")
-        .select("id", { count: "exact", head: true })
+        .select("id, numero, hectare_id, status")
         .eq("hectare_id", hectareId);
 
       if (error) throw error;
 
-      const nextNum = (count || 0) + 1;
-      const autoNumero = `${prefix}/${nextNum}`;
+      // Audit intelligent : détecte les trous et propose le premier numéro manquant ou le suivant
+      const audit = auditHectare(selectedHec, hParcelles || [], 16);
+      const autoNumero = audit.nextSuggestedNumero;
 
       setFormData(prev => ({
         ...prev,
         numero: autoNumero
       }));
+
+      if (audit.hasGaps) {
+        toast.info(`Trou comblé : ${autoNumero} suggéré pour rétablir l'ordre`, {
+          duration: 3500,
+        });
+      }
     } catch (err) {
       console.error("Erreur lors du calcul automatique du numéro de parcelle:", err);
     }
@@ -648,6 +655,16 @@ const Parcelles = () => {
               className="pl-10"
             />
           </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setMissingDialogOpen(true)}
+            className="gap-2 border-orange-500/30 hover:bg-orange-500/10 text-foreground"
+          >
+            <ListOrdered className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <span className="hidden sm:inline">Numéros manquants</span>
+            <span className="sm:hidden">Ordre</span>
+          </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -1218,6 +1235,22 @@ const Parcelles = () => {
             }}
           />
         )}
+
+        <MissingNumbersDialog
+          open={missingDialogOpen}
+          onOpenChange={setMissingDialogOpen}
+          hectares={hectares}
+          parcelles={allParcelles.length > 0 ? allParcelles : parcelles}
+          defaultHectareId={selectedHectare !== "all" ? selectedHectare : undefined}
+          onCreateParcelle={(hectareId, suggestedNumero) => {
+            setFormData((prev) => ({
+              ...prev,
+              hectare_id: hectareId,
+              numero: suggestedNumero,
+            }));
+            setIsDialogOpen(true);
+          }}
+        />
       </div>
     </div>
   );

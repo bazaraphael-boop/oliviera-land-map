@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { HectareSelector } from "@/components/HectareSelector";
+import { auditHectare } from "@/lib/numberingAudit";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -699,23 +700,28 @@ const Dashboard = () => {
         return;
       }
 
-      const prefix = getHectarePrefix(selectedHec.name);
-
-      // Compter le nombre de parcelles déjà existantes dans cet hectare
-      const { count, error } = await supabase
+      // Récupérer toutes les parcelles déjà créées pour cet hectare
+      const { data: hParcelles, error } = await supabase
         .from("parcelles")
-        .select("id", { count: "exact", head: true })
+        .select("id, numero, hectare_id, status")
         .eq("hectare_id", hectareId);
 
       if (error) throw error;
 
-      const nextNum = (count || 0) + 1;
-      const autoNumero = `${prefix}/${nextNum}`;
+      // Audit intelligent : comble les trous dans la séquence en priorité
+      const audit = auditHectare(selectedHec, hParcelles || [], 16);
+      const autoNumero = audit.nextSuggestedNumero;
 
       setParcelleForm(prev => ({
         ...prev,
         numero: autoNumero
       }));
+
+      if (audit.hasGaps) {
+        toast.info(`Trou comblé : ${autoNumero} suggéré pour rétablir l'ordre`, {
+          duration: 3500,
+        });
+      }
     } catch (err) {
       console.error("Erreur lors du calcul du numéro de parcelle:", err);
     }
