@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   User, MapPin, Phone, Mail, Calendar, DollarSign, 
   Briefcase, Heart, Baby, Home, Globe, ChevronRight, 
-  ChevronDown, FileText, FolderOpen, Pencil
+  ChevronDown, FileText, FolderOpen, Pencil, AlertTriangle, CheckCircle2
 } from "lucide-react";
 import { BuyerDocuments } from "@/components/BuyerDocuments";
 
@@ -70,6 +70,8 @@ interface Acheteur {
   totalAchat: number;
   nombreParcelles: number;
   nombreHectares: number;
+  documents_count?: number;
+  has_documents?: boolean;
 }
 
 interface BuyerDetailsDialogProps {
@@ -402,7 +404,22 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
             </CollapsibleSection>
 
             {/* Section Documents - collapsible */}
-            <CollapsibleSection title="Documents" icon={FolderOpen} defaultOpen={false}>
+            <CollapsibleSection 
+              title={`Documents & Pièces Justificatives ${acheteur.has_documents ? `(${acheteur.documents_count})` : '(0 - Manquant)'}`} 
+              icon={FolderOpen} 
+              defaultOpen={!acheteur.has_documents}
+            >
+              {!acheteur.has_documents && (
+                <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-300">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Dossier incomplet : Aucun document n'est rattaché</span>
+                    <span className="text-[11px] opacity-90">
+                      Ce concessionnaire ne possède aucun contrat, acte de vente ou pièce d'identité archivé. Veuillez en ajouter ci-dessous pour régulariser son dossier.
+                    </span>
+                  </div>
+                </div>
+              )}
               <BuyerDocuments 
                 buyerId={acheteur.id}
                 buyerName={acheteur.buyer_name}

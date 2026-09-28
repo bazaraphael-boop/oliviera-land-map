@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, Map as MapIcon, Phone, Mail } from "lucide-react";
+import { 
+  Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, 
+  Map as MapIcon, Phone, Mail, Download, AlertTriangle, CheckCircle2, 
+  Calendar, FileSpreadsheet, FileText, Loader2, ArrowUpDown
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
+import { jsPDF } from "jspdf";
+import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +62,7 @@ interface Acheteur {
     surface: number;
     prix: number;
     sale_date: string | null;
+    created_at?: string;
     hectare_id: string;
     payment_type: string;
     amount_paid: number;
@@ -64,6 +71,7 @@ interface Acheteur {
     purchase_type: string | null;
     rmb_number: string | null;
     paper_form_completed: boolean;
+    nombreParcelles?: number;
     hectares?: {
       name: string;
       location: string;
@@ -75,6 +83,7 @@ interface Acheteur {
     surface: number;
     prix: number;
     sale_date: string | null;
+    created_at?: string;
     location: string | null;
     payment_type: string;
     amount_paid: number;
@@ -88,6 +97,10 @@ interface Acheteur {
   nombreParcelles: number;
   nombreHectares: number;
   paper_form_completed: boolean;
+  documents_count: number;
+  has_documents: boolean;
+  first_date: string | null;
+  latest_date: string | null;
 }
 
 const Acheteurs = () => {
@@ -102,6 +115,16 @@ const Acheteurs = () => {
   const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
   const [showEditIdentificationDialog, setShowEditIdentificationDialog] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  // Filtre par statut des documents ("all" | "missing" | "with")
+  const [docFilter, setDocFilter] = useState<"all" | "missing" | "with">("all");
+
+  // État de l'exportation par date
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState<string>("");
+  const [exportEndDate, setExportEndDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [exportDocStatus, setExportDocStatus] = useState<"all" | "missing" | "with">("all");
+  const [exportSortOrder, setExportSortOrder] = useState<"date_desc" | "date_asc" | "name_asc">("date_desc");
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [availableHectares, setAvailableHectares] = useState<any[]>([]);
   const [availableParcelles, setAvailableParcelles] = useState<any[]>([]);
   const [allParcellesInSelectedHectare, setAllParcellesInSelectedHectare] = useState<any[]>([]);
@@ -254,6 +277,10 @@ const Acheteurs = () => {
             nombreParcelles: 0,
             nombreHectares: 0,
             paper_form_completed: true,
+            documents_count: 0,
+            has_documents: false,
+            first_date: null,
+            latest_date: null,
           });
         }
 
@@ -265,6 +292,7 @@ const Acheteurs = () => {
           surface: parcelle.surface,
           prix: parcelle.prix,
           sale_date: parcelle.sale_date,
+          created_at: parcelle.created_at,
           hectare_id: parcelle.hectare_id,
           payment_type: parcelle.payment_type,
           amount_paid: parcelle.amount_paid || 0,
@@ -321,6 +349,10 @@ const Acheteurs = () => {
             nombreParcelles: 0,
             nombreHectares: 0,
             paper_form_completed: true,
+            documents_count: 0,
+            has_documents: false,
+            first_date: null,
+            latest_date: null,
           });
         }
 
@@ -331,6 +363,7 @@ const Acheteurs = () => {
           surface: hectare.surface,
           prix: hectare.prix,
           sale_date: hectare.sale_date,
+          created_at: hectare.created_at,
           location: hectare.location,
           payment_type: hectare.payment_type,
           amount_paid: hectare.amount_paid || 0,
@@ -354,6 +387,68 @@ const Acheteurs = () => {
         if (hectare.buyer_email && !acheteur.buyer_email) {
           acheteur.buyer_email = hectare.buyer_email;
         }
+      });
+
+      // Récupérer les documents parcelles et documents acheteurs pour détecter les dossiers complets/incomplets
+      const [{ data: allParcelDocs }, { data: allBuyerDocs }] = await Promise.all([
+        supabase.from("documents").select("id, parcelle_id"),
+        supabase.from("buyer_documents").select("id, buyer_id")
+      ]);
+
+      const parcelDocsCount = new Map<string, number>();
+      allParcelDocs?.forEach((doc) => {
+        if (doc.parcelle_id) {
+          parcelDocsCount.set(doc.parcelle_id, (parcelDocsCount.get(doc.parcelle_id) || 0) + 1);
+        }
+      });
+
+      const buyerDocsCount = new Map<string, number>();
+      allBuyerDocs?.forEach((doc) => {
+        if (doc.buyer_id) {
+          const k = doc.buyer_id.toLowerCase().trim();
+          buyerDocsCount.set(k, (buyerDocsCount.get(k) || 0) + 1);
+        }
+      });
+
+      // Associer documents et dates à chaque concessionnaire
+      acheteursMap.forEach((acheteur) => {
+        let pDocs = 0;
+        const allDates: string[] = [];
+
+        acheteur.parcelles.forEach((p) => {
+          pDocs += (parcelDocsCount.get(p.id) || 0);
+          if (p.sale_date) allDates.push(p.sale_date);
+          else if (p.created_at) allDates.push(p.created_at);
+        });
+
+        let bDocs = 0;
+        const bId = acheteur.id;
+        const bName = acheteur.buyer_name.toLowerCase().trim();
+
+        if (buyerDocsCount.has(bId)) {
+          bDocs += buyerDocsCount.get(bId) || 0;
+        }
+        if (bName !== bId && buyerDocsCount.has(bName)) {
+          bDocs += buyerDocsCount.get(bName) || 0;
+        }
+        buyerDocsCount.forEach((cnt, docBuyerKey) => {
+          if (docBuyerKey !== bId && docBuyerKey !== bName && docBuyerKey.startsWith(bName)) {
+            bDocs += cnt;
+          }
+        });
+
+        acheteur.hectares.forEach((h) => {
+          if (h.sale_date) allDates.push(h.sale_date);
+          else if (h.created_at) allDates.push(h.created_at);
+        });
+
+        allDates.sort();
+        acheteur.first_date = allDates[0] || null;
+        acheteur.latest_date = allDates[allDates.length - 1] || null;
+
+        const totalDocs = pDocs + bDocs;
+        acheteur.documents_count = totalDocs;
+        acheteur.has_documents = totalDocs > 0;
       });
 
       const acheteursArray = Array.from(acheteursMap.values()).sort((a, b) => {
@@ -766,11 +861,429 @@ const Acheteurs = () => {
     }
   };
 
-  const filteredAcheteurs = acheteurs.filter((a) =>
-    a.buyer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.buyer_phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.buyer_email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const formatDateDisplay = (dateStr?: string | null) => {
+    if (!dateStr) return "—";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const missingDocsCount = useMemo(() => {
+    return acheteurs.filter((a) => !a.has_documents).length;
+  }, [acheteurs]);
+
+  const withDocsCount = useMemo(() => {
+    return acheteurs.filter((a) => a.has_documents).length;
+  }, [acheteurs]);
+
+  const filteredAcheteurs = useMemo(() => {
+    return acheteurs.filter((a) => {
+      // Filtre de documents
+      if (docFilter === "missing" && a.has_documents) return false;
+      if (docFilter === "with" && !a.has_documents) return false;
+
+      // Filtre de recherche
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const matchName = a.buyer_name.toLowerCase().includes(term);
+        const matchPhone = a.buyer_phone?.toLowerCase().includes(term);
+        const matchEmail = a.buyer_email?.toLowerCase().includes(term);
+        const matchParcelles = a.parcelles.some(
+          (p) =>
+            p.numero.toLowerCase().includes(term) ||
+            (p.rmb_number && p.rmb_number.toLowerCase().includes(term))
+        );
+        const matchHectares = a.hectares.some(
+          (h) =>
+            h.name.toLowerCase().includes(term) ||
+            (h.rmb_number && h.rmb_number.toLowerCase().includes(term))
+        );
+        return matchName || matchPhone || matchEmail || matchParcelles || matchHectares;
+      }
+
+      return true;
+    });
+  }, [acheteurs, docFilter, searchTerm]);
+
+  // Raccourcis de sélection de date pour l'export
+  const handleSetDatePreset = (preset: "all" | "today" | "this_month" | "last_30" | "this_year") => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (preset === "all") {
+      setExportStartDate("");
+      setExportEndDate("");
+    } else if (preset === "today") {
+      setExportStartDate(todayStr);
+      setExportEndDate(todayStr);
+    } else if (preset === "this_month") {
+      const now = new Date();
+      const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      setExportStartDate(firstDay);
+      setExportEndDate(todayStr);
+    } else if (preset === "last_30") {
+      const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      setExportStartDate(d.toISOString().split("T")[0]);
+      setExportEndDate(todayStr);
+    } else if (preset === "this_year") {
+      const now = new Date();
+      setExportStartDate(`${now.getFullYear()}-01-01`);
+      setExportEndDate(todayStr);
+    }
+  };
+
+  // Liste des concessionnaires filtrée et triée pour l'exportation
+  const buyersForExport = useMemo(() => {
+    let list = acheteurs.filter((a) => {
+      // Filtre statut document
+      if (exportDocStatus === "missing" && a.has_documents) return false;
+      if (exportDocStatus === "with" && !a.has_documents) return false;
+
+      // Filtre date
+      if (exportStartDate || exportEndDate) {
+        const dates = [
+          ...a.parcelles.map((p) => p.sale_date || p.created_at),
+          ...a.hectares.map((h) => h.sale_date || h.created_at),
+        ].filter(Boolean) as string[];
+
+        if (dates.length === 0) {
+          return false;
+        }
+
+        const matchesRange = dates.some((dStr) => {
+          const d = new Date(dStr);
+          if (isNaN(d.getTime())) return false;
+          const ymd = d.toISOString().split("T")[0];
+          if (exportStartDate && ymd < exportStartDate) return false;
+          if (exportEndDate && ymd > exportEndDate) return false;
+          return true;
+        });
+
+        if (!matchesRange) return false;
+      }
+
+      return true;
+    });
+
+    // Tri
+    list = [...list].sort((a, b) => {
+      if (exportSortOrder === "name_asc") {
+        return a.buyer_name.localeCompare(b.buyer_name, "fr", { sensitivity: "base" });
+      }
+
+      const dateA = a.latest_date || a.first_date || "";
+      const dateB = b.latest_date || b.first_date || "";
+
+      if (exportSortOrder === "date_asc") {
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateA.localeCompare(dateB);
+      } else {
+        // date_desc
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateB.localeCompare(dateA);
+      }
+    });
+
+    return list;
+  }, [acheteurs, exportStartDate, exportEndDate, exportDocStatus, exportSortOrder]);
+
+  // Exportation CSV (compatible Excel avec BOM UTF-8)
+  const handleExportCSV = () => {
+    if (buyersForExport.length === 0) {
+      notify("Attention", "Aucun concessionnaire à exporter avec ces critères.", "error");
+      return;
+    }
+
+    const headers = [
+      "Date d'ajout / vente",
+      "Nom complet",
+      "Téléphone",
+      "Email",
+      "Profession",
+      "Adresse",
+      "Parcelles & RMB",
+      "Hectares & RMB",
+      "Surface Totale (m2)",
+      "Montant Total (USD)",
+      "Statut Document",
+      "Nombre Documents",
+    ];
+
+    const rows = buyersForExport.map((a) => {
+      const dateDisplay = a.latest_date
+        ? new Date(a.latest_date).toLocaleDateString("fr-FR")
+        : a.first_date
+        ? new Date(a.first_date).toLocaleDateString("fr-FR")
+        : "N/A";
+
+      const parcellesList = a.parcelles
+        .map((p) => `P.${p.numero}${p.rmb_number ? ` [${p.rmb_number}]` : ""}`)
+        .join(", ");
+
+      const hectaresList = a.hectares
+        .map((h) => `${h.name}${h.rmb_number ? ` [${h.rmb_number}]` : ""}`)
+        .join(", ");
+
+      const totalSurface =
+        a.parcelles.reduce((sum, p) => sum + (p.surface || 0), 0) +
+        a.hectares.reduce((sum, h) => sum + (h.surface || 0), 0);
+
+      const docStatus = a.has_documents
+        ? `Document joint (${a.documents_count})`
+        : "NON AJOUTÉ (MANQUANT)";
+
+      return [
+        dateDisplay,
+        `"${(a.buyer_name || "").replace(/"/g, '""')}"`,
+        `"${(a.buyer_phone || "").replace(/"/g, '""')}"`,
+        `"${(a.buyer_email || "").replace(/"/g, '""')}"`,
+        `"${(a.buyer_profession || "").replace(/"/g, '""')}"`,
+        `"${(a.buyer_address || "").replace(/"/g, '""')}"`,
+        `"${parcellesList.replace(/"/g, '""')}"`,
+        `"${hectaresList.replace(/"/g, '""')}"`,
+        totalSurface,
+        a.totalAchat,
+        `"${docStatus}"`,
+        a.documents_count || 0,
+      ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `liste-concessionnaires-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    notify("Succès", `Export CSV téléchargé (${buyersForExport.length} concessionnaires)`, "success");
+  };
+
+  // Exportation PDF officiel avec mise en page soignée et en-tête de la concession
+  const handleExportPDF = async () => {
+    if (buyersForExport.length === 0) {
+      notify("Attention", "Aucun concessionnaire à exporter avec ces critères.", "error");
+      return;
+    }
+
+    try {
+      setIsExportingPdf(true);
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+      const img = new Image();
+      img.src = headerImage;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const pdfWidth = 297;
+      const pdfHeight = 210;
+      const imgRatio = img.height / img.width;
+      const headerHeight = Math.min(pdfWidth * imgRatio, 32);
+      const imgWidth = headerHeight / imgRatio;
+      const imgX = (pdfWidth - imgWidth) / 2;
+      pdf.addImage(headerImage, "JPEG", imgX, 4, imgWidth, headerHeight);
+
+      let yPos = headerHeight + 10;
+
+      // Titre
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(
+        "LISTE DES CONCESSIONNAIRES & SUIVI DES PIÈCES JUSTIFICATIVES",
+        pdfWidth / 2,
+        yPos,
+        { align: "center" }
+      );
+      yPos += 6;
+
+      // Sous-titre Période et Date
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 116, 139);
+      const periodeLabel =
+        exportStartDate || exportEndDate
+          ? `Période : Du ${formatDateDisplay(exportStartDate || "le début")} au ${formatDateDisplay(
+              exportEndDate || new Date().toISOString()
+            )}`
+          : "Période : Toutes dates confondues";
+      pdf.text(
+        `${periodeLabel} · Généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
+        pdfWidth / 2,
+        yPos,
+        { align: "center" }
+      );
+      yPos += 8;
+
+      // Cadre de synthèse
+      const totalSelected = buyersForExport.length;
+      const missingCount = buyersForExport.filter((b) => !b.has_documents).length;
+      const withDocsCountInExport = totalSelected - missingCount;
+      const totalAmount = buyersForExport.reduce((sum, b) => sum + b.totalAchat, 0);
+
+      pdf.setFillColor(248, 250, 252);
+      pdf.setDrawColor(226, 232, 240);
+      pdf.roundedRect(15, yPos, 267, 10, 1.5, 1.5, "FD");
+
+      pdf.setFontSize(8.5);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(15, 23, 42);
+      pdf.text(`Total concessionnaires : ${totalSelected}`, 20, yPos + 6.5);
+
+      if (missingCount > 0) {
+        pdf.setTextColor(220, 38, 38);
+        pdf.text(`⚠ Documents manquants : ${missingCount}`, 85, yPos + 6.5);
+      } else {
+        pdf.setTextColor(22, 101, 52);
+        pdf.text(`✓ Tous les dossiers ont des documents`, 85, yPos + 6.5);
+      }
+
+      pdf.setTextColor(22, 101, 52);
+      pdf.text(`Dossiers avec pièces : ${withDocsCountInExport}`, 160, yPos + 6.5);
+
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(`Montant total : ${totalAmount.toLocaleString()} USD`, 225, yPos + 6.5);
+
+      yPos += 14;
+
+      // En-têtes du tableau
+      const drawTableHeader = () => {
+        pdf.setFillColor(241, 245, 249);
+        pdf.setDrawColor(203, 213, 225);
+        pdf.rect(15, yPos, 267, 7, "FD");
+        pdf.setFontSize(7.5);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(51, 65, 85);
+
+        pdf.text("N°", 17, yPos + 4.5);
+        pdf.text("Date", 25, yPos + 4.5);
+        pdf.text("Nom du concessionnaire", 48, yPos + 4.5);
+        pdf.text("Contact (Tél / Email)", 115, yPos + 4.5);
+        pdf.text("Biens acquis (Parcelles & Hectares)", 165, yPos + 4.5);
+        pdf.text("Total Payé", 225, yPos + 4.5);
+        pdf.text("Statut Document", 250, yPos + 4.5);
+        yPos += 7;
+      };
+
+      drawTableHeader();
+
+      // Lignes du tableau
+      buyersForExport.forEach((b, idx) => {
+        if (yPos > 190) {
+          pdf.addPage();
+          yPos = 15;
+          drawTableHeader();
+        }
+
+        // Alternance de fond
+        if (idx % 2 === 1) {
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(15, yPos, 267, 8, "F");
+        }
+
+        // Fond spécifique si document manquant
+        if (!b.has_documents) {
+          pdf.setFillColor(254, 242, 242);
+          pdf.rect(15, yPos, 267, 8, "F");
+        }
+
+        pdf.setDrawColor(241, 245, 249);
+        pdf.line(15, yPos + 8, 282, yPos + 8);
+
+        pdf.setFontSize(7.5);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(30, 41, 59);
+
+        // N°
+        pdf.text(`${idx + 1}`, 17, yPos + 5.5);
+
+        // Date
+        const dateStr = b.latest_date || b.first_date;
+        pdf.text(formatDateDisplay(dateStr), 25, yPos + 5.5);
+
+        // Nom
+        pdf.setFont("helvetica", "bold");
+        const truncatedName =
+          b.buyer_name.length > 32 ? b.buyer_name.slice(0, 30) + "…" : b.buyer_name;
+        pdf.text(truncatedName, 48, yPos + 5.5);
+
+        // Contact
+        pdf.setFont("helvetica", "normal");
+        const contactStr = b.buyer_phone || b.buyer_email || "—";
+        const truncatedContact =
+          contactStr.length > 25 ? contactStr.slice(0, 23) + "…" : contactStr;
+        pdf.text(truncatedContact, 115, yPos + 5.5);
+
+        // Biens
+        const parcelsStr = b.parcelles
+          .map((p) => `P.${p.numero}${p.rmb_number ? ` (${p.rmb_number})` : ""}`)
+          .join(", ");
+        const hectStr = b.hectares
+          .map((h) => `${h.name}${h.rmb_number ? ` (${h.rmb_number})` : ""}`)
+          .join(", ");
+        const biensText = [parcelsStr, hectStr].filter(Boolean).join(" · ") || "—";
+        const truncatedBiens = biensText.length > 36 ? biensText.slice(0, 34) + "…" : biensText;
+        pdf.text(truncatedBiens, 165, yPos + 5.5);
+
+        // Montant
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`${b.totalAchat.toLocaleString()} $`, 225, yPos + 5.5);
+
+        // Statut Document
+        if (!b.has_documents) {
+          pdf.setTextColor(220, 38, 38);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("⚠ NON AJOUTÉ", 250, yPos + 5.5);
+        } else {
+          pdf.setTextColor(22, 101, 52);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(`✓ Joint (${b.documents_count})`, 250, yPos + 5.5);
+        }
+
+        yPos += 8;
+      });
+
+      // Pagination
+      const pageCount = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(7.5);
+        pdf.setFont("helvetica", "italic");
+        pdf.setTextColor(148, 163, 184);
+        pdf.text(
+          `Page ${i} sur ${pageCount} · Concession Manuel Joaquim d'Oliveira · Document administratif officiel`,
+          pdfWidth / 2,
+          204,
+          { align: "center" }
+        );
+      }
+
+      pdf.save(`liste-concessionnaires-${new Date().toISOString().split("T")[0]}.pdf`);
+      notify(
+        "Succès",
+        `Rapport PDF téléchargé avec succès (${buyersForExport.length} concessionnaires)`,
+        "success"
+      );
+    } catch (err: any) {
+      console.error("Erreur génération PDF acheteurs:", err);
+      notify("Erreur", `Génération PDF : ${err.message || "Erreur inconnue"}`, "error");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -832,7 +1345,18 @@ const Acheteurs = () => {
               </button>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-muted rounded-lg">
+            <Button
+              variant="outline"
+              onClick={() => setShowExportDialog(true)}
+              className="h-11 px-3 sm:px-4 border-primary/30 hover:bg-primary/10 text-foreground flex items-center gap-2"
+              title="Télécharger la liste des concessionnaires par date (PDF ou Excel)"
+            >
+              <Download className="w-4 h-4 text-primary" />
+              <span className="hidden md:inline">Télécharger liste</span>
+              <span className="md:hidden">Export</span>
+            </Button>
+
+            <div className="hidden lg:flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg">
               <User className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium">{filteredAcheteurs.length} concessionnaire{filteredAcheteurs.length > 1 ? 's' : ''}</span>
             </div>
@@ -845,6 +1369,45 @@ const Acheteurs = () => {
           </div>
         </div>
 
+        {/* Filtres rapides par statut des documents justificatifs */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setDocFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              docFilter === "all"
+                ? "bg-foreground text-background shadow-xs"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Tous les concessionnaires ({acheteurs.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDocFilter("missing")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              docFilter === "missing"
+                ? "bg-red-600 text-white shadow-xs"
+                : "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20 border border-red-500/30"
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            ⚠️ Documents non ajoutés ({missingDocsCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDocFilter("with")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              docFilter === "with"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            ✓ Avec documents ({withDocsCount})
+          </button>
+        </div>
+
         {/* Statistics Cards */}
         <div className="mb-6">
           <BuyerStatsCards 
@@ -852,6 +1415,8 @@ const Acheteurs = () => {
             totalRevenu={acheteurs.reduce((sum, a) => sum + a.totalAchat, 0)}
             totalParcelles={acheteurs.reduce((sum, a) => sum + a.nombreParcelles, 0)}
             totalHectares={acheteurs.reduce((sum, a) => sum + a.nombreHectares, 0)}
+            missingDocsCount={missingDocsCount}
+            onFilterMissingDocs={() => setDocFilter(docFilter === "missing" ? "all" : "missing")}
           />
         </div>
 
@@ -904,6 +1469,12 @@ const Acheteurs = () => {
                     <span className="flex items-center gap-1"><MapIcon className="w-3.5 h-3.5" /> Hectares</span>
                   </th>
                   <th className="text-right px-4 py-3 font-semibold text-foreground text-xs uppercase tracking-wider whitespace-nowrap">Total payé</th>
+                  <th className="text-center px-4 py-3 font-semibold text-foreground text-xs uppercase tracking-wider whitespace-nowrap">
+                    <span className="flex items-center justify-center gap-1"><FileText className="w-3.5 h-3.5" /> Documents</span>
+                  </th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground text-xs uppercase tracking-wider whitespace-nowrap">
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Date</span>
+                  </th>
                   <th className="px-4 py-3 w-24"></th>
                 </tr>
               </thead>
@@ -1004,6 +1575,32 @@ const Acheteurs = () => {
                           {acheteur.totalAchat.toLocaleString()}
                         </span>
                         <span className="text-xs font-normal text-muted-foreground ml-1">USD</span>
+                      </td>
+
+                      {/* Statut Documents */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {!acheteur.has_documents ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-[10px] font-bold gap-1 px-2 py-0.5 inline-flex"
+                          >
+                            <AlertTriangle className="w-3 h-3 text-red-600 shrink-0" />
+                            <span>Non ajouté</span>
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-medium gap-1 px-2 py-0.5 inline-flex"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{acheteur.documents_count} doc{(acheteur.documents_count || 0) > 1 ? 's' : ''}</span>
+                          </Badge>
+                        )}
+                      </td>
+
+                      {/* Date */}
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                        {formatDateDisplay(acheteur.latest_date || acheteur.first_date)}
                       </td>
 
                       {/* Actions */}
@@ -1805,6 +2402,216 @@ const Acheteurs = () => {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Télécharger la liste des concessionnaires (Export par date & documents) */}
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogContent className="max-w-xl bg-card border-border shadow-2xl">
+            <DialogHeader className="border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold">Télécharger la liste des concessionnaires</DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Filtrez par date d'enregistrement/vente et statut des documents justificatifs.
+                  </p>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-5 py-4">
+              {/* Presets rapides de date */}
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                  Sélection rapide de période
+                </Label>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant={!exportStartDate && !exportEndDate ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleSetDatePreset("all")}
+                  >
+                    Toutes dates
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleSetDatePreset("today")}
+                  >
+                    Aujourd'hui
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleSetDatePreset("last_30")}
+                  >
+                    30 derniers jours
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleSetDatePreset("this_month")}
+                  >
+                    Ce mois-ci
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleSetDatePreset("this_year")}
+                  >
+                    Cette année
+                  </Button>
+                </div>
+              </div>
+
+              {/* Plage personnalisée de dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5 mb-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    Date de début
+                  </Label>
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="bg-background h-9 text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Laisser vide pour remonter au début</p>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5 mb-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    Date de fin
+                  </Label>
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="bg-background h-9 text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Date d'échéance de la liste</p>
+                </div>
+              </div>
+
+              {/* Filtre statut documents & Ordre de tri */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium text-foreground mb-1.5 block">
+                    Statut des pièces justificatives
+                  </Label>
+                  <Select
+                    value={exportDocStatus}
+                    onValueChange={(val: "all" | "missing" | "with") => setExportDocStatus(val)}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue placeholder="Tous les dossiers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les concessionnaires</SelectItem>
+                      <SelectItem value="missing" className="text-red-600 font-medium">
+                        ⚠️ Documents non ajoutés uniquement
+                      </SelectItem>
+                      <SelectItem value="with" className="text-emerald-600 font-medium">
+                        ✓ Avec documents uniquement
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-foreground mb-1.5 block">
+                    Ordre de tri
+                  </Label>
+                  <Select
+                    value={exportSortOrder}
+                    onValueChange={(val: "date_desc" | "date_asc" | "name_asc") => setExportSortOrder(val)}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date_desc">Date la plus récente d'abord</SelectItem>
+                      <SelectItem value="date_asc">Date la plus ancienne d'abord</SelectItem>
+                      <SelectItem value="name_asc">Nom alphabétique (A-Z)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Cadre de synthèse en direct */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/40 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Concessionnaires sélectionnés :</span>
+                  <span className="font-bold text-foreground bg-background px-2 py-0.5 rounded border border-border">
+                    {buyersForExport.length} / {acheteurs.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Dossiers sans document :</span>
+                  {buyersForExport.filter((b) => !b.has_documents).length > 0 ? (
+                    <span className="font-bold text-red-600 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                      ⚠️ {buyersForExport.filter((b) => !b.has_documents).length} dossier(s) incomplet(s)
+                    </span>
+                  ) : (
+                    <span className="font-medium text-emerald-600">✓ Tous ont des documents</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Montant cumulé :</span>
+                  <span className="font-bold text-foreground">
+                    {buyersForExport.reduce((sum, b) => sum + b.totalAchat, 0).toLocaleString()} USD
+                  </span>
+                </div>
+              </div>
+
+              {/* Boutons d'exportation */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={isExportingPdf || buyersForExport.length === 0}
+                  className="flex-1 h-10 font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Génération du PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4" />
+                      Télécharger PDF officiel
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleExportCSV}
+                  disabled={buyersForExport.length === 0}
+                  className="flex-1 h-10 font-semibold gap-2 border-border hover:bg-muted"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  Télécharger Excel (CSV)
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

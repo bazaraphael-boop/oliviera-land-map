@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon } from "lucide-react";
+import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 interface Acheteur {
   id: string;
@@ -15,6 +15,8 @@ interface Acheteur {
   nombreParcelles: number;
   nombreHectares: number;
   paper_form_completed: boolean;
+  documents_count?: number;
+  has_documents?: boolean;
 }
 
 interface BuyerCardProps {
@@ -53,7 +55,26 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
             {isPinned ? <Pin className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" /> : <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-foreground text-sm sm:text-base truncate">{acheteur.buyer_name}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-foreground text-sm sm:text-base truncate">{acheteur.buyer_name}</h3>
+              {!acheteur.has_documents ? (
+                <Badge
+                  variant="outline"
+                  className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-[10px] font-bold gap-1 px-2 py-0.5 shadow-xs"
+                >
+                  <AlertTriangle className="w-3 h-3 text-red-600 shrink-0" />
+                  <span>Document non ajouté</span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-medium gap-1 px-2 py-0.5"
+                >
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>{acheteur.documents_count} doc{(acheteur.documents_count || 0) > 1 ? 's' : ''}</span>
+                </Badge>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
               {acheteur.buyer_phone && (
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
