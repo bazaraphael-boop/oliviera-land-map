@@ -48,6 +48,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
+import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
@@ -138,6 +140,40 @@ const Rapports = () => {
     buyerProfession: "",
     buyerAddress: "",
   });
+
+  // Détection en temps réel d'acquéreurs existants pour l'attribution de numéros manquants
+  const { findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
+  const [missingBuyerSelectedExisting, setMissingBuyerSelectedExisting] = useState<ExistingBuyer | null>(null);
+
+  const missingBuyerMatches = useMemo(() => {
+    if (!missingForm.buyerName || missingForm.buyerName.trim().length < 2) return [];
+    if (
+      missingBuyerSelectedExisting &&
+      normalizeText(missingBuyerSelectedExisting.buyer_name) === normalizeText(missingForm.buyerName)
+    ) {
+      return [];
+    }
+    return findMatchingBuyers(missingForm.buyerName);
+  }, [missingForm.buyerName, missingBuyerSelectedExisting, findMatchingBuyers]);
+
+  const handleSelectBuyerForMissing = (buyer: ExistingBuyer) => {
+    setMissingBuyerSelectedExisting(buyer);
+    setMissingForm((prev) => ({
+      ...prev,
+      buyerName: buyer.buyer_name,
+      buyerPhone: buyer.buyer_phone || prev.buyerPhone,
+      buyerEmail: buyer.buyer_email || prev.buyerEmail,
+      buyerProfession: buyer.buyer_profession || prev.buyerProfession,
+      buyerAddress: buyer.buyer_address || prev.buyerAddress,
+    }));
+    toast.info(
+      `Attribution liée au quota de ${buyer.buyer_name} (${buyer.quotas} quotas actuels)`
+    );
+  };
+
+  const handleDetachBuyerForMissing = () => {
+    setMissingBuyerSelectedExisting(null);
+  };
 
   useEffect(() => {
     checkAuth();
@@ -777,6 +813,7 @@ const Rapports = () => {
               amount_paid: amountPaid,
               remaining_amount: remainingAmount,
               surface: Number(missingForm.surface || 600),
+              merged_group_id: missingBuyerSelectedExisting?.mergedGroupId || crypto.randomUUID(),
             })
             .eq("id", targetParcelleId);
 
@@ -814,6 +851,7 @@ const Rapports = () => {
               payment_type: isOnereux ? "total" : missingForm.paymentType,
               amount_paid: amountPaid,
               remaining_amount: remainingAmount,
+              merged_group_id: missingBuyerSelectedExisting?.mergedGroupId || crypto.randomUUID(),
             })
             .select("id")
             .single();
@@ -894,6 +932,8 @@ const Rapports = () => {
 
       toast.success(`Succès ! Le trou ${rmbTarget} a été attribué et enregistré dans la suite logique.`);
       setMissingModalOpen(false);
+      setMissingBuyerSelectedExisting(null);
+      refetchBuyerDetection();
       await loadStats();
     } catch (err: any) {
       console.error("Erreur enregistrement numéro manquant:", err);
@@ -3651,6 +3691,15 @@ const Rapports = () => {
                     }
                     className="mt-1 h-9 text-xs font-medium"
                     required
+                  />
+                  <BuyerQuotaSuggestion
+                    matches={missingBuyerMatches}
+                    selectedBuyer={missingBuyerSelectedExisting}
+                    onSelectBuyer={handleSelectBuyerForMissing}
+                    onDetachBuyer={handleDetachBuyerForMissing}
+                    itemSurface={missingForm.surface}
+                    itemLabel={missingForm.itemType.startsWith("hectare") ? "cet hectare" : "cette parcelle"}
+                    className="mt-2"
                   />
                 </div>
 

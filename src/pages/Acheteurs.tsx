@@ -37,6 +37,8 @@ import {
 import { BuyerCard } from "@/components/BuyerCard";
 import { BuyerStatsCards } from "@/components/BuyerStatsCards";
 import { BuyerDetailsDialog } from "@/components/BuyerDetailsDialog";
+import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
+import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
 
 interface Acheteur {
   id: string;
@@ -177,6 +179,63 @@ const Acheteurs = () => {
     buyer_territoire: "",
     buyer_province: "",
   });
+
+  // Détection en temps réel d'acquéreurs déjà existants
+  const { findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
+  const [newBuyerSelectedExisting, setNewBuyerSelectedExisting] = useState<ExistingBuyer | null>(null);
+
+  // Surface totale des parcelles sélectionnées pour le calcul de quota supplémentaire
+  const selectedParcellesSurface = useMemo(() => {
+    if (newBuyerForm.item_type === "hectare") return 10000;
+    const selected = availableParcelles.filter(p => newBuyerForm.selected_parcelles.includes(p.id));
+    return selected.reduce((sum, p) => sum + Number(p.surface || 600), 0) || 600;
+  }, [newBuyerForm.item_type, newBuyerForm.selected_parcelles, availableParcelles]);
+
+  // Acquéreurs similaires détectés pour le formulaire de nouvel acheteur
+  const matchingBuyersForNew = useMemo(() => {
+    const fullName = `${newBuyerForm.nom} ${newBuyerForm.post_nom} ${newBuyerForm.prenom}`.trim();
+    if (fullName.length < 2) return [];
+    if (newBuyerSelectedExisting && normalizeText(newBuyerSelectedExisting.buyer_name) === normalizeText(fullName)) {
+      return [];
+    }
+    return findMatchingBuyers(fullName);
+  }, [newBuyerForm.nom, newBuyerForm.post_nom, newBuyerForm.prenom, newBuyerSelectedExisting, findMatchingBuyers]);
+
+  const handleSelectBuyerForNew = (buyer: ExistingBuyer) => {
+    setNewBuyerSelectedExisting(buyer);
+    const parts = buyer.buyer_name.split(" ");
+    setNewBuyerForm((prev) => ({
+      ...prev,
+      nom: parts[0] || buyer.buyer_name,
+      post_nom: buyer.buyer_last_name || parts[1] || "",
+      prenom: buyer.buyer_first_name || (parts.length > 2 ? parts.slice(2).join(" ") : ""),
+      profession: buyer.buyer_profession || prev.profession,
+      birth_place: buyer.buyer_birth_place || prev.birth_place,
+      birth_date: buyer.buyer_birth_date ? new Date(buyer.buyer_birth_date).toISOString().split('T')[0] : prev.birth_date,
+      marital_status: buyer.buyer_marital_status || prev.marital_status,
+      children_count: buyer.buyer_children_count !== null ? String(buyer.buyer_children_count) : prev.children_count,
+      address: buyer.buyer_address || prev.address,
+      buyer_phone: buyer.buyer_phone || prev.buyer_phone,
+      buyer_email: buyer.buyer_email || prev.buyer_email,
+      village_origin: buyer.buyer_village_origin || prev.village_origin,
+      groupement: buyer.buyer_groupement || prev.groupement,
+      secteur: buyer.buyer_secteur || prev.secteur,
+      territoire: buyer.buyer_territoire || prev.territoire,
+      province: buyer.buyer_province || prev.province,
+      rmb_number: buyer.primaryRmb || prev.rmb_number,
+      merge_parcelles: true,
+    }));
+    notify(
+      "Acquéreur sélectionné",
+      `Cette acquisition sera ajoutée au quota de ${buyer.buyer_name} (${buyer.quotas} quotas actuels)`,
+      "info"
+    );
+  };
+
+  const handleDetachBuyerForNew = () => {
+    setNewBuyerSelectedExisting(null);
+    notify("Acquéreur détaché", "L'acquéreur sera enregistré comme un nouveau profil distinct", "info");
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -777,10 +836,12 @@ const Acheteurs = () => {
           : Number(newBuyerForm.amount_paid));
         const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
 
-        // Créer un ID de groupe si fusion demandée et plusieurs parcelles sélectionnées
-        const mergeGroupId = (newBuyerForm.merge_parcelles && selectedParcelles.length > 1) 
-          ? crypto.randomUUID() 
-          : null;
+        // Créer un ID de groupe si fusion demandée ou si rattaché à un acquéreur existant
+        const mergeGroupId = newBuyerSelectedExisting?.mergedGroupId
+          ? newBuyerSelectedExisting.mergedGroupId
+          : ((newBuyerForm.merge_parcelles && selectedParcelles.length > 1) 
+            ? crypto.randomUUID() 
+            : null);
 
         // Mettre à jour toutes les parcelles sélectionnées
         for (let i = 0; i < selectedParcelles.length; i++) {
@@ -824,8 +885,16 @@ const Acheteurs = () => {
         }
       }
 
-      notify("Succès", "Acheteur enregistré avec succès", "success");
+      notify(
+        "Succès",
+        newBuyerSelectedExisting
+          ? `Acquisition enregistrée et ajoutée au quota existant de ${newBuyerSelectedExisting.buyer_name} !`
+          : "Acheteur enregistré avec succès",
+        "success"
+      );
       setShowNewBuyerDialog(false);
+      setNewBuyerSelectedExisting(null);
+      refetchBuyerDetection();
       setNewBuyerForm({
         nom: "",
         post_nom: "",
@@ -1935,6 +2004,17 @@ const Acheteurs = () => {
                           />
                         </div>
                       </div>
+
+                      {/* Alerte et suggestion de cumul de quota si acquéreur existant détecté */}
+                      <BuyerQuotaSuggestion
+                        matches={matchingBuyersForNew}
+                        selectedBuyer={newBuyerSelectedExisting}
+                        onSelectBuyer={handleSelectBuyerForNew}
+                        onDetachBuyer={handleDetachBuyerForNew}
+                        itemSurface={selectedParcellesSurface}
+                        itemLabel={newBuyerForm.item_type === "hectare" ? "cet hectare" : "cette sélection"}
+                        className="mt-1"
+                      />
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>

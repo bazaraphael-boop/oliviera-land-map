@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical, ArrowUpDown, UserCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,9 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import { HectareSelector } from "@/components/HectareSelector";
 import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
 import { auditHectare } from "@/lib/numberingAudit";
+import { compareParcellesByRmbSuite, getNextAvailableRmb, extractRmbNumber } from "@/lib/rmbSuite";
+import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
+import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import {
@@ -84,6 +87,7 @@ const Parcelles = () => {
   const [hectares, setHectares] = useState<Hectare[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<"rmb_asc" | "numero_asc" | "numero_desc" | "surface_desc" | "status">("rmb_asc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
@@ -91,6 +95,16 @@ const Parcelles = () => {
   const [selectedHectare, setSelectedHectare] = useState<string>(
     searchParams.get("hectare") || "all"
   );
+
+  // Hook de détection intelligente d'acquéreurs existants et de leur quota
+  const { findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
+  const [selectedExistingBuyer, setSelectedExistingBuyer] = useState<ExistingBuyer | null>(null);
+
+  // Calcul du prochain numéro de la suite logique RMB (comblement de trou ou numéro suivant)
+  const nextRmbProposal = useMemo(() => {
+    return getNextAvailableRmb(allParcelles, hectares);
+  }, [allParcelles, hectares]);
+
   const [formData, setFormData] = useState({
     assignment_type: (searchParams.get("hectare") ? "hectare" : "standalone") as "hectare" | "standalone",
     numero: "",
@@ -237,7 +251,7 @@ const Parcelles = () => {
     try {
       const { data, error } = await supabase
         .from("parcelles")
-        .select("id, hectare_id, surface");
+        .select("id, hectare_id, surface, numero, rmb_number, status");
 
       if (error) throw error;
       setAllParcelles((data as any) || []);
@@ -376,6 +390,16 @@ const Parcelles = () => {
 
   const handleEdit = async (parcelle: Parcelle) => {
     setSelectedParcelle(parcelle);
+    setSelectedExistingBuyer(null);
+
+    // Si la parcelle a déjà un acheteur, chercher s'il correspond à un profil existant
+    if (parcelle.buyer_name) {
+      const existing = findMatchingBuyers(parcelle.buyer_name);
+      if (existing.length > 0 && normalizeText(existing[0].buyer_name) === normalizeText(parcelle.buyer_name)) {
+        setSelectedExistingBuyer(existing[0]);
+      }
+    }
+
     setEditFormData({
       assignment_type: parcelle.hectare_id ? "hectare" : "standalone",
       status: parcelle.status || "disponible",
@@ -406,6 +430,26 @@ const Parcelles = () => {
       setExistingDocs([]);
     }
     setIsEditDialogOpen(true);
+  };
+
+  const handleSelectExistingBuyer = (buyer: ExistingBuyer) => {
+    setSelectedExistingBuyer(buyer);
+    setEditFormData((prev) => ({
+      ...prev,
+      buyer_name: buyer.buyer_name,
+      buyer_phone: buyer.buyer_phone || prev.buyer_phone,
+      buyer_email: buyer.buyer_email || prev.buyer_email,
+      rmb_number: buyer.primaryRmb || prev.rmb_number,
+    }));
+    const curQuota = Math.max(1, Math.ceil(Number(selectedParcelle?.surface || 600) / 600));
+    toast.success(
+      `Parcelle rattachée au quota de ${buyer.buyer_name} (${buyer.quotas} + ${curQuota} = ${buyer.quotas + curQuota} quotas)`
+    );
+  };
+
+  const handleDetachExistingBuyer = () => {
+    setSelectedExistingBuyer(null);
+    toast.info("Acquéreur détaché du quota groupé");
   };
 
   const handleAddPayment = (parcelle: Parcelle) => {
@@ -480,6 +524,24 @@ const Parcelles = () => {
         updateData.payment_type = isOnereux ? "total" : editFormData.payment_type;
         updateData.amount_paid = amountPaid;
         updateData.remaining_amount = remainingAmount;
+
+        // Liaison intelligente avec l'acquéreur existant et son quota
+        if (selectedExistingBuyer) {
+          updateData.merged_group_id = selectedExistingBuyer.mergedGroupId || selectedParcelle.merged_group_id || crypto.randomUUID();
+          if (selectedExistingBuyer.buyer_last_name) updateData.buyer_last_name = selectedExistingBuyer.buyer_last_name;
+          if (selectedExistingBuyer.buyer_first_name) updateData.buyer_first_name = selectedExistingBuyer.buyer_first_name;
+          if (selectedExistingBuyer.buyer_profession) updateData.buyer_profession = selectedExistingBuyer.buyer_profession;
+          if (selectedExistingBuyer.buyer_birth_place) updateData.buyer_birth_place = selectedExistingBuyer.buyer_birth_place;
+          if (selectedExistingBuyer.buyer_birth_date) updateData.buyer_birth_date = selectedExistingBuyer.buyer_birth_date;
+          if (selectedExistingBuyer.buyer_marital_status) updateData.buyer_marital_status = selectedExistingBuyer.buyer_marital_status;
+          if (selectedExistingBuyer.buyer_children_count !== null) updateData.buyer_children_count = selectedExistingBuyer.buyer_children_count;
+          if (selectedExistingBuyer.buyer_address) updateData.buyer_address = selectedExistingBuyer.buyer_address;
+          if (selectedExistingBuyer.buyer_village_origin) updateData.buyer_village_origin = selectedExistingBuyer.buyer_village_origin;
+          if (selectedExistingBuyer.buyer_groupement) updateData.buyer_groupement = selectedExistingBuyer.buyer_groupement;
+          if (selectedExistingBuyer.buyer_secteur) updateData.buyer_secteur = selectedExistingBuyer.buyer_secteur;
+          if (selectedExistingBuyer.buyer_territoire) updateData.buyer_territoire = selectedExistingBuyer.buyer_territoire;
+          if (selectedExistingBuyer.buyer_province) updateData.buyer_province = selectedExistingBuyer.buyer_province;
+        }
       } else {
         // Si le statut n'est pas "vendu", on enlève les infos acheteur
         updateData.buyer_name = null;
@@ -489,6 +551,7 @@ const Parcelles = () => {
         updateData.payment_type = "total";
         updateData.amount_paid = 0;
         updateData.remaining_amount = 0;
+        updateData.merged_group_id = null;
       }
 
       const { error } = await supabase
@@ -505,7 +568,11 @@ const Parcelles = () => {
         if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
       }
 
-      toast.success("Parcelle mise à jour avec succès");
+      toast.success(
+        selectedExistingBuyer
+          ? `Parcelle mise à jour et ajoutée au quota de ${selectedExistingBuyer.buyer_name}`
+          : "Parcelle mise à jour avec succès"
+      );
       
       // Générer la facture si vendu
       if (editFormData.status === "vendu") {
@@ -514,10 +581,13 @@ const Parcelles = () => {
       
       setIsEditDialogOpen(false);
       setSelectedParcelle(null);
+      setSelectedExistingBuyer(null);
       setEditDocs([]);
       setExistingDocs([]);
       fetchParcelles();
+      refetchBuyerDetection();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+      queryClient.invalidateQueries({ queryKey: ["existing-buyers-detection"] });
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors de la mise à jour");
@@ -597,9 +667,50 @@ const Parcelles = () => {
     }
   };
 
-  const filteredParcelles = parcelles.filter((p) =>
-    p.numero.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrage et classement strict dans la suite logique RMB (ou critère choisi)
+  const filteredParcelles = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    const result = parcelles.filter((p) => {
+      if (!term) return true;
+      const numMatch = (p.numero || "").toLowerCase().includes(term);
+      const buyerMatch = (p.buyer_name || "").toLowerCase().includes(term);
+      const rmbMatch = (p.rmb_number || "").toLowerCase().includes(term);
+      const hecMatch = (p.hectares?.name || "").toLowerCase().includes(term);
+      const hecRmbMatch = (p.hectares?.rmb_number || "").toLowerCase().includes(term);
+      return numMatch || buyerMatch || rmbMatch || hecMatch || hecRmbMatch;
+    });
+
+    return result.sort((a, b) => {
+      if (sortBy === "rmb_asc") {
+        return compareParcellesByRmbSuite(a, b);
+      }
+      if (sortBy === "numero_asc") {
+        return (a.numero || "").localeCompare(b.numero || "", undefined, { numeric: true });
+      }
+      if (sortBy === "numero_desc") {
+        return (b.numero || "").localeCompare(a.numero || "", undefined, { numeric: true });
+      }
+      if (sortBy === "surface_desc") {
+        return Number(b.surface || 0) - Number(a.surface || 0);
+      }
+      if (sortBy === "status") {
+        return (a.status || "").localeCompare(b.status || "");
+      }
+      return compareParcellesByRmbSuite(a, b);
+    });
+  }, [parcelles, searchTerm, sortBy]);
+
+  // Détection en temps réel d'acquéreurs existants lors de la saisie
+  const buyerMatches = useMemo(() => {
+    if (!editFormData.buyer_name || editFormData.buyer_name.trim().length < 2) return [];
+    if (
+      selectedExistingBuyer &&
+      normalizeText(selectedExistingBuyer.buyer_name) === normalizeText(editFormData.buyer_name)
+    ) {
+      return [];
+    }
+    return findMatchingBuyers(editFormData.buyer_name);
+  }, [editFormData.buyer_name, selectedExistingBuyer, findMatchingBuyers]);
 
   const generateInvoice = async (parcelle: Parcelle, saleData: any) => {
     try {
@@ -724,7 +835,7 @@ const Parcelles = () => {
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
           <Select value={selectedHectare} onValueChange={setSelectedHectare}>
-            <SelectTrigger className="w-full sm:w-[250px] shrink-0">
+            <SelectTrigger className="w-full sm:w-[220px] shrink-0">
               <SelectValue placeholder="Tous les emplacements" />
             </SelectTrigger>
             <SelectContent>
@@ -741,12 +852,27 @@ const Parcelles = () => {
           <div className="flex-1 relative min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher une parcelle..."
+              placeholder="Rechercher par N°, acquéreur, RMB..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
+
+          {/* Sélecteur de tri / classement de la suite logique RMB */}
+          <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+            <SelectTrigger className="w-full sm:w-[220px] shrink-0 bg-card">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-primary" />
+              <SelectValue placeholder="Ordre d'affichage" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rmb_asc">📋 Suite logique RMB (Défaut)</SelectItem>
+              <SelectItem value="numero_asc">🔢 N° parcelle croissant</SelectItem>
+              <SelectItem value="numero_desc">🔢 N° parcelle décroissant</SelectItem>
+              <SelectItem value="surface_desc">📐 Surface décroissante</SelectItem>
+              <SelectItem value="status">🏷️ Par statut</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -778,6 +904,8 @@ const Parcelles = () => {
                             ...formData,
                             assignment_type: "standalone",
                             hectare_id: "",
+                            numero: formData.numero || nextRmbProposal.nextFormatted,
+                            rmb_number: formData.rmb_number || nextRmbProposal.nextFormatted,
                           })
                         }
                         className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
@@ -800,20 +928,22 @@ const Parcelles = () => {
                             Parcelle seule
                           </div>
                           <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                            Indépendante, sans rattachement à un hectare
+                            Indépendante, classée dans la suite RMB
                           </div>
                         </div>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          const targetHecId = formData.hectare_id || hectares[0]?.id || "";
                           setFormData({
                             ...formData,
                             assignment_type: "hectare",
-                            hectare_id: formData.hectare_id || hectares[0]?.id || "",
-                          })
-                        }
+                            hectare_id: targetHecId,
+                          });
+                          if (targetHecId) handleHectareChange(targetHecId);
+                        }}
                         className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
                           formData.assignment_type === "hectare"
                             ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
@@ -878,14 +1008,25 @@ const Parcelles = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <Grid3x3 className="w-4 h-4" />
-                        Numéro *
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium flex items-center gap-1.5">
+                          <Grid3x3 className="w-4 h-4" />
+                          Numéro *
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, numero: nextRmbProposal.nextFormatted, rmb_number: nextRmbProposal.nextFormatted })}
+                          className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1"
+                          title="Suggérer le prochain numéro dans la suite logique RMB"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>Suite {nextRmbProposal.nextFormatted}</span>
+                        </button>
+                      </div>
                       <Input
                         value={formData.numero}
                         onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
-                        placeholder="Ex: 001"
+                        placeholder="Ex: RMB 001"
                         required
                         className="mt-1"
                       />
@@ -897,7 +1038,7 @@ const Parcelles = () => {
                         step="0.01"
                         value={formData.surface}
                         onChange={(e) => setFormData({ ...formData, surface: e.target.value })}
-                        placeholder="Ex: 400"
+                        placeholder="Ex: 600"
                         required
                         className="mt-1"
                       />
@@ -923,11 +1064,22 @@ const Parcelles = () => {
                   )}
                   
                   <div>
-                    <Label className="text-sm font-medium">Numéro RMB</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Numéro RMB</Label>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, rmb_number: nextRmbProposal.nextFormatted })}
+                        className="text-[10px] text-purple-700 dark:text-purple-300 hover:underline font-semibold flex items-center gap-1"
+                        title="Attribuer le numéro suivant dans la suite logique RMB"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Prochain : {nextRmbProposal.nextFormatted}</span>
+                      </button>
+                    </div>
                     <Input
                       value={formData.rmb_number}
                       onChange={(e) => setFormData({ ...formData, rmb_number: e.target.value })}
-                      placeholder="Ex: RMB-001"
+                      placeholder="Ex: RMB 001"
                       className="mt-1"
                     />
                   </div>
@@ -995,6 +1147,11 @@ const Parcelles = () => {
                         <h3 className="font-bold text-sm text-foreground tracking-tight">
                           Parcelle {parcelle.numero}
                         </h3>
+                        {(parcelle.rmb_number || parcelle.hectares?.rmb_number) && (
+                          <Badge variant="outline" className="text-[10px] font-mono bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 px-1.5 py-0 font-bold">
+                            Suite {parcelle.rmb_number || parcelle.hectares?.rmb_number}
+                          </Badge>
+                        )}
                         {quotaCount > 1 && (
                           <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-1.5 py-0">
                             {quotaCount} quotas
@@ -1294,13 +1451,26 @@ const Parcelles = () => {
                   </div>
                   
                   <div>
-                    <Label className="text-sm font-medium">Numéro RMB</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Numéro RMB</Label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditFormData({ ...editFormData, rmb_number: nextRmbProposal.nextFormatted })
+                        }
+                        className="text-[10px] text-purple-700 dark:text-purple-300 hover:underline font-semibold flex items-center gap-1"
+                        title="Attribuer le numéro suivant dans la suite logique RMB"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Suite {nextRmbProposal.nextFormatted}</span>
+                      </button>
+                    </div>
                     <Input
                       value={editFormData.rmb_number}
                       onChange={(e) =>
                         setEditFormData({ ...editFormData, rmb_number: e.target.value })
                       }
-                      placeholder="Ex: RMB-001"
+                      placeholder="Ex: RMB 001"
                       className="mt-1 bg-background"
                     />
                   </div>
@@ -1328,6 +1498,15 @@ const Parcelles = () => {
                         placeholder="Ex: Jean Dupont"
                         required
                         className="mt-1 bg-background"
+                      />
+                      <BuyerQuotaSuggestion
+                        matches={buyerMatches}
+                        selectedBuyer={selectedExistingBuyer}
+                        onSelectBuyer={handleSelectExistingBuyer}
+                        onDetachBuyer={handleDetachExistingBuyer}
+                        itemSurface={Number(selectedParcelle?.surface || 600)}
+                        itemLabel="cette parcelle"
+                        className="mt-2"
                       />
                     </div>
 
