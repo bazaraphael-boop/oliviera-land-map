@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -102,6 +102,13 @@ const Parcelles = () => {
   const [editDocs, setEditDocs] = useState<DocEntry[]>([]);
   // Documents existants pour la parcelle en cours d'édition
   const [existingDocs, setExistingDocs] = useState<{id:string;title:string;type:string;file_url:string}[]>([]);
+
+  // État pour la réaffectation rapide (parcelle seule vs affecter à un hectare)
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [parcelleToReassign, setParcelleToReassign] = useState<Parcelle | null>(null);
+  const [reassignType, setReassignType] = useState<"standalone" | "hectare">("standalone");
+  const [reassignHectareId, setReassignHectareId] = useState<string>("");
+  const [reassignSubmitting, setReassignSubmitting] = useState(false);
 
   // Calculer l'effectif restant pour un hectare donné
   const getHectareOccupancy = (hectareId: string) => {
@@ -510,6 +517,79 @@ const Parcelles = () => {
     }
   };
 
+  const handleOpenReassignModal = (parcelle: Parcelle) => {
+    setParcelleToReassign(parcelle);
+    setReassignType(parcelle.hectare_id ? "hectare" : "standalone");
+    setReassignHectareId(parcelle.hectare_id || hectares[0]?.id || "");
+    setReassignModalOpen(true);
+  };
+
+  const handleSaveReassignment = async () => {
+    if (!parcelleToReassign) return;
+
+    const isStandalone = reassignType === "standalone";
+    const newHectareId = isStandalone ? null : reassignHectareId;
+
+    if (!isStandalone && !newHectareId) {
+      toast.error("Veuillez sélectionner un hectare existant.");
+      return;
+    }
+
+    try {
+      setReassignSubmitting(true);
+
+      // Si on affecte à un hectare différent, vérifier la capacité (16 max)
+      if (newHectareId && newHectareId !== parcelleToReassign.hectare_id) {
+        const { data: existingParcelles, error: countError } = await supabase
+          .from("parcelles")
+          .select("id, surface, merged_group_id")
+          .eq("hectare_id", newHectareId);
+
+        if (countError) throw countError;
+
+        const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
+          return total + Math.ceil(p.surface / 600);
+        }, 0);
+
+        const parcelleEffectif = Math.ceil(Number(parcelleToReassign.surface || 600) / 600);
+
+        if (occupiedEffectif + parcelleEffectif > 16) {
+          toast.error(
+            `Capacité insuffisante : cet hectare dispose de ${16 - occupiedEffectif} effectifs disponibles (${parcelleEffectif} requis).`
+          );
+          setReassignSubmitting(false);
+          return;
+        }
+      }
+
+      const { error } = await supabase
+        .from("parcelles")
+        .update({ hectare_id: newHectareId })
+        .eq("id", parcelleToReassign.id);
+
+      if (error) throw error;
+
+      const targetHectareName = isStandalone
+        ? "Parcelle seule (hors hectare)"
+        : hectares.find((h) => h.id === newHectareId)?.name || "l'hectare";
+
+      toast.success(
+        isStandalone
+          ? `La parcelle ${parcelleToReassign.numero} a été transformée en parcelle seule avec succès !`
+          : `La parcelle ${parcelleToReassign.numero} a été affectée à ${targetHectareName} avec succès !`
+      );
+
+      setReassignModalOpen(false);
+      setParcelleToReassign(null);
+      await fetchParcelles();
+    } catch (err: any) {
+      console.error("Erreur affectation parcelle:", err);
+      toast.error(`Erreur : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setReassignSubmitting(false);
+    }
+  };
+
   const filteredParcelles = parcelles.filter((p) =>
     p.numero.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -910,20 +990,42 @@ const Parcelles = () => {
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <p className="text-xs text-muted-foreground">{parcelle.surface} m²</p>
                         <span className="text-muted-foreground text-xs">·</span>
-                        {parcelle.hectares?.name ? (
-                          <span className="text-xs text-primary font-medium flex items-center gap-0.5 truncate max-w-[130px]" title={parcelle.hectares.name}>
-                            <MapPin className="w-3 h-3 shrink-0" />
-                            {parcelle.hectares.name}
-                          </span>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] bg-muted/60 text-muted-foreground border-border px-1.5 py-0 font-medium">
-                            Parcelle seule
-                          </Badge>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReassignModal(parcelle);
+                          }}
+                          className="group cursor-pointer inline-flex items-center transition-all hover:scale-105"
+                          title="Cliquer pour changer d'affectation (affecter à un hectare ou transformer en parcelle seule)"
+                        >
+                          {parcelle.hectares?.name ? (
+                            <span className="text-xs text-primary font-medium flex items-center gap-1 truncate max-w-[140px] bg-primary/10 hover:bg-primary/20 px-1.5 py-0.5 rounded border border-primary/20 shadow-xs">
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{parcelle.hectares.name}</span>
+                              <ArrowLeftRight className="w-2.5 h-2.5 ml-0.5 opacity-60 group-hover:opacity-100" />
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 px-1.5 py-0.5 font-medium flex items-center gap-1 shadow-xs">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              <span>Parcelle seule</span>
+                              <ArrowLeftRight className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
+                            </Badge>
+                          )}
+                        </button>
                       </div>
                     </div>
                 </div>
                 <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-primary hover:bg-primary/10"
+                    title="Changer d'affectation (parcelle seule / affecter à un hectare)"
+                    onClick={() => handleOpenReassignModal(parcelle)}
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1348,6 +1450,160 @@ const Parcelles = () => {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modale de réaffectation rapide : Affecter à un hectare OU Transformer en parcelle seule */}
+        <Dialog open={reassignModalOpen} onOpenChange={setReassignModalOpen}>
+          <DialogContent className="max-w-md bg-card">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                  <ArrowLeftRight className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                    <span>Affectation Parcelle {parcelleToReassign?.numero}</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Modifiez en un clic l'affectation cadastrale de cette parcelle.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              {/* État actuel */}
+              <div className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Statut actuel :</span>
+                {parcelleToReassign?.hectare_id ? (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 flex items-center gap-1 font-semibold">
+                    <MapPin className="w-3 h-3" />
+                    <span>Hectare {parcelleToReassign.hectares?.name || "Assigné"}</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 flex items-center gap-1 font-semibold">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Parcelle seule (hors hectare)</span>
+                  </Badge>
+                )}
+              </div>
+
+              {/* Sélection des deux chemins */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Nouvelle affectation souhaitée *
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReassignType("standalone");
+                      setReassignHectareId("");
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
+                      reassignType === "standalone"
+                        ? "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30 shadow-xs"
+                        : "border-border hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles
+                        className={`w-4 h-4 ${
+                          reassignType === "standalone"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                      <span className="font-semibold text-xs text-foreground">
+                        Parcelle seule
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      Détacher de tout hectare (autonome)
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReassignType("hectare");
+                      setReassignHectareId(parcelleToReassign?.hectare_id || hectares[0]?.id || "");
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
+                      reassignType === "hectare"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-xs"
+                        : "border-border hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers
+                        className={`w-4 h-4 ${
+                          reassignType === "hectare"
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                      <span className="font-semibold text-xs text-foreground">
+                        Affecter à un hectare
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      Rattacher à un hectare existant
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Si choix Affecter à un hectare : Sélecteur d'hectare */}
+              {reassignType === "hectare" && (
+                <div className="space-y-2 pt-1 border-t border-border/60">
+                  <Label className="text-xs font-medium">Sélectionner l'hectare d'accueil *</Label>
+                  <HectareSelector
+                    hectares={hectares}
+                    selectedId={reassignHectareId}
+                    onSelect={(id) => setReassignHectareId(id)}
+                    getOccupancy={getHectareOccupancy}
+                    requiredQuota={Math.ceil(Number(parcelleToReassign?.surface || 600) / 600)}
+                  />
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 text-xs"
+                  onClick={() => setReassignModalOpen(false)}
+                  disabled={reassignSubmitting}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1 text-xs gap-1.5"
+                  onClick={handleSaveReassignment}
+                  disabled={reassignSubmitting || (reassignType === "hectare" && !reassignHectareId)}
+                >
+                  {reassignSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>
+                        {reassignType === "standalone"
+                          ? "Transformer en parcelle seule"
+                          : "Confirmer l'affectation"}
+                      </span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
         
