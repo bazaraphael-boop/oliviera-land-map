@@ -5,7 +5,43 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Download, AlertTriangle, User, Grid3x3, CreditCard, ListOrdered, CheckCircle2, Copy, Search, Hash, Edit, Check, ArrowRight, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
+import {
+  DollarSign,
+  TrendingUp,
+  BarChart2,
+  Calendar,
+  Download,
+  AlertTriangle,
+  User,
+  Grid3x3,
+  CreditCard,
+  ListOrdered,
+  CheckCircle2,
+  Copy,
+  Search,
+  Hash,
+  Edit,
+  Check,
+  ArrowRight,
+  Loader2,
+  Plus,
+  FileText,
+  Phone,
+  Mail,
+  Briefcase,
+  MapPin,
+  Layers,
+  Building2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -74,6 +110,30 @@ const Rapports = () => {
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [editedRmbValues, setEditedRmbValues] = useState<{ [id: string]: string }>({});
   const [savingRmbId, setSavingRmbId] = useState<string | null>(null);
+
+  // État pour la saisie et comblement d'un numéro manquant RMB
+  const [selectedMissingEntry, setSelectedMissingEntry] = useState<any | null>(null);
+  const [missingModalOpen, setMissingModalOpen] = useState(false);
+  const [missingSubmitting, setMissingSubmitting] = useState(false);
+  const [missingDocs, setMissingDocs] = useState<DocEntry[]>([]);
+  const [missingForm, setMissingForm] = useState({
+    itemType: "parcelle" as "parcelle" | "hectare",
+    parcelleMode: "existing" as "existing" | "new",
+    hectareId: "",
+    selectedParcelleId: "",
+    newNumero: "",
+    surface: 600,
+    prix: 0,
+    saleType: "normal" as "normal" | "onereux",
+    paymentType: "total" as "total" | "partiel",
+    amountPaid: 0,
+    saleDate: new Date().toISOString().split("T")[0],
+    buyerName: "",
+    buyerPhone: "",
+    buyerEmail: "",
+    buyerProfession: "",
+    buyerAddress: "",
+  });
 
   useEffect(() => {
     checkAuth();
@@ -585,6 +645,239 @@ const Rapports = () => {
       toast.error(`Erreur lors de la modification : ${err.message || "Erreur inconnue"}`);
     } finally {
       setSavingRmbId(null);
+    }
+  };
+
+  // Calculs et filtres pour la modale du RMB manquant
+  const availableParcellesForMissing = useMemo(() => {
+    return allParcelles.filter((p) => {
+      const isAvailable = p.status === "disponible" || !p.status;
+      if (!isAvailable) return false;
+      if (missingForm.hectareId && p.hectare_id !== missingForm.hectareId) return false;
+      return true;
+    });
+  }, [allParcelles, missingForm.hectareId]);
+
+  const calculatedQuotaUnits = useMemo(() => {
+    if (missingForm.itemType === "hectare") return 1;
+    const s = Number(missingForm.surface || 600);
+    return Math.max(1, Math.ceil(s / 600));
+  }, [missingForm.itemType, missingForm.surface]);
+
+  const calculatedRemaining = useMemo(() => {
+    if (missingForm.saleType === "onereux") return 0;
+    if (missingForm.paymentType === "total") return 0;
+    const p = Number(missingForm.prix || 0);
+    const paid = Number(missingForm.amountPaid || 0);
+    return Math.max(0, p - paid);
+  }, [missingForm.saleType, missingForm.paymentType, missingForm.prix, missingForm.amountPaid]);
+
+  // Gestion de la modale de renseignement d'un RMB manquant
+  const handleOpenMissingModal = (entry: any) => {
+    setSelectedMissingEntry(entry);
+    setMissingDocs([]);
+
+    const available = allParcelles.filter((p) => p.status === "disponible" || !p.status);
+    const firstParcelle = available.length > 0 ? available[0] : null;
+    const initialHectareId = firstParcelle?.hectare_id || (allHectares.length > 0 ? allHectares[0].id : "");
+    const initialPrice = firstParcelle?.prix ? Number(firstParcelle.prix) : 0;
+    const initialSurface = firstParcelle?.surface ? Number(firstParcelle.surface) : 600;
+
+    setMissingForm({
+      itemType: "parcelle",
+      parcelleMode: available.length > 0 ? "existing" : "new",
+      hectareId: initialHectareId,
+      selectedParcelleId: firstParcelle?.id || "",
+      newNumero: `P-${String(entry.num).padStart(3, "0")}`,
+      surface: initialSurface,
+      prix: initialPrice,
+      saleType: "normal",
+      paymentType: "total",
+      amountPaid: initialPrice,
+      saleDate: new Date().toISOString().split("T")[0],
+      buyerName: "",
+      buyerPhone: "",
+      buyerEmail: "",
+      buyerProfession: "",
+      buyerAddress: "",
+    });
+
+    setMissingModalOpen(true);
+  };
+
+  const handleSaveMissingRmb = async () => {
+    if (!selectedMissingEntry) return;
+
+    if (!missingForm.buyerName.trim()) {
+      toast.error("Le nom de l'acquéreur est obligatoire");
+      return;
+    }
+
+    const rmbTarget = selectedMissingEntry.rmbFormatted;
+    const isOnereux = missingForm.saleType === "onereux";
+    const prix = isOnereux ? 0 : Number(missingForm.prix || 0);
+    const amountPaid = isOnereux
+      ? 0
+      : missingForm.paymentType === "total"
+      ? prix
+      : Number(missingForm.amountPaid || 0);
+    const remainingAmount = isOnereux
+      ? 0
+      : missingForm.paymentType === "partiel"
+      ? Math.max(0, prix - amountPaid)
+      : 0;
+
+    try {
+      setMissingSubmitting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let targetParcelleId: string | null = null;
+
+      if (missingForm.itemType === "parcelle") {
+        if (missingForm.parcelleMode === "existing") {
+          if (!missingForm.selectedParcelleId) {
+            toast.error("Veuillez sélectionner une parcelle disponible.");
+            setMissingSubmitting(false);
+            return;
+          }
+
+          targetParcelleId = missingForm.selectedParcelleId;
+
+          const { error } = await supabase
+            .from("parcelles")
+            .update({
+              rmb_number: rmbTarget,
+              status: "vendu",
+              buyer_name: missingForm.buyerName.trim(),
+              buyer_phone: missingForm.buyerPhone.trim() || null,
+              buyer_email: missingForm.buyerEmail.trim() || null,
+              buyer_profession: missingForm.buyerProfession.trim() || null,
+              buyer_address: missingForm.buyerAddress.trim() || null,
+              sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+              sale_type: missingForm.saleType,
+              payment_type: isOnereux ? "total" : missingForm.paymentType,
+              prix: prix,
+              amount_paid: amountPaid,
+              remaining_amount: remainingAmount,
+              surface: Number(missingForm.surface || 600),
+            })
+            .eq("id", targetParcelleId);
+
+          if (error) throw error;
+        } else {
+          // Mode nouvelle parcelle
+          if (!missingForm.hectareId) {
+            toast.error("Veuillez sélectionner un hectare pour créer la parcelle.");
+            setMissingSubmitting(false);
+            return;
+          }
+          if (!missingForm.newNumero.trim()) {
+            toast.error("Veuillez renseigner un numéro de parcelle.");
+            setMissingSubmitting(false);
+            return;
+          }
+
+          const { data: insertedParcelle, error } = await supabase
+            .from("parcelles")
+            .insert({
+              numero: missingForm.newNumero.trim(),
+              hectare_id: missingForm.hectareId,
+              surface: Number(missingForm.surface || 600),
+              prix: prix,
+              rmb_number: rmbTarget,
+              status: "vendu",
+              buyer_name: missingForm.buyerName.trim(),
+              buyer_phone: missingForm.buyerPhone.trim() || null,
+              buyer_email: missingForm.buyerEmail.trim() || null,
+              buyer_profession: missingForm.buyerProfession.trim() || null,
+              buyer_address: missingForm.buyerAddress.trim() || null,
+              sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+              sale_type: missingForm.saleType,
+              payment_type: isOnereux ? "total" : missingForm.paymentType,
+              amount_paid: amountPaid,
+              remaining_amount: remainingAmount,
+            })
+            .select("id")
+            .single();
+
+          if (error) throw error;
+          targetParcelleId = insertedParcelle.id;
+        }
+
+        // Téléversement des documents joints
+        if (targetParcelleId && missingDocs.length > 0) {
+          try {
+            const uploadedCount = await uploadDocEntries(missingDocs, targetParcelleId, user?.id);
+            if (uploadedCount > 0) {
+              toast.success(`${uploadedCount} document(s) numérisé(s) et archivé(s).`);
+            }
+          } catch (docErr) {
+            console.error("Erreur upload documents:", docErr);
+            toast.error("La parcelle a été créée mais certains documents n'ont pas pu être téléchargés.");
+          }
+        }
+      } else {
+        // Affectation directe à un hectare
+        if (!missingForm.hectareId) {
+          toast.error("Veuillez sélectionner un hectare.");
+          setMissingSubmitting(false);
+          return;
+        }
+
+        const { error } = await supabase
+          .from("hectares")
+          .update({
+            rmb_number: rmbTarget,
+            status: "vendu",
+            buyer_name: missingForm.buyerName.trim(),
+            buyer_phone: missingForm.buyerPhone.trim() || null,
+            buyer_email: missingForm.buyerEmail.trim() || null,
+            buyer_profession: missingForm.buyerProfession.trim() || null,
+            buyer_address: missingForm.buyerAddress.trim() || null,
+            sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+            sale_type: missingForm.saleType,
+            payment_type: isOnereux ? "total" : missingForm.paymentType,
+            prix: prix,
+            amount_paid: amountPaid,
+            remaining_amount: remainingAmount,
+          })
+          .eq("id", missingForm.hectareId);
+
+        if (error) throw error;
+
+        // Téléversement des documents joints dans buyer_documents si hectare
+        if (missingDocs.length > 0) {
+          const buyerId = `${missingForm.buyerName.trim()}_${missingForm.buyerPhone.trim() || "doc"}`;
+          for (const doc of missingDocs) {
+            if (!doc.file || !doc.title) continue;
+            try {
+              const ext = doc.file.name.split(".").pop();
+              const filePath = `${buyerId}/${Date.now()}_${doc.id}.${ext}`;
+              const { error: upErr } = await supabase.storage.from("buyer-documents").upload(filePath, doc.file);
+              if (!upErr) {
+                await supabase.from("buyer_documents").insert({
+                  buyer_id: buyerId,
+                  document_type: doc.type,
+                  file_path: filePath,
+                  file_name: doc.title,
+                  uploaded_by: user?.id || null,
+                });
+              }
+            } catch (e) {
+              console.error("Erreur doc hectare:", e);
+            }
+          }
+        }
+      }
+
+      toast.success(`Succès ! Le trou ${rmbTarget} a été attribué et enregistré dans la suite logique.`);
+      setMissingModalOpen(false);
+      await loadStats();
+    } catch (err: any) {
+      console.error("Erreur enregistrement numéro manquant:", err);
+      toast.error(`Erreur lors de l'enregistrement : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setMissingSubmitting(false);
     }
   };
 
@@ -2037,30 +2330,45 @@ const Rapports = () => {
                       return (
                         <tr
                           key={entry.num}
-                          className="bg-orange-500/10 hover:bg-orange-500/15 transition-colors border-l-4 border-l-orange-500"
+                          onClick={() => handleOpenMissingModal(entry)}
+                          className="bg-orange-500/10 hover:bg-orange-500/20 transition-colors border-l-4 border-l-orange-500 cursor-pointer group"
+                          title="Cliquer pour renseigner et attribuer ce numéro RMB manquant"
                         >
                           <td className="px-4 py-3 font-mono font-bold text-orange-700 dark:text-orange-400">
                             {entry.rmbFormatted}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] gap-1 px-2 py-0.5">
+                            <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] gap-1 px-2.5 py-1 shadow-sm group-hover:scale-105 transition-transform">
                               <AlertTriangle className="w-3 h-3" />
                               <span>Manquant {entry.rmbFormatted}</span>
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground italic">
-                            Numéro sauté dans la suite logique — non enregistré
+                            Numéro sauté dans la suite logique — cliquer pour attribuer
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            —
+                          <td className="px-4 py-3">
+                            <span className="text-orange-600 dark:text-orange-400 font-medium text-xs flex items-center gap-1 group-hover:underline">
+                              <Plus className="w-3.5 h-3.5" />
+                              Renseigner l'acquéreur
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">
+                            <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wider bg-orange-200/80 dark:bg-orange-950 px-2 py-0.5 rounded-full border border-orange-300 dark:border-orange-800">
                               Trou
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-muted-foreground">
-                            —
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenMissingModal(entry);
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700 text-white font-medium text-xs gap-1.5 h-8 px-3 shadow-sm"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Renseigner</span>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -2456,6 +2764,661 @@ const Rapports = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de renseignement et attribution d'un numéro RMB manquant */}
+      <Dialog open={missingModalOpen} onOpenChange={setMissingModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border bg-card">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                  <span>Renseigner le numéro manquant</span>
+                  <Badge className="bg-orange-600 text-white font-mono text-sm px-2.5 py-0.5">
+                    {selectedMissingEntry?.rmbFormatted}
+                  </Badge>
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enregistrez l'acquéreur, les quotas d'achat, l'emplacement cadastral et numérisez les pièces justificatives pour combler ce trou dans la suite logique.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            {/* 1. Affectation Cadastrale & Quotas d'achat */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    1. Affectation Cadastrale & Quota d'achat
+                  </h3>
+                </div>
+                <Badge variant="outline" className="text-xs font-normal">
+                  Étape 1/3
+                </Badge>
+              </div>
+
+              {/* Choix du type de bien : Parcelle ou Hectare */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMissingForm((prev) => ({
+                      ...prev,
+                      itemType: "parcelle",
+                      surface: 600,
+                    }))
+                  }
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all flex items-center gap-3",
+                    missingForm.itemType === "parcelle"
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                >
+                  <Grid3x3
+                    className={cn(
+                      "w-5 h-5 shrink-0",
+                      missingForm.itemType === "parcelle"
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <div>
+                    <div className="font-semibold text-xs text-foreground">
+                      Parcelle individuelle
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Quota calculé par multiple de 600 m²
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMissingForm((prev) => ({
+                      ...prev,
+                      itemType: "hectare",
+                      surface: 10000,
+                    }))
+                  }
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all flex items-center gap-3",
+                    missingForm.itemType === "hectare"
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                >
+                  <Building2
+                    className={cn(
+                      "w-5 h-5 shrink-0",
+                      missingForm.itemType === "hectare"
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <div>
+                    <div className="font-semibold text-xs text-foreground">
+                      Hectare complet
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Grande concession (~10 000 m²)
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Si Parcelle : choix existante vs nouvelle */}
+              {missingForm.itemType === "parcelle" && (
+                <div className="space-y-4 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Mode d'affectation :</span>
+                    <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMissingForm((prev) => ({
+                            ...prev,
+                            parcelleMode: "existing",
+                          }))
+                        }
+                        className={cn(
+                          "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                          missingForm.parcelleMode === "existing"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Parcelle existante disponible
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMissingForm((prev) => ({
+                            ...prev,
+                            parcelleMode: "new",
+                          }))
+                        }
+                        className={cn(
+                          "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                          missingForm.parcelleMode === "new"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Créer une nouvelle parcelle
+                      </button>
+                    </div>
+                  </div>
+
+                  {missingForm.parcelleMode === "existing" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium">
+                          Filtrer par Hectare / Site (optionnel)
+                        </Label>
+                        <Select
+                          value={missingForm.hectareId || "all"}
+                          onValueChange={(val) => {
+                            const newHectareId = val === "all" ? "" : val;
+                            setMissingForm((prev) => {
+                              const matching = allParcelles.filter(
+                                (p) =>
+                                  (p.status === "disponible" || !p.status) &&
+                                  (!newHectareId || p.hectare_id === newHectareId)
+                              );
+                              const first = matching[0];
+                              return {
+                                ...prev,
+                                hectareId: newHectareId,
+                                selectedParcelleId: first?.id || "",
+                                surface: first?.surface ? Number(first.surface) : prev.surface,
+                                prix: first?.prix ? Number(first.prix) : prev.prix,
+                                amountPaid: prev.paymentType === "total" ? Number(first?.prix || 0) : prev.amountPaid,
+                              };
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 h-9 text-xs">
+                            <SelectValue placeholder="Tous les hectares" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les hectares</SelectItem>
+                            {allHectares.map((h) => (
+                              <SelectItem key={h.id} value={h.id}>
+                                {h.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-medium">
+                          Parcelle disponible à attribuer *
+                        </Label>
+                        {availableParcellesForMissing.length === 0 ? (
+                          <div className="mt-1 p-2 rounded-md bg-muted/60 text-muted-foreground text-xs border border-dashed">
+                            Aucune parcelle disponible. Choisissez un autre hectare ou basculez sur "Créer une nouvelle parcelle".
+                          </div>
+                        ) : (
+                          <Select
+                            value={missingForm.selectedParcelleId}
+                            onValueChange={(pId) => {
+                              const p = allParcelles.find((item) => item.id === pId);
+                              if (p) {
+                                const pPrice = Number(p.prix || 0);
+                                setMissingForm((prev) => ({
+                                  ...prev,
+                                  selectedParcelleId: pId,
+                                  hectareId: p.hectare_id || prev.hectareId,
+                                  surface: Number(p.surface || 600),
+                                  prix: pPrice,
+                                  amountPaid: prev.paymentType === "total" ? pPrice : prev.amountPaid,
+                                }));
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-9 text-xs">
+                              <SelectValue placeholder="Sélectionner une parcelle..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableParcellesForMissing.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  Parcelle {p.numero} ({p.hectares?.name || "Sans site"}) — {p.surface} m² — {Number(p.prix || 0).toLocaleString()} USD
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Mode nouvelle parcelle */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium">
+                          Hectare d'accueil *
+                        </Label>
+                        <Select
+                          value={missingForm.hectareId}
+                          onValueChange={(val) =>
+                            setMissingForm((prev) => ({ ...prev, hectareId: val }))
+                          }
+                        >
+                          <SelectTrigger className="mt-1 h-9 text-xs">
+                            <SelectValue placeholder="Choisir un hectare..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allHectares.map((h) => (
+                              <SelectItem key={h.id} value={h.id}>
+                                {h.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-medium">
+                          Numéro de la parcelle *
+                        </Label>
+                        <Input
+                          placeholder="ex: P-007"
+                          value={missingForm.newNumero}
+                          onChange={(e) =>
+                            setMissingForm((prev) => ({
+                              ...prev,
+                              newNumero: e.target.value,
+                            }))
+                          }
+                          className="mt-1 h-9 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Surface et Quota d'achat */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium">
+                        Surface totale (m²) *
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={missingForm.surface}
+                        onChange={(e) => {
+                          const s = parseFloat(e.target.value) || 0;
+                          setMissingForm((prev) => ({ ...prev, surface: s }));
+                        }}
+                        className="mt-1 h-9 text-xs"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                        Base concessionnaire : 1 parcelle standard = 600 m²
+                      </span>
+                    </div>
+
+                    {/* Badge Quota d'achat calculé */}
+                    <div className="flex flex-col justify-end">
+                      <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>Quota d'achat calculé</span>
+                          </div>
+                          <div className="text-xs font-bold text-foreground">
+                            {calculatedQuotaUnits} parcelle(s) (600 m²)
+                          </div>
+                        </div>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-2.5 py-1">
+                          {calculatedQuotaUnits} {calculatedQuotaUnits > 1 ? "parcelles" : "parcelle"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Si Hectare complet */}
+              {missingForm.itemType === "hectare" && (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <Label className="text-xs font-medium">
+                      Sélectionner l'Hectare concerné *
+                    </Label>
+                    <Select
+                      value={missingForm.hectareId}
+                      onValueChange={(val) => {
+                        const h = allHectares.find((item) => item.id === val);
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          hectareId: val,
+                          prix: h?.prix ? Number(h.prix) : prev.prix,
+                          amountPaid: prev.paymentType === "total" ? Number(h?.prix || 0) : prev.amountPaid,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 h-9 text-xs">
+                        <SelectValue placeholder="Sélectionner un hectare..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allHectares.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.name} ({h.surface || 10000} m²) — {h.status === "sold" || h.status === "vendu" ? "Déjà vendu" : "Disponible"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                        Quota d'achat : 1 Hectare complet (10 000 m²)
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Équivalent d'une concession de ~16 parcelles de 600 m²
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                      1 Hectare
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Conditions financières et date de vente */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-3">
+                <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-primary" />
+                  <span>Modalités financières & Date de la transaction</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-[11px]">Type de vente</Label>
+                    <Select
+                      value={missingForm.saleType}
+                      onValueChange={(val: "normal" | "onereux") =>
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          saleType: val,
+                          prix: val === "onereux" ? 0 : prev.prix,
+                          amountPaid: val === "onereux" ? 0 : prev.amountPaid,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Normale (payante)</SelectItem>
+                        <SelectItem value="onereux">À titre onéreux (gratuit)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px]">Prix total (USD)</Label>
+                    <Input
+                      type="number"
+                      disabled={missingForm.saleType === "onereux"}
+                      value={missingForm.saleType === "onereux" ? 0 : missingForm.prix}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          prix: val,
+                          amountPaid: prev.paymentType === "total" ? val : prev.amountPaid,
+                        }));
+                      }}
+                      className="mt-1 h-8 text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px]">Paiement</Label>
+                    <Select
+                      disabled={missingForm.saleType === "onereux"}
+                      value={missingForm.paymentType}
+                      onValueChange={(val: "total" | "partiel") =>
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          paymentType: val,
+                          amountPaid: val === "total" ? prev.prix : prev.amountPaid,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="total">Totalité réglée</SelectItem>
+                        <SelectItem value="partiel">Acompte / Partiel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px]">Date de transaction</Label>
+                    <Input
+                      type="date"
+                      value={missingForm.saleDate}
+                      onChange={(e) =>
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          saleDate: e.target.value,
+                        }))
+                      }
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Si paiement partiel */}
+                {missingForm.paymentType === "partiel" && missingForm.saleType !== "onereux" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-border/60">
+                    <div>
+                      <Label className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        Montant déjà payé (USD)
+                      </Label>
+                      <Input
+                        type="number"
+                        value={missingForm.amountPaid}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setMissingForm((prev) => ({ ...prev, amountPaid: val }));
+                        }}
+                        className="mt-1 h-8 text-xs font-semibold text-emerald-600"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-semibold text-orange-700 dark:text-orange-400">
+                        Reste à payer (USD)
+                      </Label>
+                      <div className="mt-1 h-8 px-3 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 font-bold text-xs flex items-center">
+                        {calculatedRemaining.toLocaleString()} USD
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Identité de l'Acquéreur */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    2. Identité du Concessionnaire / Acquéreur
+                  </h3>
+                </div>
+                <Badge variant="outline" className="text-xs font-normal">
+                  Étape 2/3
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <Label className="text-xs font-semibold">
+                    Nom complet de l'acquéreur (ou Raison Sociale) *
+                  </Label>
+                  <Input
+                    placeholder="ex: KABILA WA KABILA Joseph"
+                    value={missingForm.buyerName}
+                    onChange={(e) =>
+                      setMissingForm((prev) => ({
+                        ...prev,
+                        buyerName: e.target.value,
+                      }))
+                    }
+                    className="mt-1 h-9 text-xs font-medium"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Numéro de téléphone</span>
+                  </Label>
+                  <Input
+                    placeholder="ex: +243 81 234 5678"
+                    value={missingForm.buyerPhone}
+                    onChange={(e) =>
+                      setMissingForm((prev) => ({
+                        ...prev,
+                        buyerPhone: e.target.value,
+                      }))
+                    }
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Adresse Email</span>
+                  </Label>
+                  <Input
+                    type="email"
+                    placeholder="ex: acheteur@email.com"
+                    value={missingForm.buyerEmail}
+                    onChange={(e) =>
+                      setMissingForm((prev) => ({
+                        ...prev,
+                        buyerEmail: e.target.value,
+                      }))
+                    }
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Profession / Titre</span>
+                  </Label>
+                  <Input
+                    placeholder="ex: Entrepreneur, Fonctionnaire..."
+                    value={missingForm.buyerProfession}
+                    onChange={(e) =>
+                      setMissingForm((prev) => ({
+                        ...prev,
+                        buyerProfession: e.target.value,
+                      }))
+                    }
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Adresse de résidence / Commune</span>
+                  </Label>
+                  <Input
+                    placeholder="ex: Lubumbashi, Q. Golf..."
+                    value={missingForm.buyerAddress}
+                    onChange={(e) =>
+                      setMissingForm((prev) => ({
+                        ...prev,
+                        buyerAddress: e.target.value,
+                      }))
+                    }
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Documents & Pièces Justificatives */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    3. Documents & Pièces Justificatives
+                  </h3>
+                </div>
+                <Badge variant="outline" className="text-xs font-normal">
+                  Étape 3/3
+                </Badge>
+              </div>
+
+              <div className="p-4 rounded-xl border border-border bg-card">
+                <MultiDocumentUploader
+                  docs={missingDocs}
+                  onChange={setMissingDocs}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer d'action */}
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              Numéro à affecter : <span className="font-mono font-bold text-foreground">{selectedMissingEntry?.rmbFormatted}</span>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setMissingModalOpen(false)}
+                disabled={missingSubmitting}
+                className="text-xs h-9"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleSaveMissingRmb}
+                disabled={missingSubmitting}
+                className="bg-orange-600 hover:bg-orange-700 text-white gap-2 text-xs font-semibold h-9 px-4 shadow-sm"
+              >
+                {missingSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Enregistrement...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Enregistrer et attribuer {selectedMissingEntry?.rmbFormatted}</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
