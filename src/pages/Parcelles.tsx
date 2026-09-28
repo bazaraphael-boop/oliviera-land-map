@@ -5,7 +5,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -715,9 +722,9 @@ const Parcelles = () => {
           description="Attribuez les emplacements de chaque hectare à vos acheteurs."
         />
 
-        <div className="flex items-center gap-4 mb-6 flex-wrap">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
           <Select value={selectedHectare} onValueChange={setSelectedHectare}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-full sm:w-[250px] shrink-0">
               <SelectValue placeholder="Tous les emplacements" />
             </SelectTrigger>
             <SelectContent>
@@ -731,7 +738,7 @@ const Parcelles = () => {
             </SelectContent>
           </Select>
 
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher une parcelle..."
@@ -743,7 +750,7 @@ const Parcelles = () => {
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="shrink-0 w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nouvelle Parcelle
               </Button>
@@ -970,144 +977,171 @@ const Parcelles = () => {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredParcelles.map((parcelle) => (
-            <Card key={parcelle.id} className="p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
-                    <Grid3x3 className="w-4 h-4 text-primary" />
-                  </div>
-                    <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredParcelles.map((parcelle) => {
+            const quotaCount = Math.ceil(Number(parcelle.surface || 600) / 600);
+            const isGratuit = parcelle.sale_type === "onereux" || parcelle.sale_type === "onéreux";
+
+            return (
+              <Card
+                key={parcelle.id}
+                className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow border-border/80 bg-card rounded-xl relative group"
+              >
+                <div>
+                  {/* En-tête : Titre, surface et menu d'actions compact */}
+                  <div className="flex items-start justify-between gap-2 mb-2.5">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="font-semibold text-sm">Parcelle {parcelle.numero}</h3>
-                        {Math.ceil(Number(parcelle.surface || 600) / 600) > 1 && (
-                          <Badge className="text-[10px] bg-emerald-600 text-white font-semibold px-1.5 py-0">
-                            {Math.ceil(Number(parcelle.surface || 600) / 600)} parcelles
+                        <h3 className="font-bold text-sm text-foreground tracking-tight">
+                          Parcelle {parcelle.numero}
+                        </h3>
+                        {quotaCount > 1 && (
+                          <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-1.5 py-0">
+                            {quotaCount} quotas
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <p className="text-xs text-muted-foreground">{parcelle.surface} m²</p>
-                        <span className="text-muted-foreground text-xs">·</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenReassignModal(parcelle);
-                          }}
-                          className="group cursor-pointer inline-flex items-center transition-all hover:scale-105"
-                          title="Cliquer pour changer d'affectation (affecter à un hectare ou transformer en parcelle seule)"
-                        >
-                          {parcelle.hectares?.name ? (
-                            <span className="text-xs text-primary font-medium flex items-center gap-1 truncate max-w-[140px] bg-primary/10 hover:bg-primary/20 px-1.5 py-0.5 rounded border border-primary/20 shadow-xs">
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{parcelle.hectares.name}</span>
-                              <ArrowLeftRight className="w-2.5 h-2.5 ml-0.5 opacity-60 group-hover:opacity-100" />
-                            </span>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 px-1.5 py-0.5 font-medium flex items-center gap-1 shadow-xs">
-                              <Sparkles className="w-2.5 h-2.5" />
-                              <span>Parcelle seule</span>
-                              <ArrowLeftRight className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100" />
-                            </Badge>
-                          )}
-                        </button>
-                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                        {parcelle.surface} m²
+                      </p>
                     </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-primary hover:bg-primary/10"
-                    title="Changer d'affectation (parcelle seule / affecter à un hectare)"
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Badge de statut épuré */}
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${getStatusBadge(parcelle.status)}`}>
+                        {parcelle.status}
+                      </span>
+
+                      {/* Menu d'actions propre (évite d'entasser 3 boutons) */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            title="Options"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem
+                            onClick={() => handleOpenReassignModal(parcelle)}
+                            className="gap-2 cursor-pointer text-xs"
+                          >
+                            <ArrowLeftRight className="w-3.5 h-3.5 text-primary" />
+                            <span>Changer l'affectation</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleEdit(parcelle)}
+                            className="gap-2 cursor-pointer text-xs"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span>Modifier les détails</span>
+                          </DropdownMenuItem>
+                          {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && !isGratuit && (
+                            <DropdownMenuItem
+                              onClick={() => handleAddPayment(parcelle)}
+                              className="gap-2 cursor-pointer text-xs"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Ajouter un paiement</span>
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(parcelle.id)}
+                            className="gap-2 text-destructive cursor-pointer text-xs focus:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Supprimer</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Emplacement cadastral : Hectare d'accueil OU Parcelle seule (clic direct pour changer !) */}
+                  <button
+                    type="button"
                     onClick={() => handleOpenReassignModal(parcelle)}
+                    className="w-full text-left p-2 rounded-lg border transition-all hover:border-primary/50 group/btn flex items-center justify-between gap-1.5 bg-muted/40 hover:bg-muted/70 mb-3"
+                    title="Cliquer pour changer l'affectation ou transformer en parcelle seule"
                   >
-                    <ArrowLeftRight className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => handleEdit(parcelle)}
-                  >
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => handleDelete(parcelle.id)}
-                  >
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
-                </div>
-              </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {parcelle.hectares?.name ? (
+                        <>
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="text-xs font-medium text-foreground truncate" title={parcelle.hectares.name}>
+                            {parcelle.hectares.name}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span className="text-xs font-medium text-amber-700 dark:text-amber-400 truncate">
+                            Parcelle seule (hors hectare)
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground group-hover/btn:text-primary shrink-0 flex items-center gap-0.5 font-medium">
+                      <ArrowLeftRight className="w-2.5 h-2.5" />
+                      <span>Changer</span>
+                    </span>
+                  </button>
 
-              <div className="space-y-2">
-                {(parcelle.rmb_number || parcelle.hectares?.rmb_number) && (
-                  <div className="flex items-center justify-between pb-2 border-b border-border">
-                    <span className="text-xs text-muted-foreground">RMB:</span>
-                    <Badge variant="outline" className="text-xs font-medium bg-purple-500/5 border-purple-500/20 text-foreground">
-                      {parcelle.rmb_number || parcelle.hectares?.rmb_number}
-                    </Badge>
+                  {/* Détails alignés : RMB et Prix */}
+                  <div className="space-y-1.5 text-xs pt-1 border-t border-border/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Numéro RMB :</span>
+                      {(parcelle.rmb_number || parcelle.hectares?.rmb_number) ? (
+                        <span className="font-mono font-bold text-foreground bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-[11px] border border-purple-500/20">
+                          {parcelle.rmb_number || parcelle.hectares?.rmb_number}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground italic text-[11px]">—</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Prix :</span>
+                      {isGratuit ? (
+                        <Badge variant="secondary" className="text-[10px] font-medium">
+                          À titre gratuit
+                        </Badge>
+                      ) : (
+                        <span className="font-bold text-foreground">
+                          ${Number(parcelle.prix || 0).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                
-                {parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Prix:</span>
-                    <span className="text-sm font-semibold">${parcelle.prix.toLocaleString()}</span>
-                  </div>
-                )}
-                
-                <div className="flex gap-2 flex-wrap">
-                  <div className={`text-xs px-2 py-1 rounded ${getStatusBadge(parcelle.status)}`}>
-                    {parcelle.status}
-                  </div>
-                  
-                  {parcelle.sale_type === "onereux" && (
-                    <Badge variant="secondary" className="text-xs">
-                      À titre gratuit
-                    </Badge>
-                  )}
-                  
-                  {parcelle.payment_type === "partiel" && parcelle.status === "vendu" && (
-                    <Badge variant="outline" className="text-xs">
-                      Paiement partiel
-                    </Badge>
-                  )}
                 </div>
 
+                {/* Section Acquéreur (si vendu) */}
                 {parcelle.buyer_name && (
-                  <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                    <div>Acheteur: {parcelle.buyer_name}</div>
-                    {parcelle.payment_type === "partiel" && parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
-                      <div className="mt-1">
-                        <div>Payé: ${parcelle.amount_paid.toLocaleString()}</div>
-                        <div className="font-semibold text-destructive">
-                          Reste: ${parcelle.remaining_amount.toLocaleString()}
-                        </div>
+                  <div className="mt-3 pt-2 border-t border-border/60 text-xs">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <User className="w-3.5 h-3.5 shrink-0 text-foreground/70" />
+                      <span className="font-medium text-foreground truncate" title={parcelle.buyer_name}>
+                        {parcelle.buyer_name}
+                      </span>
+                    </div>
+
+                    {parcelle.payment_type === "partiel" && !isGratuit && (
+                      <div className="flex items-center justify-between mt-1 text-[11px]">
+                        <span className="text-muted-foreground">Reste dû :</span>
+                        <span className="font-semibold text-destructive">
+                          ${Number(parcelle.remaining_amount || 0).toLocaleString()}
+                        </span>
                       </div>
                     )}
                   </div>
                 )}
-                
-                {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && parcelle.sale_type !== "onéreux" && parcelle.sale_type !== "onereux" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAddPayment(parcelle)}
-                    className="w-full mt-2"
-                  >
-                    <DollarSign className="w-3 h-3 mr-1" />
-                    Ajouter un paiement
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         {filteredParcelles.length === 0 && (
