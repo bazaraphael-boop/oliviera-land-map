@@ -41,6 +41,10 @@ import {
   MapPin,
   Layers,
   Building2,
+  Sparkles,
+  Tag,
+  Divide,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -117,7 +121,7 @@ const Rapports = () => {
   const [missingSubmitting, setMissingSubmitting] = useState(false);
   const [missingDocs, setMissingDocs] = useState<DocEntry[]>([]);
   const [missingForm, setMissingForm] = useState({
-    itemType: "parcelle" as "parcelle" | "hectare",
+    itemType: "parcelle_hectare" as "parcelle_hectare" | "parcelle_seule" | "demi_hectare" | "hectare_complet",
     parcelleMode: "existing" as "existing" | "new",
     hectareId: "",
     selectedParcelleId: "",
@@ -653,13 +657,21 @@ const Rapports = () => {
     return allParcelles.filter((p) => {
       const isAvailable = p.status === "disponible" || !p.status;
       if (!isAvailable) return false;
-      if (missingForm.hectareId && p.hectare_id !== missingForm.hectareId) return false;
+      if (missingForm.itemType === "parcelle_seule") {
+        return !p.hectare_id;
+      }
+      if (missingForm.itemType === "parcelle_hectare") {
+        if (!p.hectare_id) return false;
+        if (missingForm.hectareId && p.hectare_id !== missingForm.hectareId) return false;
+        return true;
+      }
       return true;
     });
-  }, [allParcelles, missingForm.hectareId]);
+  }, [allParcelles, missingForm.itemType, missingForm.hectareId]);
 
   const calculatedQuotaUnits = useMemo(() => {
-    if (missingForm.itemType === "hectare") return 1;
+    if (missingForm.itemType === "hectare_complet") return 16;
+    if (missingForm.itemType === "demi_hectare") return 8;
     const s = Number(missingForm.surface || 600);
     return Math.max(1, Math.ceil(s / 600));
   }, [missingForm.itemType, missingForm.surface]);
@@ -677,15 +689,17 @@ const Rapports = () => {
     setSelectedMissingEntry(entry);
     setMissingDocs([]);
 
-    const available = allParcelles.filter((p) => p.status === "disponible" || !p.status);
-    const firstParcelle = available.length > 0 ? available[0] : null;
+    const parcellesInHectares = allParcelles.filter(
+      (p) => (p.status === "disponible" || !p.status) && p.hectare_id
+    );
+    const firstParcelle = parcellesInHectares.length > 0 ? parcellesInHectares[0] : null;
     const initialHectareId = firstParcelle?.hectare_id || (allHectares.length > 0 ? allHectares[0].id : "");
     const initialPrice = firstParcelle?.prix ? Number(firstParcelle.prix) : 0;
     const initialSurface = firstParcelle?.surface ? Number(firstParcelle.surface) : 600;
 
     setMissingForm({
-      itemType: "parcelle",
-      parcelleMode: available.length > 0 ? "existing" : "new",
+      itemType: "parcelle_hectare",
+      parcelleMode: parcellesInHectares.length > 0 ? "existing" : "new",
       hectareId: initialHectareId,
       selectedParcelleId: firstParcelle?.id || "",
       newNumero: `P-${String(entry.num).padStart(3, "0")}`,
@@ -733,7 +747,9 @@ const Rapports = () => {
 
       let targetParcelleId: string | null = null;
 
-      if (missingForm.itemType === "parcelle") {
+      if (missingForm.itemType === "parcelle_hectare" || missingForm.itemType === "parcelle_seule") {
+        const isStandalone = missingForm.itemType === "parcelle_seule";
+
         if (missingForm.parcelleMode === "existing") {
           if (!missingForm.selectedParcelleId) {
             toast.error("Veuillez sélectionner une parcelle disponible.");
@@ -755,6 +771,7 @@ const Rapports = () => {
               buyer_address: missingForm.buyerAddress.trim() || null,
               sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
               sale_type: missingForm.saleType,
+              purchase_type: "parcelle",
               payment_type: isOnereux ? "total" : missingForm.paymentType,
               prix: prix,
               amount_paid: amountPaid,
@@ -766,8 +783,8 @@ const Rapports = () => {
           if (error) throw error;
         } else {
           // Mode nouvelle parcelle
-          if (!missingForm.hectareId) {
-            toast.error("Veuillez sélectionner un hectare pour créer la parcelle.");
+          if (!isStandalone && !missingForm.hectareId) {
+            toast.error("Veuillez sélectionner un hectare d'accueil pour la parcelle.");
             setMissingSubmitting(false);
             return;
           }
@@ -781,7 +798,7 @@ const Rapports = () => {
             .from("parcelles")
             .insert({
               numero: missingForm.newNumero.trim(),
-              hectare_id: missingForm.hectareId,
+              hectare_id: isStandalone ? null : missingForm.hectareId,
               surface: Number(missingForm.surface || 600),
               prix: prix,
               rmb_number: rmbTarget,
@@ -793,6 +810,7 @@ const Rapports = () => {
               buyer_address: missingForm.buyerAddress.trim() || null,
               sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
               sale_type: missingForm.saleType,
+              purchase_type: "parcelle",
               payment_type: isOnereux ? "total" : missingForm.paymentType,
               amount_paid: amountPaid,
               remaining_amount: remainingAmount,
@@ -817,12 +835,15 @@ const Rapports = () => {
           }
         }
       } else {
-        // Affectation directe à un hectare
+        // Affectation directe à un hectare complet ou demi-hectare
         if (!missingForm.hectareId) {
           toast.error("Veuillez sélectionner un hectare.");
           setMissingSubmitting(false);
           return;
         }
+
+        const isDemiHectare = missingForm.itemType === "demi_hectare";
+        const purchaseType = isDemiHectare ? "demi-hectare" : "hectare";
 
         const { error } = await supabase
           .from("hectares")
@@ -836,6 +857,7 @@ const Rapports = () => {
             buyer_address: missingForm.buyerAddress.trim() || null,
             sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
             sale_type: missingForm.saleType,
+            purchase_type: purchaseType,
             payment_type: isOnereux ? "total" : missingForm.paymentType,
             prix: prix,
             amount_paid: amountPaid,
@@ -2804,79 +2826,179 @@ const Rapports = () => {
                 </Badge>
               </div>
 
-              {/* Choix du type de bien : Parcelle ou Hectare */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Choix parmi les 4 options cadastrales */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+                {/* 1. Parcelle dans un hectare */}
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const parcellesInHectares = allParcelles.filter(
+                      (p) => (p.status === "disponible" || !p.status) && p.hectare_id
+                    );
+                    const first = parcellesInHectares[0];
                     setMissingForm((prev) => ({
                       ...prev,
-                      itemType: "parcelle",
-                      surface: 600,
-                    }))
-                  }
+                      itemType: "parcelle_hectare",
+                      parcelleMode: parcellesInHectares.length > 0 ? "existing" : "new",
+                      hectareId: first?.hectare_id || prev.hectareId || (allHectares[0]?.id || ""),
+                      selectedParcelleId: first?.id || "",
+                      surface: first?.surface ? Number(first.surface) : 600,
+                      prix: first?.prix ? Number(first.prix) : prev.prix,
+                      amountPaid: prev.paymentType === "total" ? Number(first?.prix || prev.prix) : prev.amountPaid,
+                    }));
+                  }}
                   className={cn(
-                    "p-3 rounded-xl border text-left transition-all flex items-center gap-3",
-                    missingForm.itemType === "parcelle"
+                    "p-3 rounded-xl border text-left transition-all flex flex-col gap-2 relative",
+                    missingForm.itemType === "parcelle_hectare"
                       ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm"
                       : "border-border hover:bg-muted/50"
                   )}
                 >
-                  <Grid3x3
-                    className={cn(
-                      "w-5 h-5 shrink-0",
-                      missingForm.itemType === "parcelle"
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  />
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <Layers
+                      className={cn(
+                        "w-4 h-4 shrink-0",
+                        missingForm.itemType === "parcelle_hectare"
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      )}
+                    />
                     <div className="font-semibold text-xs text-foreground">
-                      Parcelle individuelle
+                      Parcelle dans hectare
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Quota calculé par multiple de 600 m²
-                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">
+                    Rattachée à un hectare (600 m²)
                   </div>
                 </button>
 
+                {/* 2. Parcelle seule (hors hectare) */}
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const parcellesSeules = allParcelles.filter(
+                      (p) => (p.status === "disponible" || !p.status) && !p.hectare_id
+                    );
+                    const first = parcellesSeules[0];
                     setMissingForm((prev) => ({
                       ...prev,
-                      itemType: "hectare",
-                      surface: 10000,
-                    }))
-                  }
+                      itemType: "parcelle_seule",
+                      parcelleMode: parcellesSeules.length > 0 ? "existing" : "new",
+                      hectareId: "", // Sans hectare d'accueil
+                      selectedParcelleId: first?.id || "",
+                      surface: first?.surface ? Number(first.surface) : 600,
+                      prix: first?.prix ? Number(first.prix) : prev.prix,
+                      amountPaid: prev.paymentType === "total" ? Number(first?.prix || prev.prix) : prev.amountPaid,
+                    }));
+                  }}
                   className={cn(
-                    "p-3 rounded-xl border text-left transition-all flex items-center gap-3",
-                    missingForm.itemType === "hectare"
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm"
+                    "p-3 rounded-xl border text-left transition-all flex flex-col gap-2 relative",
+                    missingForm.itemType === "parcelle_seule"
+                      ? "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30 shadow-sm"
                       : "border-border hover:bg-muted/50"
                   )}
                 >
-                  <Building2
-                    className={cn(
-                      "w-5 h-5 shrink-0",
-                      missingForm.itemType === "hectare"
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  />
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles
+                      className={cn(
+                        "w-4 h-4 shrink-0",
+                        missingForm.itemType === "parcelle_seule"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-muted-foreground"
+                      )}
+                    />
+                    <div className="font-semibold text-xs text-foreground">
+                      Parcelle seule
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">
+                    Autonome (hors hectare)
+                  </div>
+                </button>
+
+                {/* 3. Demi-hectare */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const h = allHectares.find((item) => item.id === missingForm.hectareId) || allHectares[0];
+                    const demiPrix = h?.prix ? Math.round(Number(h.prix) / 2) : 0;
+                    setMissingForm((prev) => ({
+                      ...prev,
+                      itemType: "demi_hectare",
+                      hectareId: h?.id || prev.hectareId || "",
+                      surface: 5000,
+                      prix: demiPrix,
+                      amountPaid: prev.paymentType === "total" ? demiPrix : prev.amountPaid,
+                    }));
+                  }}
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all flex flex-col gap-2 relative",
+                    missingForm.itemType === "demi_hectare"
+                      ? "border-emerald-600 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-sm"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <PieChartIcon
+                      className={cn(
+                        "w-4 h-4 shrink-0",
+                        missingForm.itemType === "demi_hectare"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground"
+                      )}
+                    />
+                    <div className="font-semibold text-xs text-foreground">
+                      Demi-hectare
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">
+                    1/2 hectare (~5 000 m²)
+                  </div>
+                </button>
+
+                {/* 4. Hectare complet */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const h = allHectares.find((item) => item.id === missingForm.hectareId) || allHectares[0];
+                    const hPrix = h?.prix ? Number(h.prix) : 0;
+                    setMissingForm((prev) => ({
+                      ...prev,
+                      itemType: "hectare_complet",
+                      hectareId: h?.id || prev.hectareId || "",
+                      surface: 10000,
+                      prix: hPrix,
+                      amountPaid: prev.paymentType === "total" ? hPrix : prev.amountPaid,
+                    }));
+                  }}
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all flex flex-col gap-2 relative",
+                    missingForm.itemType === "hectare_complet"
+                      ? "border-blue-600 bg-blue-500/10 ring-2 ring-blue-500/30 shadow-sm"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Building2
+                      className={cn(
+                        "w-4 h-4 shrink-0",
+                        missingForm.itemType === "hectare_complet"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-muted-foreground"
+                      )}
+                    />
                     <div className="font-semibold text-xs text-foreground">
                       Hectare complet
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Grande concession (~10 000 m²)
-                    </div>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">
+                    Grande concession (~10 000 m²)
                   </div>
                 </button>
               </div>
 
-              {/* Si Parcelle : choix existante vs nouvelle */}
-              {missingForm.itemType === "parcelle" && (
+              {/* Cas 1 : Parcelle dans un hectare */}
+              {missingForm.itemType === "parcelle_hectare" && (
                 <div className="space-y-4 pt-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground font-medium">Mode d'affectation :</span>
@@ -2922,7 +3044,7 @@ const Rapports = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs font-medium">
-                          Filtrer par Hectare / Site (optionnel)
+                          Filtrer par Hectare d'accueil
                         </Label>
                         <Select
                           value={missingForm.hectareId || "all"}
@@ -2932,6 +3054,7 @@ const Rapports = () => {
                               const matching = allParcelles.filter(
                                 (p) =>
                                   (p.status === "disponible" || !p.status) &&
+                                  p.hectare_id &&
                                   (!newHectareId || p.hectare_id === newHectareId)
                               );
                               const first = matching[0];
@@ -2966,7 +3089,7 @@ const Rapports = () => {
                         </Label>
                         {availableParcellesForMissing.length === 0 ? (
                           <div className="mt-1 p-2 rounded-md bg-muted/60 text-muted-foreground text-xs border border-dashed">
-                            Aucune parcelle disponible. Choisissez un autre hectare ou basculez sur "Créer une nouvelle parcelle".
+                            Aucune parcelle disponible dans cet hectare. Choisissez un autre hectare ou basculez sur "Créer une nouvelle parcelle".
                           </div>
                         ) : (
                           <Select
@@ -2992,7 +3115,7 @@ const Rapports = () => {
                             <SelectContent>
                               {availableParcellesForMissing.map((p) => (
                                 <SelectItem key={p.id} value={p.id}>
-                                  Parcelle {p.numero} ({p.hectares?.name || "Sans site"}) — {p.surface} m² — {Number(p.prix || 0).toLocaleString()} USD
+                                  Parcelle {p.numero} ({p.hectares?.name || "Hectare"}) — {p.surface} m² — {Number(p.prix || 0).toLocaleString()} USD
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -3001,7 +3124,7 @@ const Rapports = () => {
                       </div>
                     </div>
                   ) : (
-                    /* Mode nouvelle parcelle */
+                    /* Mode nouvelle parcelle dans un hectare */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs font-medium">
@@ -3014,7 +3137,7 @@ const Rapports = () => {
                           }
                         >
                           <SelectTrigger className="mt-1 h-9 text-xs">
-                            <SelectValue placeholder="Choisir un hectare..." />
+                            <SelectValue placeholder="Choisir un hectare d'accueil..." />
                           </SelectTrigger>
                           <SelectContent>
                             {allHectares.map((h) => (
@@ -3067,7 +3190,6 @@ const Rapports = () => {
                       </span>
                     </div>
 
-                    {/* Badge Quota d'achat calculé */}
                     <div className="flex flex-col justify-end">
                       <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
                         <div>
@@ -3088,8 +3210,231 @@ const Rapports = () => {
                 </div>
               )}
 
-              {/* Si Hectare complet */}
-              {missingForm.itemType === "hectare" && (
+              {/* Cas 2 : Parcelle seule (SANS HECTARE D'ACCUEIL) */}
+              {missingForm.itemType === "parcelle_seule" && (
+                <div className="space-y-4 pt-1">
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-amber-800 dark:text-amber-300 text-xs">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>
+                      <strong>Parcelle seule (autonome) :</strong> Cette parcelle est gérée individuellement et ne nécessite aucun hectare d'accueil.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Mode d'affectation :</span>
+                    <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMissingForm((prev) => ({
+                            ...prev,
+                            parcelleMode: "existing",
+                          }))
+                        }
+                        className={cn(
+                          "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                          missingForm.parcelleMode === "existing"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Parcelle seule existante
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMissingForm((prev) => ({
+                            ...prev,
+                            parcelleMode: "new",
+                          }))
+                        }
+                        className={cn(
+                          "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                          missingForm.parcelleMode === "new"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Créer une nouvelle parcelle seule
+                      </button>
+                    </div>
+                  </div>
+
+                  {missingForm.parcelleMode === "existing" ? (
+                    <div>
+                      <Label className="text-xs font-medium">
+                        Parcelle seule disponible à attribuer *
+                      </Label>
+                      {availableParcellesForMissing.length === 0 ? (
+                        <div className="mt-1 p-2 rounded-md bg-muted/60 text-muted-foreground text-xs border border-dashed">
+                          Aucune parcelle seule disponible actuellement. Basculez sur l'option "Créer une nouvelle parcelle seule".
+                        </div>
+                      ) : (
+                        <Select
+                          value={missingForm.selectedParcelleId}
+                          onValueChange={(pId) => {
+                            const p = allParcelles.find((item) => item.id === pId);
+                            if (p) {
+                              const pPrice = Number(p.prix || 0);
+                              setMissingForm((prev) => ({
+                                ...prev,
+                                selectedParcelleId: pId,
+                                hectareId: "",
+                                surface: Number(p.surface || 600),
+                                prix: pPrice,
+                                amountPaid: prev.paymentType === "total" ? pPrice : prev.amountPaid,
+                              }));
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 h-9 text-xs">
+                            <SelectValue placeholder="Sélectionner une parcelle seule..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableParcellesForMissing.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                Parcelle {p.numero} (Autonome) — {p.surface} m² — {Number(p.prix || 0).toLocaleString()} USD
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  ) : (
+                    /* Mode nouvelle parcelle seule : SANS HECTARE D'ACCUEIL */
+                    <div>
+                      <Label className="text-xs font-medium">
+                        Numéro de la parcelle *
+                      </Label>
+                      <Input
+                        placeholder="ex: P-007"
+                        value={missingForm.newNumero}
+                        onChange={(e) =>
+                          setMissingForm((prev) => ({
+                            ...prev,
+                            newNumero: e.target.value,
+                          }))
+                        }
+                        className="mt-1 h-9 text-xs"
+                      />
+                    </div>
+                  )}
+
+                  {/* Surface et Quota d'achat */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium">
+                        Surface totale (m²) *
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={missingForm.surface}
+                        onChange={(e) => {
+                          const s = parseFloat(e.target.value) || 0;
+                          setMissingForm((prev) => ({ ...prev, surface: s }));
+                        }}
+                        className="mt-1 h-9 text-xs"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                        Base concessionnaire : 1 parcelle standard = 600 m²
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>Quota d'achat calculé</span>
+                          </div>
+                          <div className="text-xs font-bold text-foreground">
+                            {calculatedQuotaUnits} parcelle(s) (600 m²)
+                          </div>
+                        </div>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-2.5 py-1">
+                          {calculatedQuotaUnits} {calculatedQuotaUnits > 1 ? "parcelles" : "parcelle"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cas 3 : Demi-hectare */}
+              {missingForm.itemType === "demi_hectare" && (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <Label className="text-xs font-medium">
+                      Sélectionner l'Hectare concerné *
+                    </Label>
+                    <Select
+                      value={missingForm.hectareId}
+                      onValueChange={(val) => {
+                        const h = allHectares.find((item) => item.id === val);
+                        const demiPrix = h?.prix ? Math.round(Number(h.prix) / 2) : 0;
+                        setMissingForm((prev) => ({
+                          ...prev,
+                          hectareId: val,
+                          prix: demiPrix,
+                          amountPaid: prev.paymentType === "total" ? demiPrix : prev.amountPaid,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 h-9 text-xs">
+                        <SelectValue placeholder="Sélectionner l'hectare..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allHectares.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.name} ({h.surface || 10000} m²) — {h.status === "sold" || h.status === "vendu" ? "Déjà vendu" : "Disponible"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium">
+                        Surface du demi-hectare (m²) *
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={missingForm.surface}
+                        onChange={(e) => {
+                          const s = parseFloat(e.target.value) || 0;
+                          setMissingForm((prev) => ({ ...prev, surface: s }));
+                        }}
+                        className="mt-1 h-9 text-xs"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                        Base demi-hectare : 5 000 m² (~8 parcelles)
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          Quota d'achat : Demi-hectare (~5 000 m²)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Équivalent de 8 parcelles de 600 m² (1/2 hectare)
+                        </div>
+                      </div>
+                      <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                        1/2 Hectare (8 p.)
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cas 4 : Hectare complet */}
+              {missingForm.itemType === "hectare_complet" && (
                 <div className="space-y-4 pt-1">
                   <div>
                     <Label className="text-xs font-medium">
@@ -3120,18 +3465,40 @@ const Rapports = () => {
                     </Select>
                   </div>
 
-                  <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                        Quota d'achat : 1 Hectare complet (10 000 m²)
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Équivalent d'une concession de ~16 parcelles de 600 m²
-                      </div>
+                      <Label className="text-xs font-medium">
+                        Surface de l'hectare (m²) *
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={missingForm.surface}
+                        onChange={(e) => {
+                          const s = parseFloat(e.target.value) || 0;
+                          setMissingForm((prev) => ({ ...prev, surface: s }));
+                        }}
+                        className="mt-1 h-9 text-xs"
+                      />
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                        Base concession : 10 000 m² (~16 parcelles)
+                      </span>
                     </div>
-                    <Badge className="bg-emerald-600 text-white font-bold text-xs">
-                      1 Hectare
-                    </Badge>
+
+                    <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          Quota d'achat : 1 Hectare complet (10 000 m²)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Équivalent d'une grande concession de ~16 parcelles
+                        </div>
+                      </div>
+                      <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                        1 Hectare (16 p.)
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               )}

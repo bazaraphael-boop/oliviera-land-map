@@ -2125,27 +2125,45 @@ const Acheteurs = () => {
 
                       {/* Sélection de l'hectare ou parcelles */}
                       {newBuyerForm.item_type === "hectare" ? (
-                        <div>
-                          <Label className="text-sm font-medium">Sélectionner un hectare *</Label>
-                          <Select
-                            value={newBuyerForm.selected_item}
-                            onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
-                          >
-                            <SelectTrigger className="mt-1.5 bg-background">
-                              <SelectValue placeholder="Choisir un hectare" />
-                            </SelectTrigger>
-                            <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
-                              {availableHectares.length > 0 ? (
-                                availableHectares.map((h) => (
-                                  <SelectItem key={h.id} value={h.id}>
-                                    {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-sm font-medium">Sélectionner un hectare *</Label>
+                            <Select
+                              value={newBuyerForm.selected_item}
+                              onValueChange={(value) => setNewBuyerForm({ ...newBuyerForm, selected_item: value })}
+                            >
+                              <SelectTrigger className="mt-1.5 bg-background">
+                                <SelectValue placeholder="Choisir un hectare" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
+                                {availableHectares.length > 0 ? (
+                                  availableHectares.map((h) => (
+                                    <SelectItem key={h.id} value={h.id}>
+                                      {h.name} - {h.surface} ha - ${h.prix.toLocaleString()}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="none" disabled>Aucun hectare disponible</SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium">Format d'acquisition *</Label>
+                            <Select
+                              value={newBuyerForm.purchase_type}
+                              onValueChange={(val) => setNewBuyerForm({ ...newBuyerForm, purchase_type: val })}
+                            >
+                              <SelectTrigger className="mt-1.5 bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
+                                <SelectItem value="hectare">Hectare complet (10 000 m²)</SelectItem>
+                                <SelectItem value="demi-hectare">Demi-hectare (5 000 m²)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">
