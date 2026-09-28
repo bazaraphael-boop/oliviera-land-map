@@ -5,7 +5,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, Package, ListOrdered, Hash } from "lucide-react";
+import { 
+  Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, 
+  Package, ListOrdered, Hash, AlertTriangle, CheckCircle2, LayoutGrid, LayoutList, Eye 
+} from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -74,6 +77,8 @@ const Hectares = () => {
   const [parcelleDetailsOpen, setParcelleDetailsOpen] = useState(false);
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [parcelleCountByHectare, setParcelleCountByHectare] = useState<{ [key: string]: number }>({});
+  const [parcelleFilter, setParcelleFilter] = useState<"all" | "vendu" | "disponible">("all");
+  const [parcelleViewMode, setParcelleViewMode] = useState<"grid" | "table">("grid");
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -851,220 +856,393 @@ const Hectares = () => {
 
       {/* Dialog du tableau de parcelles */}
       <Dialog open={parcellesDialogOpen} onOpenChange={setParcellesDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-card">
-          <DialogHeader className="border-b border-border pb-4">
-            <DialogTitle className="text-2xl flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Package className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold">Parcelles - {selectedHectare?.name}</div>
-                <div className="text-sm text-muted-foreground font-normal mt-1">
-                  {selectedHectare?.location && `${selectedHectare.location} • `}
-                  {parcelles.filter(p => p.status === 'vendu').length} vendue(s) sur 16
-                </div>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-6 space-y-6">
-            {/* Alerte pour les RMB dupliqués */}
-            {(() => {
-              const duplicateRMBs = getDuplicateRMBs();
-              if (duplicateRMBs.length > 0) {
-                return (
-                  <div className="bg-red-500/10 border-2 border-red-500 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-red-500/20 rounded-lg">
-                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card p-4 sm:p-6">
+          {(() => {
+            const duplicateRMBs = getDuplicateRMBs();
+            const soldCount = parcelles.filter(p => p.status === 'vendu').length;
+            const availableCount = Math.max(0, 16 - soldCount);
+            const percentSold = Math.round((soldCount / 16) * 100);
+
+            // Filtrer et trier les parcelles à afficher
+            const displayedParcelles = parcelles
+              .filter((parcelle) => {
+                // Ne pas afficher les parcelles secondaires d'un groupe fusionné
+                if (parcelle?.merged_group_id && !parcelle?.is_merge_primary) {
+                  return false;
+                }
+                if (parcelleFilter === "vendu") return parcelle?.status === "vendu";
+                if (parcelleFilter === "disponible") return parcelle?.status !== "vendu";
+                return true;
+              })
+              .sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }));
+
+            return (
+              <>
+                <DialogHeader className="border-b border-border pb-3 sm:pb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                      <div className="p-2 bg-primary/10 rounded-xl shrink-0">
+                        <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-red-700 mb-1">⚠️ Numéros RMB dupliqués détectés</h4>
-                        <p className="text-sm text-red-600">
-                          Les parcelles avec les numéros RMB suivants sont en double : {duplicateRMBs.join(', ')}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <DialogTitle className="text-base sm:text-xl font-bold truncate">
+                            Parcelles · {selectedHectare?.name}
+                          </DialogTitle>
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[11px] font-semibold">
+                            {soldCount}/16 vendue{soldCount > 1 ? "s" : ""} ({percentSold}%)
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {selectedHectare?.location || "Concession"} · 16 parcelles de 600 m² (ou regroupées)
                         </p>
-                        <p className="text-xs text-red-600 mt-1">
-                          Ces parcelles sont marquées avec un indicateur rouge dans le tableau.
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setDuplicatesReportOpen(true)}
-                          className="mt-3 border-red-500 text-red-700 hover:bg-red-500/10"
-                        >
-                          Voir le rapport complet
-                        </Button>
                       </div>
                     </div>
                   </div>
-                );
-              }
-              return null;
-            })()}
+                </DialogHeader>
 
-            {/* Statistiques */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="p-4 bg-green-500/5 border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500/10 rounded-lg">
-                    <MapPin className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-700">
-                      {16 - parcelles.filter(p => p.status === 'vendu').length}
+                <div className="py-4 space-y-4">
+                  {/* Alerte compacte pour les RMB dupliqués */}
+                  {duplicateRMBs.length > 0 && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                        <div className="text-xs sm:text-sm text-red-700 dark:text-red-400 font-medium truncate">
+                          <span className="font-bold">Doublon RMB :</span> {duplicateRMBs.join(', ')}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setDuplicatesReportOpen(true)}
+                        className="h-7 px-2.5 text-xs border-red-500/40 text-red-700 dark:text-red-400 hover:bg-red-500/10 shrink-0 font-medium"
+                      >
+                        Voir rapport
+                      </Button>
                     </div>
-                    <div className="text-xs text-muted-foreground">Disponibles</div>
-                  </div>
-                </div>
-              </Card>
-              
-              <Card className="p-4 bg-red-500/5 border-red-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-500/10 rounded-lg">
-                    <User className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-red-700">
-                      {parcelles.filter(p => p.status === 'vendu').length}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Vendues</div>
-                  </div>
-                </div>
-              </Card>
-              
-              <Card className="p-4 bg-primary/5 border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {Math.round((parcelles.filter(p => p.status === 'vendu').length / 16) * 100)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">Taux de vente</div>
-                  </div>
-                </div>
-              </Card>
-            </div>
+                  )}
 
-            {/* Grille des parcelles */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Plan des parcelles</h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500/30 border-2 border-green-500 rounded"></div>
-                    <span className="text-xs text-muted-foreground">Disponible</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500/30 border-2 border-red-500 rounded"></div>
-                    <span className="text-xs text-muted-foreground">Vendue</span>
-                  </div>
-                </div>
-              </div>
-              
-              <Card className="p-6 bg-muted/30">
-                <div className="grid grid-cols-5 gap-4" style={{ gridAutoRows: '1fr' }}>
-                  {parcelles
-                    .sort((a, b) => a.numero.localeCompare(b.numero))
-                    .map((parcelle) => {
-                      // Ne pas afficher les parcelles secondaires d'un groupe fusionné
-                      if (parcelle?.merged_group_id && !parcelle?.is_merge_primary) {
-                        return null;
-                      }
+                  {/* Cartes Statistiques compactes et harmonieuses */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <Card className="p-2.5 sm:p-3.5 bg-emerald-500/5 border-emerald-500/20 rounded-xl">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-base sm:text-xl font-bold text-emerald-700 dark:text-emerald-400 leading-tight">
+                            {availableCount}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-muted-foreground truncate">Disponibles</div>
+                        </div>
+                      </div>
+                    </Card>
 
-                      const isVendu = parcelle?.status === 'vendu';
-                      const isDisponible = parcelle?.status === 'disponible';
-                      const duplicateRMBs = getDuplicateRMBs();
-                      const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
-                      
-                      // Calculer la taille du groupe fusionné
-                      // Calculer le nombre de cellules basé sur la surface ou la fusion
-                      let mergedCount = 1;
-                      
-                      // Si des parcelles sont fusionnées, compter comme 1 seul emplacement visuel
-                      if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
-                        mergedCount = parcelles.filter(p => p?.merged_group_id === parcelle.merged_group_id).length;
-                      } else {
-                        // Sinon, calculer selon la surface (600m² = 1, 1200m² = 2, 1800m² = 3, etc.)
-                        mergedCount = Math.ceil(parcelle?.surface / 600);
-                      }
-                      
-                      // Déterminer le nombre de colonnes et lignes à occuper
-                      const colSpan = Math.min(mergedCount, 5);
-                      const rowSpan = Math.ceil(mergedCount / 5);
-                      
-                      return (
-                        <div
-                          key={parcelle.id}
-                          onClick={() => handleParcelleClick(parcelle.numero)}
-                          className={`
-                            relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center
-                            font-bold text-xl transition-all hover:scale-105 cursor-pointer shadow-sm
-                            ${isVendu ? 'bg-red-500/20 border-red-500 text-red-700 hover:bg-red-500/30' : ''}
-                            ${isDisponible ? 'bg-green-500/20 border-green-500 text-green-700 hover:bg-green-500/30' : ''}
-                            ${hasDuplicateRMB ? 'ring-4 ring-red-600 ring-offset-2' : ''}
-                          `}
-                          style={{
-                            gridColumn: `span ${colSpan}`,
-                            gridRow: `span ${rowSpan}`,
-                          }}
-                          title={
-                            hasDuplicateRMB 
-                              ? `⚠️ RMB dupliqué: ${parcelle?.rmb_number} - ${parcelle?.buyer_name}` 
-                              : isVendu 
-                                ? `Vendue à ${parcelle?.buyer_name || 'N/A'}${mergedCount > 1 ? ` (${mergedCount} parcelles)` : ''}${parcelle?.rmb_number ? ` - RMB: ${parcelle.rmb_number}` : ''}` 
-                                : 'Disponible - Cliquez pour voir'
-                          }
-                        >
-                          <span className="text-2xl">{parcelle.numero}</span>
-                          {mergedCount > 1 && (
-                            <span className="text-sm mt-1 font-semibold">({mergedCount} parcelles)</span>
-                          )}
-                          {parcelle?.rmb_number && isVendu && (
-                            <div className="absolute bottom-2 left-2 right-2">
-                              <div className="px-2 py-1 bg-background/90 rounded text-xs font-mono text-foreground truncate text-center border border-border">
-                                {parcelle.rmb_number}
+                    <Card className="p-2.5 sm:p-3.5 bg-rose-500/5 border-rose-500/20 rounded-xl">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
+                          <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-base sm:text-xl font-bold text-rose-700 dark:text-rose-400 leading-tight">
+                            {soldCount}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-muted-foreground truncate">Vendues</div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="p-2.5 sm:p-3.5 bg-primary/5 border-primary/20 rounded-xl">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-base sm:text-xl font-bold text-primary leading-tight">
+                            {percentSold}%
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-muted-foreground truncate">Taux de vente</div>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Barre d'outils : Filtres & Bascule Grille / Liste */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pt-1">
+                    {/* Filtres de statut */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setParcelleFilter("all")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          parcelleFilter === "all"
+                            ? "bg-foreground text-background shadow-xs"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        Toutes ({parcelles.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setParcelleFilter("vendu")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                          parcelleFilter === "vendu"
+                            ? "bg-rose-600 text-white shadow-xs"
+                            : "bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20"
+                        }`}
+                      >
+                        Vendues ({soldCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setParcelleFilter("disponible")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                          parcelleFilter === "disponible"
+                            ? "bg-emerald-600 text-white shadow-xs"
+                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20"
+                        }`}
+                      >
+                        Disponibles ({availableCount})
+                      </button>
+                    </div>
+
+                    {/* Bascule Grille / Tableau */}
+                    <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setParcelleViewMode("grid")}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                          parcelleViewMode === "grid"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                        title="Vue Grille"
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span>Grille</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setParcelleViewMode("table")}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                          parcelleViewMode === "table"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                        title="Vue Tableau"
+                      >
+                        <LayoutList className="w-3.5 h-3.5" />
+                        <span>Tableau</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* VUE GRILLE DES PARCELLES (Harmonieuse & Uniforme) */}
+                  {parcelleViewMode === "grid" && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
+                      {displayedParcelles.map((parcelle) => {
+                        const isVendu = parcelle?.status === "vendu";
+                        const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
+
+                        // Calcul du nombre de parcelles groupées
+                        let mergedCount = 1;
+                        if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
+                          mergedCount = parcelles.filter((p) => p?.merged_group_id === parcelle.merged_group_id).length;
+                        } else {
+                          mergedCount = Math.max(1, Math.ceil((parcelle?.surface || 600) / 600));
+                        }
+
+                        return (
+                          <div
+                            key={parcelle.id}
+                            onClick={() => handleParcelleClick(parcelle.numero)}
+                            className={`
+                              p-3 rounded-xl border transition-all cursor-pointer relative flex flex-col justify-between gap-2 shadow-xs hover:shadow-md hover:scale-[1.01] min-h-[110px] sm:min-h-[120px]
+                              ${isVendu 
+                                ? 'bg-rose-500/10 border-rose-300 dark:border-rose-900/40 text-foreground' 
+                                : 'bg-emerald-500/10 border-emerald-300 dark:border-emerald-900/40 text-foreground'}
+                              ${hasDuplicateRMB ? 'ring-2 ring-red-600 ring-offset-1' : ''}
+                            `}
+                          >
+                            {/* En-tête de la carte */}
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-extrabold text-sm sm:text-base text-foreground tracking-tight">
+                                Parcelle {parcelle.numero}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 font-semibold uppercase tracking-wider ${
+                                  isVendu 
+                                    ? 'bg-rose-500/20 text-rose-700 dark:text-rose-400 border-rose-500/30' 
+                                    : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                                }`}
+                              >
+                                {isVendu ? 'Vendue' : 'Libre'}
+                              </Badge>
+                            </div>
+
+                            {/* Corps : Acheteur & Surface */}
+                            <div className="space-y-1">
+                              {isVendu ? (
+                                <div className="text-xs font-semibold text-foreground truncate" title={parcelle.buyer_name}>
+                                  👤 {parcelle.buyer_name || 'Acquéreur'}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground italic">
+                                  Disponible
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] text-muted-foreground font-medium">
+                                  {parcelle.surface || (mergedCount * 600)} m²
+                                </span>
+                                {mergedCount > 1 && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-foreground/10 rounded text-foreground">
+                                    {mergedCount} parcelles
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          )}
-                          {isVendu && (
-                            <div className="absolute top-1 right-1">
-                              <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                            </div>
-                          )}
-                          {hasDuplicateRMB && (
-                            <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                              !
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </Card>
-            </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={() => setParcellesDialogOpen(false)}
-              >
-                Fermer
-              </Button>
-              <Button
-                onClick={() => {
-                  setParcellesDialogOpen(false);
-                  navigate(`/parcelles?hectare=${selectedHectare?.id}`);
-                }}
-              >
-                Gérer les parcelles
-              </Button>
-            </div>
-          </div>
+                            {/* Ligne inférieure : RMB / Doublon */}
+                            {parcelle?.rmb_number && (
+                              <div className="pt-1.5 border-t border-border/50 flex items-center justify-between text-[11px]">
+                                <span className="text-muted-foreground font-mono">RMB :</span>
+                                {hasDuplicateRMB ? (
+                                  <span className="font-bold text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {parcelle.rmb_number} (doublon)
+                                  </span>
+                                ) : (
+                                  <span className="font-mono font-semibold text-foreground">
+                                    {parcelle.rmb_number}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* VUE TABLEAU DES PARCELLES */}
+                  {parcelleViewMode === "table" && (
+                    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/50">
+                            <th className="text-left px-3 py-2.5 font-semibold text-foreground">Parcelle</th>
+                            <th className="text-left px-3 py-2.5 font-semibold text-foreground">Surface & Quota</th>
+                            <th className="text-center px-3 py-2.5 font-semibold text-foreground">Statut</th>
+                            <th className="text-left px-3 py-2.5 font-semibold text-foreground">Concessionnaire</th>
+                            <th className="text-left px-3 py-2.5 font-semibold text-foreground">RMB</th>
+                            <th className="px-3 py-2.5 w-16"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {displayedParcelles.map((parcelle) => {
+                            const isVendu = parcelle?.status === "vendu";
+                            const hasDuplicateRMB = parcelle?.rmb_number && duplicateRMBs.includes(parcelle.rmb_number);
+                            let mergedCount = 1;
+                            if (parcelle?.merged_group_id && parcelle?.is_merge_primary) {
+                              mergedCount = parcelles.filter((p) => p?.merged_group_id === parcelle.merged_group_id).length;
+                            } else {
+                              mergedCount = Math.max(1, Math.ceil((parcelle?.surface || 600) / 600));
+                            }
+
+                            return (
+                              <tr key={parcelle.id} className="hover:bg-muted/40 transition-colors">
+                                <td className="px-3 py-2 font-bold text-foreground">
+                                  P. {parcelle.numero}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  <span>{parcelle.surface || (mergedCount * 600)} m²</span>
+                                  {mergedCount > 1 && (
+                                    <span className="ml-1 text-[10px] font-bold text-primary">
+                                      ({mergedCount} p.)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-center whitespace-nowrap">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 py-0 font-semibold ${
+                                      isVendu
+                                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300"
+                                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300"
+                                    }`}
+                                  >
+                                    {isVendu ? "Vendue" : "Libre"}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap font-medium text-foreground">
+                                  {isVendu ? (parcelle.buyer_name || "—") : <span className="text-muted-foreground italic">Disponible</span>}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {parcelle.rmb_number ? (
+                                    hasDuplicateRMB ? (
+                                      <span className="font-bold text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 inline-flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        {parcelle.rmb_number}
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono text-foreground">{parcelle.rmb_number}</span>
+                                    )
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => handleParcelleClick(parcelle.numero)}
+                                  >
+                                    Détails
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {displayedParcelles.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-xs">
+                      Aucune parcelle ne correspond à ce filtre
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions du pied de page */}
+                <div className="flex items-center justify-between gap-3 pt-3 border-t border-border">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setParcellesDialogOpen(false)}
+                    className="h-9 px-4 text-xs"
+                  >
+                    Fermer
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 px-4 text-xs font-semibold"
+                    onClick={() => {
+                      setParcellesDialogOpen(false);
+                      navigate(`/parcelles?hectare=${selectedHectare?.id}`);
+                    }}
+                  >
+                    Gérer les parcelles
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
