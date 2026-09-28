@@ -63,7 +63,7 @@ interface Acheteur {
     prix: number;
     sale_date: string | null;
     created_at?: string;
-    hectare_id: string;
+    hectare_id: string | null;
     payment_type: string;
     amount_paid: number;
     remaining_amount: number;
@@ -75,7 +75,7 @@ interface Acheteur {
     hectares?: {
       name: string;
       location: string;
-    };
+    } | null;
   }[];
   hectares: {
     id: string;
@@ -198,7 +198,7 @@ const Acheteurs = () => {
 
   useEffect(() => {
     // Charger toutes les parcelles (vendues et disponibles) de l'hectare sélectionné
-    if (newBuyerForm.selected_item && newBuyerForm.item_type === "parcelle") {
+    if (newBuyerForm.selected_item && newBuyerForm.selected_item !== "standalone" && newBuyerForm.item_type === "parcelle") {
       supabase
         .from("parcelles")
         .select("id, surface")
@@ -2150,7 +2150,7 @@ const Acheteurs = () => {
                       ) : (
                         <div className="space-y-4">
                           <div className="space-y-3">
-                            <Label className="text-sm font-medium">Sélectionner un hectare *</Label>
+                            <Label className="text-sm font-medium">Sélectionner l'emplacement *</Label>
                             <Select
                               value={newBuyerForm.selected_item}
                               onValueChange={(value) => {
@@ -2162,27 +2162,27 @@ const Acheteurs = () => {
                               }}
                             >
                               <SelectTrigger className="mt-1.5 bg-background">
-                                <SelectValue placeholder="Choisir un hectare" />
+                                <SelectValue placeholder="Choisir un hectare ou parcelles seules" />
                               </SelectTrigger>
                               <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100] max-h-[300px]">
                                 {(() => {
-                                  // Grouper les parcelles par hectare
+                                  // Grouper les parcelles par hectare ou groupe "standalone"
                                   const hectareGroups: Record<string, { name: string; parcelles: any[] }> = availableParcelles.reduce((acc, p) => {
-                                    if (!p.hectare_id) return acc;
-                                    if (!acc[p.hectare_id]) {
-                                      acc[p.hectare_id] = {
-                                        name: p.hectares?.name || 'Hectare',
+                                    const key = p.hectare_id || "standalone";
+                                    if (!acc[key]) {
+                                      acc[key] = {
+                                        name: key === "standalone" ? "🏷️ Parcelles seules (hors hectare)" : (p.hectares?.name || 'Hectare'),
                                         parcelles: []
                                       };
                                     }
-                                    acc[p.hectare_id].parcelles.push(p);
+                                    acc[key].parcelles.push(p);
                                     return acc;
                                   }, {} as Record<string, { name: string; parcelles: any[] }>);
 
                                   return Object.entries(hectareGroups).length > 0 ? (
-                                    Object.entries(hectareGroups).map(([hectareId, group]) => (
-                                      <SelectItem key={hectareId} value={hectareId}>
-                                        {group.name} ({group.parcelles.length} parcelles disponibles)
+                                    Object.entries(hectareGroups).map(([key, group]) => (
+                                      <SelectItem key={key} value={key}>
+                                        {group.name} ({group.parcelles.length} parcelle{group.parcelles.length > 1 ? 's' : ''} disponible{group.parcelles.length > 1 ? 's' : ''})
                                       </SelectItem>
                                     ))
                                   ) : (
@@ -2194,25 +2194,33 @@ const Acheteurs = () => {
                           </div>
 
                           {newBuyerForm.selected_item && (() => {
-                            const parcellesInHectare = availableParcelles.filter(p => p.hectare_id === newBuyerForm.selected_item);
+                            const isStandalone = newBuyerForm.selected_item === "standalone";
+                            const parcellesInGroup = availableParcelles.filter(p => 
+                              isStandalone ? !p.hectare_id : p.hectare_id === newBuyerForm.selected_item
+                            );
                             
-                            // Calculer l'effectif déjà occupé dans l'hectare
-                            const occupiedEffectif = allParcellesInSelectedHectare.reduce((total, p) => {
-                              return total + Math.ceil(p.surface / 600);
-                            }, 0);
-                            
-                            const availableEffectif = 15 - occupiedEffectif;
-                            
-                            // Calculer combien de parcelles on peut acheter en fonction de l'effectif disponible
                             let maxParcelles = 0;
-                            let effectifUsed = 0;
-                            for (const parcelle of parcellesInHectare) {
-                              const effectifNeeded = Math.ceil(parcelle.surface / 600);
-                              if (effectifUsed + effectifNeeded <= availableEffectif) {
-                                maxParcelles++;
-                                effectifUsed += effectifNeeded;
-                              } else {
-                                break;
+                            let availableEffectif = 0;
+
+                            if (isStandalone) {
+                              maxParcelles = parcellesInGroup.length;
+                            } else {
+                              // Calculer l'effectif déjà occupé dans l'hectare
+                              const occupiedEffectif = allParcellesInSelectedHectare.reduce((total, p) => {
+                                return total + Math.ceil(p.surface / 600);
+                              }, 0);
+                              
+                              availableEffectif = Math.max(0, 15 - occupiedEffectif);
+                              
+                              let effectifUsed = 0;
+                              for (const parcelle of parcellesInGroup) {
+                                const effectifNeeded = Math.ceil(parcelle.surface / 600);
+                                if (effectifUsed + effectifNeeded <= availableEffectif) {
+                                  maxParcelles++;
+                                  effectifUsed += effectifNeeded;
+                                } else {
+                                  break;
+                                }
                               }
                             }
 
@@ -2221,16 +2229,18 @@ const Acheteurs = () => {
                                 <div>
                                   <Label className="text-sm font-medium">
                                     Nombre de parcelles à acheter * 
-                                    <span className="text-xs text-muted-foreground ml-2">
-                                      ({availableEffectif} en effectif disponible)
-                                    </span>
+                                    {!isStandalone && (
+                                      <span className="text-xs text-muted-foreground ml-2">
+                                        ({availableEffectif} en effectif disponible)
+                                      </span>
+                                    )}
                                   </Label>
                                   <Select
                                     value={newBuyerForm.selected_parcelles.length.toString()}
                                     onValueChange={(value) => {
                                       const count = parseInt(value);
                                       // Sélectionner automatiquement les N premières parcelles disponibles
-                                      const selectedIds = parcellesInHectare.slice(0, count).map(p => p.id);
+                                      const selectedIds = parcellesInGroup.slice(0, count).map(p => p.id);
                                       setNewBuyerForm({ 
                                         ...newBuyerForm, 
                                         selected_parcelles: selectedIds,
@@ -2262,7 +2272,7 @@ const Acheteurs = () => {
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                       {newBuyerForm.selected_parcelles.map(id => {
-                                        const parcelle = parcellesInHectare.find(p => p.id === id);
+                                        const parcelle = parcellesInGroup.find(p => p.id === id);
                                         return parcelle ? (
                                           <Badge key={id} variant="outline" className="text-xs">
                                             Parcelle {parcelle.numero}

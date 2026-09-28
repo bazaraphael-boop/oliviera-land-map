@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -45,7 +45,7 @@ interface Parcelle {
   buyer_phone: string | null;
   buyer_email: string | null;
   sale_date: string | null;
-  hectare_id: string;
+  hectare_id: string | null;
   payment_type: string;
   amount_paid: number;
   remaining_amount: number;
@@ -57,7 +57,7 @@ interface Parcelle {
   hectares?: {
     name: string;
     rmb_number: string | null;
-  };
+  } | null;
 }
 
 interface Hectare {
@@ -85,6 +85,7 @@ const Parcelles = () => {
     searchParams.get("hectare") || "all"
   );
   const [formData, setFormData] = useState({
+    assignment_type: (searchParams.get("hectare") ? "hectare" : "standalone") as "hectare" | "standalone",
     numero: "",
     surface: "",
     prix: "",
@@ -115,6 +116,7 @@ const Parcelles = () => {
     };
   };
   const [editFormData, setEditFormData] = useState({
+    assignment_type: "hectare" as "hectare" | "standalone",
     status: "",
     buyer_name: "",
     buyer_phone: "",
@@ -242,7 +244,9 @@ const Parcelles = () => {
         )
       `);
       
-      if (selectedHectare && selectedHectare !== "all") {
+      if (selectedHectare === "standalone") {
+        query = query.is("hectare_id", null);
+      } else if (selectedHectare && selectedHectare !== "all") {
         query = query.eq("hectare_id", selectedHectare);
       }
 
@@ -261,63 +265,55 @@ const Parcelles = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.hectare_id) {
-      toast.error("Veuillez sélectionner un hectare");
+    const isStandalone = formData.assignment_type === "standalone";
+    const hectareIdToSave = isStandalone ? null : (formData.hectare_id || null);
+
+    if (!isStandalone && !hectareIdToSave) {
+      toast.error("Veuillez sélectionner un hectare existant, ou choisissez 'Parcelle seule'");
       return;
     }
 
     try {
-      // Vérifier combien de parcelles existent déjà dans cet hectare
-      const { data: existingParcelles, error: countError } = await supabase
-        .from("parcelles")
-        .select("id, surface, merged_group_id", { count: "exact" })
-        .eq("hectare_id", formData.hectare_id);
+      // Si affectée à un hectare, vérifier la limite de capacité de cet hectare
+      if (!isStandalone && hectareIdToSave) {
+        const { data: existingParcelles, error: countError } = await supabase
+          .from("parcelles")
+          .select("id, surface, merged_group_id", { count: "exact" })
+          .eq("hectare_id", hectareIdToSave);
 
-      if (countError) throw countError;
+        if (countError) throw countError;
 
-      // Calculer l'effectif occupé (somme de Math.ceil(surface/600))
-      // Un hectare peut avoir max 16 en effectif
-      const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
-        return total + Math.ceil(p.surface / 600);
-      }, 0);
-      
-      // La nouvelle parcelle contribue à l'effectif selon sa surface
-      const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
+        // Calculer l'effectif occupé
+        const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
+          return total + Math.ceil(p.surface / 600);
+        }, 0);
+        
+        const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
 
-      // Un hectare ne peut avoir que 16 en effectif maximum
-      if (occupiedEffectif + newParcelleEffectif > 16) {
-        toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${16 - occupiedEffectif} en effectif disponible)`);
-        return;
+        if (occupiedEffectif + newParcelleEffectif > 16) {
+          toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${16 - occupiedEffectif} disponible)`);
+          return;
+        }
       }
 
       const isOnereux = formData.sale_type === "onereux";
       const prix = isOnereux ? 0 : parseFloat(formData.prix);
 
-      const { error } = await supabase.from("parcelles").insert([
+      const { data: newParcelleData, error } = await supabase.from("parcelles").insert([
         {
           numero: formData.numero,
           surface: parseFloat(formData.surface),
           prix: prix,
-          hectare_id: formData.hectare_id,
+          hectare_id: hectareIdToSave,
           status: "disponible",
           rmb_number: formData.rmb_number || null,
           sale_type: formData.sale_type,
           latitude: formData.latitude ? parseFloat(formData.latitude) : null,
           longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         },
-      ]);
+      ]).select("id").single();
 
       if (error) throw error;
-
-      // Récupérer l'ID de la nouvelle parcelle pour uploader les documents
-      const { data: newParcelleData } = await supabase
-        .from("parcelles")
-        .select("id")
-        .eq("numero", formData.numero)
-        .eq("hectare_id", formData.hectare_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
 
       if (newParcelleData && newDocs.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -325,24 +321,26 @@ const Parcelles = () => {
         if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
       }
 
-      toast.success("Parcelle créée avec succès");
+      toast.success(isStandalone ? "Parcelle seule créée avec succès" : "Parcelle créée et rattachée à l'hectare");
       setIsDialogOpen(false);
       setNewDocs([]);
       setFormData({ 
+        assignment_type: selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? "hectare" : "standalone",
         numero: "", 
         surface: "", 
         prix: "", 
-        hectare_id: selectedHectare, 
+        hectare_id: selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? selectedHectare : "", 
         rmb_number: "",
         sale_type: "normal",
         latitude: "",
         longitude: "",
       });
       fetchParcelles();
+      fetchAllParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de la création");
+      toast.error(error?.message || "Erreur lors de la création de la parcelle");
     }
   };
 
@@ -365,6 +363,7 @@ const Parcelles = () => {
   const handleEdit = async (parcelle: Parcelle) => {
     setSelectedParcelle(parcelle);
     setEditFormData({
+      assignment_type: parcelle.hectare_id ? "hectare" : "standalone",
       status: parcelle.status || "disponible",
       buyer_name: parcelle.buyer_name || "",
       buyer_phone: parcelle.buyer_phone || "",
@@ -406,9 +405,16 @@ const Parcelles = () => {
     if (!selectedParcelle) return;
 
     try {
-      // Vérifier si on change d'hectare et si le nouvel hectare a assez d'emplacements
-      const newHectareId = editFormData.hectare_id || selectedParcelle.hectare_id;
-      if (newHectareId !== selectedParcelle.hectare_id) {
+      const isStandalone = editFormData.assignment_type === "standalone";
+      const newHectareId = isStandalone ? null : (editFormData.hectare_id || null);
+
+      if (!isStandalone && !newHectareId) {
+        toast.error("Veuillez sélectionner un hectare existant ou choisir 'Parcelle seule'");
+        return;
+      }
+
+      // Vérifier la capacité uniquement si on affecte à un hectare et qu'il est différent de l'ancien
+      if (newHectareId && newHectareId !== selectedParcelle.hectare_id) {
         const { data: existingParcelles, error: countError } = await supabase
           .from("parcelles")
           .select("id, surface, merged_group_id", { count: "exact" })
@@ -631,11 +637,12 @@ const Parcelles = () => {
 
         <div className="flex items-center gap-4 mb-6 flex-wrap">
           <Select value={selectedHectare} onValueChange={setSelectedHectare}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Tous les hectares" />
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Tous les emplacements" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les hectares</SelectItem>
+              <SelectItem value="all">Tous les emplacements</SelectItem>
+              <SelectItem value="standalone">🏷️ Parcelles seules (hors hectare)</SelectItem>
               {hectares.map((h) => (
                 <SelectItem key={h.id} value={h.id}>
                   {h.name}
@@ -665,24 +672,104 @@ const Parcelles = () => {
               <DialogHeader>
                 <DialogTitle>Créer une nouvelle parcelle</DialogTitle>
                 <DialogDescription>
-                  Remplissez les informations de base de la parcelle
+                  Choisissez le mode de création : parcelle seule ou rattachée à un hectare
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="max-h-[60vh] pr-4">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
+                  {/* Choix des deux chemins : Parcelle seule OU Affectée à un hectare */}
                   <div>
-                    <Label className="text-sm font-medium">Hectare *</Label>
-                    <div className="mt-1">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
+                      Affectation de la parcelle *
+                    </Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            assignment_type: "standalone",
+                            hectare_id: "",
+                          })
+                        }
+                        className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                          formData.assignment_type === "standalone"
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                            : "border-border bg-card hover:bg-muted/50"
+                        }`}
+                      >
+                        <div
+                          className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                            formData.assignment_type === "standalone"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-xs sm:text-sm text-foreground">
+                            Parcelle seule
+                          </div>
+                          <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Indépendante, sans rattachement à un hectare
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            assignment_type: "hectare",
+                            hectare_id: formData.hectare_id || hectares[0]?.id || "",
+                          })
+                        }
+                        className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                          formData.assignment_type === "hectare"
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                            : "border-border bg-card hover:bg-muted/50"
+                        }`}
+                      >
+                        <div
+                          className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                            formData.assignment_type === "hectare"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-xs sm:text-sm text-foreground">
+                            Affecter à un hectare
+                          </div>
+                          <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Rattacher à un hectare existant
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sélecteur d'hectare si le deuxième chemin est choisi */}
+                  {formData.assignment_type === "hectare" && (
+                    <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-1.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                        Hectare de rattachement *
+                      </Label>
                       <HectareSelector
                         hectares={hectares}
                         selectedId={formData.hectare_id}
                         onSelect={handleHectareChange}
                         getOccupancy={getHectareOccupancy}
-                        placeholder="Sélectionner un hectare"
+                        placeholder="Sélectionner un hectare existant"
                       />
                     </div>
-                  </div>
+                  )}
                   
                   <div>
                     <Label className="text-sm font-medium">Type de vente *</Label>
@@ -811,17 +898,30 @@ const Parcelles = () => {
                   <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
                     <Grid3x3 className="w-4 h-4 text-primary" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-semibold text-sm">Parcelle {parcelle.numero}</h3>
-                      {Math.ceil(Number(parcelle.surface || 600) / 600) > 1 && (
-                        <Badge className="text-[10px] bg-emerald-600 text-white font-semibold px-1.5 py-0">
-                          {Math.ceil(Number(parcelle.surface || 600) / 600)} parcelles
-                        </Badge>
-                      )}
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-semibold text-sm">Parcelle {parcelle.numero}</h3>
+                        {Math.ceil(Number(parcelle.surface || 600) / 600) > 1 && (
+                          <Badge className="text-[10px] bg-emerald-600 text-white font-semibold px-1.5 py-0">
+                            {Math.ceil(Number(parcelle.surface || 600) / 600)} parcelles
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <p className="text-xs text-muted-foreground">{parcelle.surface} m²</p>
+                        <span className="text-muted-foreground text-xs">·</span>
+                        {parcelle.hectares?.name ? (
+                          <span className="text-xs text-primary font-medium flex items-center gap-0.5 truncate max-w-[130px]" title={parcelle.hectares.name}>
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            {parcelle.hectares.name}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] bg-muted/60 text-muted-foreground border-border px-1.5 py-0 font-medium">
+                            Parcelle seule
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">{parcelle.surface} m²</p>
-                  </div>
                 </div>
                 <div className="flex gap-1">
                   <Button
@@ -940,24 +1040,62 @@ const Parcelles = () => {
                 </div>
                 
                 <div>
-                  <Label className="text-sm font-medium">Hectare *</Label>
-                  <Select
-                    value={editFormData.hectare_id}
-                    onValueChange={(value) =>
-                      setEditFormData({ ...editFormData, hectare_id: value })
-                    }
-                  >
-                    <SelectTrigger className="mt-1 bg-background">
-                      <SelectValue placeholder="Sélectionner un hectare" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      {hectares.map((h) => (
-                        <SelectItem key={h.id} value={h.id}>
-                          {h.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
+                    Rattachement de la parcelle
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, assignment_type: "standalone", hectare_id: "" })}
+                      className={`p-2.5 rounded-lg border text-left transition-all flex items-center gap-2 ${
+                        editFormData.assignment_type === "standalone"
+                          ? "border-primary bg-primary/10 ring-1 ring-primary"
+                          : "border-border bg-background hover:bg-muted/50"
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold">Parcelle seule</div>
+                        <div className="text-[10px] text-muted-foreground">Hors hectare</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, assignment_type: "hectare", hectare_id: editFormData.hectare_id || hectares[0]?.id || "" })}
+                      className={`p-2.5 rounded-lg border text-left transition-all flex items-center gap-2 ${
+                        editFormData.assignment_type === "hectare"
+                          ? "border-primary bg-primary/10 ring-1 ring-primary"
+                          : "border-border bg-background hover:bg-muted/50"
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4 text-primary shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold">Affectée à un hectare</div>
+                        <div className="text-[10px] text-muted-foreground">Hectare existant</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {editFormData.assignment_type === "hectare" && (
+                    <Select
+                      value={editFormData.hectare_id}
+                      onValueChange={(value) =>
+                        setEditFormData({ ...editFormData, hectare_id: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1 bg-background">
+                        <SelectValue placeholder="Sélectionner un hectare" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        {hectares.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

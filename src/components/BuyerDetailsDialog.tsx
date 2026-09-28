@@ -41,7 +41,7 @@ interface Acheteur {
     surface: number;
     prix: number;
     sale_date: string | null;
-    hectare_id: string;
+    hectare_id?: string | null;
     payment_type: string;
     amount_paid: number;
     remaining_amount: number;
@@ -51,7 +51,7 @@ interface Acheteur {
     hectares?: {
       name: string;
       location: string;
-    };
+    } | null;
   }[];
   hectares: {
     id: string;
@@ -365,9 +365,13 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
                                   À titre gratuit
                                 </Badge>
                               )}
-                              {parcelle.hectares?.name && (
+                              {parcelle.hectares?.name ? (
                                 <p className="text-[10px] text-muted-foreground">
                                   Hectare {parcelle.hectares.name}
+                                </p>
+                              ) : (
+                                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                  🏷️ Parcelle seule (hors hectare)
                                 </p>
                               )}
                             </div>

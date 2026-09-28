@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download, AlertTriangle, FileText, Upload } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download, AlertTriangle, FileText, Upload, Sparkles, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
@@ -54,6 +54,7 @@ const Dashboard = () => {
   });
   
   const [parcelleForm, setParcelleForm] = useState({
+    assignment_type: "hectare" as "hectare" | "standalone",
     hectare_id: "",
     numero: "",
     surface: "600",
@@ -527,31 +528,41 @@ const Dashboard = () => {
 
   const handleAddParcelle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!parcelleForm.hectare_id || !parcelleForm.numero || !parcelleForm.surface) {
-      toast.error("Veuillez remplir tous les champs obligatoires");
+    const isStandalone = parcelleForm.assignment_type === "standalone";
+    const hectareIdToSave = isStandalone ? null : (parcelleForm.hectare_id || null);
+
+    if (!isStandalone && !hectareIdToSave) {
+      toast.error("Veuillez sélectionner un hectare existant ou choisir 'Parcelle seule'");
+      return;
+    }
+
+    if (!parcelleForm.numero || !parcelleForm.surface) {
+      toast.error("Veuillez renseigner le numéro et la surface");
       return;
     }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Vérifier la limite d'occupation (16 parcelles de 600m² par hectare)
-      const { data: existingParcelles, error: countError } = await supabase
-        .from("parcelles")
-        .select("id, surface")
-        .eq("hectare_id", parcelleForm.hectare_id);
+      // Vérifier la limite d'occupation uniquement si rattachée à un hectare
+      if (!isStandalone && hectareIdToSave) {
+        const { data: existingParcelles, error: countError } = await supabase
+          .from("parcelles")
+          .select("id, surface")
+          .eq("hectare_id", hectareIdToSave);
 
-      if (countError) throw countError;
+        if (countError) throw countError;
 
-      const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
-        return total + Math.ceil(p.surface / 600);
-      }, 0);
-      
-      const newParcelleEffectif = Math.ceil(parseFloat(parcelleForm.surface) / 600);
+        const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
+          return total + Math.ceil(p.surface / 600);
+        }, 0);
+        
+        const newParcelleEffectif = Math.ceil(parseFloat(parcelleForm.surface) / 600);
 
-      if (occupiedEffectif + newParcelleEffectif > 16) {
-        toast.error(`Limite de capacité atteinte sur cet hectare (${16 - occupiedEffectif} slots de 600m² disponibles, ${newParcelleEffectif} requis)`);
-        return;
+        if (occupiedEffectif + newParcelleEffectif > 16) {
+          toast.error(`Limite de capacité atteinte sur cet hectare (${16 - occupiedEffectif} slots de 600m² disponibles, ${newParcelleEffectif} requis)`);
+          return;
+        }
       }
 
       // Déterminer les valeurs selon le type de transaction
@@ -604,7 +615,7 @@ const Dashboard = () => {
         buyer_phone: buyer_phone,
         buyer_email: buyer_email,
         amount_paid: amountPaid,
-        hectare_id: parcelleForm.hectare_id,
+        hectare_id: hectareIdToSave,
         latitude: parcelleForm.latitude ? parseFloat(parcelleForm.latitude) : null,
         longitude: parcelleForm.longitude ? parseFloat(parcelleForm.longitude) : null,
         sale_date: status === "vendu" ? new Date().toISOString() : null,
@@ -1193,16 +1204,97 @@ const Dashboard = () => {
             </DialogHeader>
 
             <form onSubmit={handleAddParcelle} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="p-hectare">Hectare associé *</Label>
-                <HectareSelector
-                  hectares={hectaresList}
-                  selectedId={parcelleForm.hectare_id}
-                  onSelect={handleDashboardHectareChange}
-                  getOccupancy={getHectareOccupancyDash}
-                  placeholder="Sélectionner un hectare"
-                />
+              {/* Deux chemins : Parcelle seule OU Affectée à un hectare */}
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
+                  Affectation de la parcelle *
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setParcelleForm({
+                        ...parcelleForm,
+                        assignment_type: "standalone",
+                        hectare_id: "",
+                      })
+                    }
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      parcelleForm.assignment_type === "standalone"
+                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                        : "border-border bg-card hover:bg-muted/50"
+                    }`}
+                  >
+                    <div
+                      className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                        parcelleForm.assignment_type === "standalone"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs sm:text-sm text-foreground">
+                        Parcelle seule
+                      </div>
+                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        Indépendante / Hors hectare délimité
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setParcelleForm({
+                        ...parcelleForm,
+                        assignment_type: "hectare",
+                        hectare_id: parcelleForm.hectare_id || hectaresList[0]?.id || "",
+                      })
+                    }
+                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                      parcelleForm.assignment_type === "hectare"
+                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                        : "border-border bg-card hover:bg-muted/50"
+                    }`}
+                  >
+                    <div
+                      className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                        parcelleForm.assignment_type === "hectare"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs sm:text-sm text-foreground">
+                        Affecter à un hectare
+                      </div>
+                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        Rattacher à un hectare existant
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
+
+              {parcelleForm.assignment_type === "hectare" && (
+                <div className="space-y-1.5 p-3 rounded-xl bg-muted/40 border border-border">
+                  <Label htmlFor="p-hectare" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                    Hectare associé *
+                  </Label>
+                  <HectareSelector
+                    hectares={hectaresList}
+                    selectedId={parcelleForm.hectare_id}
+                    onSelect={handleDashboardHectareChange}
+                    getOccupancy={getHectareOccupancyDash}
+                    placeholder="Sélectionner un hectare existant"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
