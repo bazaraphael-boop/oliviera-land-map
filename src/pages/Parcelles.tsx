@@ -739,7 +739,7 @@ const Parcelles = () => {
       
       // Type de vente
       pdf.setFont("helvetica", "bold");
-      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre gratuit" : "Vente normale"}`, 20, yPos);
+      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre gratuit" : saleData.sale_type === "a_renseigner" ? "À renseigner" : "Vente normale"}`, 20, yPos);
       yPos += 15;
       
       // Informations acheteur
@@ -1002,6 +1002,7 @@ const Parcelles = () => {
                       <SelectContent>
                         <SelectItem value="normal">Vente normale</SelectItem>
                         <SelectItem value="onereux">À titre gratuit</SelectItem>
+                        <SelectItem value="a_renseigner">À renseigner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1267,6 +1268,10 @@ const Parcelles = () => {
                         <Badge variant="secondary" className="text-[10px] font-medium">
                           À titre gratuit
                         </Badge>
+                      ) : parcelle.sale_type === "a_renseigner" ? (
+                        <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                          {Number(parcelle.prix) > 0 ? `$${Number(parcelle.prix).toLocaleString()} (À renseigner)` : "À renseigner"}
+                        </Badge>
                       ) : (
                         <span className="font-bold text-foreground">
                           ${Number(parcelle.prix || 0).toLocaleString()}
@@ -1446,6 +1451,7 @@ const Parcelles = () => {
                       <SelectContent className="bg-popover">
                         <SelectItem value="normal">Vente normale</SelectItem>
                         <SelectItem value="onereux">À titre gratuit</SelectItem>
+                        <SelectItem value="a_renseigner">À renseigner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

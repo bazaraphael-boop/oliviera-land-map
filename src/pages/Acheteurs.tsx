@@ -2406,6 +2406,7 @@ const Acheteurs = () => {
                           <SelectContent position="popper" sideOffset={4} className="bg-popover z-[100]">
                             <SelectItem value="normal">Vente normale</SelectItem>
                             <SelectItem value="onereux">À titre gratuit</SelectItem>
+                            <SelectItem value="a_renseigner">À renseigner</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2422,7 +2423,9 @@ const Acheteurs = () => {
                         </div>
                         {newBuyerForm.sale_type !== "onereux" && (
                           <div>
-                            <Label className="text-sm font-medium">Montant d'achat (USD) *</Label>
+                            <Label className="text-sm font-medium">
+                              Montant d'achat (USD) {newBuyerForm.sale_type === "a_renseigner" ? "(Optionnel)" : "*"}
+                            </Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -2430,7 +2433,7 @@ const Acheteurs = () => {
                               onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prix: e.target.value })}
                               placeholder="Montant en USD"
                               className="mt-1.5 bg-background"
-                              required={newBuyerForm.sale_type !== "onereux"}
+                              required={newBuyerForm.sale_type === "normal"}
                             />
                             {newBuyerForm.item_type === "parcelle" && newBuyerForm.selected_parcelles.length > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">

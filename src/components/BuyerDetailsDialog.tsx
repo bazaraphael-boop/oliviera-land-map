@@ -307,6 +307,11 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
                                 À titre gratuit
                               </Badge>
                             )}
+                            {hectare.sale_type === "a_renseigner" && (
+                              <Badge variant="outline" className="text-[10px] mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                                À renseigner
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -363,6 +368,11 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
                               {parcelle.sale_type === "onereux" && (
                                 <Badge variant="secondary" className="text-[10px] mt-1">
                                   À titre gratuit
+                                </Badge>
+                              )}
+                              {parcelle.sale_type === "a_renseigner" && (
+                                <Badge variant="outline" className="text-[10px] mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                                  À renseigner
                                 </Badge>
                               )}
                               {parcelle.hectares?.name ? (

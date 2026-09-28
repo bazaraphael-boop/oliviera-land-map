@@ -587,6 +587,7 @@ const Hectares = () => {
                         >
                           <option value="normal">Vente normale</option>
                           <option value="onereux">À titre gratuit</option>
+                          <option value="a_renseigner">À renseigner</option>
                         </select>
                       </div>
                       
@@ -684,6 +685,9 @@ const Hectares = () => {
                       <h3 className="font-bold text-base leading-tight line-clamp-2 mb-1">{hectare.name}</h3>
                       {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
                         <Badge variant="secondary" className="text-xs mt-1">Gratuit</Badge>
+                      )}
+                      {hectare.status === "vendu" && hectare.sale_type === "a_renseigner" && (
+                        <Badge variant="outline" className="text-xs mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">À renseigner</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">

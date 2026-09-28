@@ -130,7 +130,7 @@ const Rapports = () => {
     newNumero: "",
     surface: 600,
     prix: 0,
-    saleType: "normal" as "normal" | "onereux",
+    saleType: "normal" as "normal" | "onereux" | "a_renseigner",
     paymentType: "total" as "total" | "partiel",
     amountPaid: 0,
     saleDate: new Date().toISOString().split("T")[0],
@@ -207,6 +207,10 @@ const Rapports = () => {
       
       if (selectedSaleType === "onereux") {
         return isFree;
+      }
+
+      if (selectedSaleType === "a_renseigner") {
+        return item.sale_type === "a_renseigner";
       }
       
       if (isFree) return false;
@@ -1143,7 +1147,7 @@ const Rapports = () => {
       pdf.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 105, yPos, { align: "center" });
       yPos += 5;
       const periodLabel = selectedMonth ? `Période : ${selectedMonth}` : "Période : Toutes";
-      const filterLabel = `Filtre : ${selectedSaleType === "all" ? "Toutes les transactions" : selectedSaleType === "onereux" ? "À titre gratuit" : selectedSaleType === "total" ? "Payé totalement" : selectedSaleType === "partiel" ? "Payé partiellement" : "Impayé"}`;
+      const filterLabel = `Filtre : ${selectedSaleType === "all" ? "Toutes les transactions" : selectedSaleType === "a_renseigner" ? "À renseigner" : selectedSaleType === "onereux" ? "À titre gratuit" : selectedSaleType === "total" ? "Payé totalement" : selectedSaleType === "partiel" ? "Payé partiellement" : "Impayé"}`;
       pdf.text(`${periodLabel} | ${filterLabel}`, 105, yPos, { align: "center" });
       yPos += 15;
       
@@ -1376,7 +1380,7 @@ const Rapports = () => {
       
       // Ajouter les acheteurs de parcelles
       parcellesFiltered.forEach(p => {
-        const saleTypeLabel = p.sale_type === "onereux" ? " (Gratuit)" : "";
+        const saleTypeLabel = p.sale_type === "onereux" ? " (Gratuit)" : p.sale_type === "a_renseigner" ? " (À renseigner)" : "";
         buyers.push({
           name: p.buyer_name || "N/A",
           phone: p.buyer_phone || "N/A",
@@ -1390,7 +1394,7 @@ const Rapports = () => {
       
       // Ajouter les acheteurs d'hectares
       hectaresFiltered.forEach(h => {
-        const saleTypeLabel = h.sale_type === "onereux" ? " (Gratuit)" : "";
+        const saleTypeLabel = h.sale_type === "onereux" ? " (Gratuit)" : h.sale_type === "a_renseigner" ? " (À renseigner)" : "";
         buyers.push({
           name: h.buyer_name || "N/A",
           phone: h.buyer_phone || "N/A",
@@ -1623,6 +1627,14 @@ const Rapports = () => {
             pdf.setFont("helvetica", "normal");
             pdf.text("-", 137, yPos + 5.5);
             pdf.text("-", 162, yPos + 5.5);
+          } else if (p.sale_type === "a_renseigner") {
+            pdf.setFont("helvetica", "italic");
+            pdf.setTextColor(150, 100, 20);
+            pdf.text("À renseigner", 112, yPos + 5.5);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont("helvetica", "normal");
+            pdf.text(Number(p.prix) > 0 ? formatPrice(Number(p.prix)) : "-", 137, yPos + 5.5);
+            pdf.text(Number(p.amount_paid) > 0 ? formatPrice(Number(p.amount_paid)) : "-", 162, yPos + 5.5);
           } else {
             pdf.text("Normal", 112, yPos + 5.5);
             pdf.text(formatPrice(Number(p.prix || 0)), 137, yPos + 5.5);
@@ -1679,6 +1691,14 @@ const Rapports = () => {
             pdf.setFont("helvetica", "normal");
             pdf.text("-", 122, yPos + 5.5);
             pdf.text("-", 157, yPos + 5.5);
+          } else if (h.sale_type === "a_renseigner") {
+            pdf.setFont("helvetica", "italic");
+            pdf.setTextColor(150, 100, 20);
+            pdf.text("À renseigner", 97, yPos + 5.5);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont("helvetica", "normal");
+            pdf.text(Number(h.prix) > 0 ? formatPrice(Number(h.prix)) : "-", 122, yPos + 5.5);
+            pdf.text(Number(h.amount_paid) > 0 ? formatPrice(Number(h.amount_paid)) : "-", 157, yPos + 5.5);
           } else {
             pdf.text("Normal", 97, yPos + 5.5);
             pdf.text(formatPrice(Number(h.prix || 0)), 122, yPos + 5.5);
@@ -1744,6 +1764,7 @@ const Rapports = () => {
               onChange={(e) => setSelectedSaleType(e.target.value)}
             >
               <option value="all">Toutes les transactions</option>
+              <option value="a_renseigner">À renseigner</option>
               <option value="onereux">À titre gratuit</option>
               <option value="total">Payé totalement</option>
               <option value="partiel">Payé partiellement</option>
@@ -2003,7 +2024,7 @@ const Rapports = () => {
                 Détail des Transactions
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "onereux" ? "Gratuits" : selectedSaleType === "total" ? "Payés totalement" : selectedSaleType === "partiel" ? "Payés partiellement" : "Impayés"})
+                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "a_renseigner" ? "À renseigner" : selectedSaleType === "onereux" ? "Gratuits" : selectedSaleType === "total" ? "Payés totalement" : selectedSaleType === "partiel" ? "Payés partiellement" : "Impayés"})
               </p>
             </div>
             
@@ -2114,9 +2135,13 @@ const Rapports = () => {
                           <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isFree ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                              isFree 
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
+                                : p.sale_type === "a_renseigner"
+                                ? "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/20"
+                                : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
                             }`}>
-                              {isFree ? "Gratuit" : "Normal"}
+                              {isFree ? "Gratuit" : p.sale_type === "a_renseigner" ? "À renseigner" : "Normal"}
                             </span>
                           </td>
                           <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${p.prix?.toLocaleString()}`}</td>
@@ -2197,9 +2222,13 @@ const Rapports = () => {
                           <td className="p-3 font-medium text-foreground">{h.buyer_name || "N/A"}</td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isFree ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                              isFree 
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
+                                : h.sale_type === "a_renseigner"
+                                ? "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/20"
+                                : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
                             }`}>
-                              {isFree ? "Gratuit" : "Normal"}
+                              {isFree ? "Gratuit" : h.sale_type === "a_renseigner" ? "À renseigner" : "Normal"}
                             </span>
                           </td>
                           <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${h.prix?.toLocaleString()}`}</td>
@@ -3555,7 +3584,7 @@ const Rapports = () => {
                     <Label className="text-[11px]">Type de vente</Label>
                     <Select
                       value={missingForm.saleType}
-                      onValueChange={(val: "normal" | "onereux") =>
+                      onValueChange={(val: "normal" | "onereux" | "a_renseigner") =>
                         setMissingForm((prev) => ({
                           ...prev,
                           saleType: val,
@@ -3570,6 +3599,7 @@ const Rapports = () => {
                       <SelectContent>
                         <SelectItem value="normal">Normale (payante)</SelectItem>
                         <SelectItem value="onereux">À titre onéreux (gratuit)</SelectItem>
+                        <SelectItem value="a_renseigner">À renseigner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
