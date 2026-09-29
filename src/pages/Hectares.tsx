@@ -14,6 +14,7 @@ import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
+import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ const Hectares = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -384,6 +386,18 @@ const Hectares = () => {
             />
           </div>
 
+          <Button onClick={() => setShowUnifiedDialog(true)} className="gap-1.5 font-semibold">
+            <Plus className="w-4 h-4" />
+            Nouvelle Inscription Hectare
+          </Button>
+
+          <UnifiedLandSaleDialog
+            open={showUnifiedDialog}
+            onOpenChange={setShowUnifiedDialog}
+            defaultItemType="hectare"
+            onSuccess={fetchHectares}
+          />
+
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
@@ -392,12 +406,6 @@ const Hectares = () => {
               setFormData({ name: "", surface: "", location: "", latitude: "", longitude: "", status: "available", prix: "", rmb_number: "", buyer_name: "", buyer_phone: "", buyer_email: "", sale_type: "normal", purchase_type: "hectare", payment_type: "total", amount_paid: "", remaining_amount: "", site_id: "" });
             }
           }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nouvel Hectare
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card">
               <DialogHeader className="border-b border-border pb-4">
                 <DialogTitle className="text-2xl flex items-center gap-2">
