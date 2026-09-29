@@ -510,12 +510,8 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       if (itemType === "hectare") {
         // Enregistrement d'un Hectare avec surface exacte
         const surfaceInHa = Math.round((surfaceNum / 10000) * 10000) / 10000;
-        const purchaseType =
-          surfaceInHa === 1
-            ? "hectare"
-            : surfaceInHa === 0.5
-            ? "demi_hectare"
-            : `${surfaceInHa}_hectare`;
+        // La contrainte PostgreSQL check autorise 'parcelle', 'hectare', 'demi-hectare'
+        const purchaseType = (surfaceInHa >= 0.49 && surfaceInHa <= 0.51) ? "demi-hectare" : "hectare";
 
         const { error } = await supabase.from("hectares").insert([
           {
@@ -523,8 +519,16 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
             surface: surfaceInHa,
             status: "vendu",
             buyer_name: buyerName,
+            buyer_last_name: postNom.trim() || null,
+            buyer_first_name: prenom.trim() || null,
             buyer_phone: telephone.trim() || null,
             buyer_email: email.trim() || null,
+            buyer_profession: profession.trim() || null,
+            buyer_address: adresse.trim() || null,
+            buyer_marital_status: maritalStatus || null,
+            buyer_children_count: childrenCount ? parseInt(childrenCount, 10) : null,
+            buyer_birth_place: birthPlace.trim() || null,
+            buyer_birth_date: birthDate || null,
             rmb_number: rmbNumber.trim() || null,
             sale_type: isARenseigner ? null : saleType,
             purchase_type: purchaseType,
