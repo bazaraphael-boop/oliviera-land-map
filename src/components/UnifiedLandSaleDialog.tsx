@@ -26,11 +26,12 @@ import {
   DollarSign,
   Info,
   Building,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNextAvailableRmb } from "@/lib/rmbSuite";
+import { getNextAvailableRmb, extractRmbNumber } from "@/lib/rmbSuite";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { HectareSelector } from "@/components/HectareSelector";
 
@@ -60,7 +61,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("hectares")
-        .select("id, name, surface, rmb_number, location, status")
+        .select("id, name, surface, rmb_number, location, status, buyer_name")
         .order("name");
       if (error) throw error;
       return data || [];
@@ -73,7 +74,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("parcelles")
-        .select("id, numero, surface, hectare_id, rmb_number, status, merged_group_id")
+        .select("id, numero, surface, hectare_id, rmb_number, status, merged_group_id, buyer_name")
         .order("numero");
       if (error) throw error;
       return data || [];
@@ -154,6 +155,172 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     if (fullNameComputed.length < 2) return [];
     return findMatchingBuyers(fullNameComputed);
   }, [fullNameComputed, findMatchingBuyers]);
+
+  // Synchronisation intelligente lors de la saisie du numéro de bien
+  const handleNumeroChange = (val: string) => {
+    const prev = numero;
+    setNumero(val);
+    if (!rmbNumber || rmbNumber === prev) {
+      setRmbNumber(val);
+    }
+  };
+
+  // Détection des conflits et doublons de numéros RMB / Nom de terrain en temps réel
+  const rmbConflict = useMemo(() => {
+    const currentRmb = rmbNumber.trim();
+    const currentNumero = numero.trim();
+
+    if (!currentRmb && !currentNumero) return null;
+
+    // 1. Conflit sur le numéro RMB attribué (si renseigné)
+    if (currentRmb) {
+      const targetRmbNum = extractRmbNumber(currentRmb);
+      const targetNormRmb = normalizeText(currentRmb);
+
+      // Vérifier dans les parcelles
+      for (const p of parcelles) {
+        const pRmbNum = extractRmbNumber(p.rmb_number) ?? (p.numero?.toUpperCase().includes("RMB") ? extractRmbNumber(p.numero) : null);
+        const isExactMatch = (p.rmb_number && normalizeText(p.rmb_number) === targetNormRmb) || (p.numero && normalizeText(p.numero) === targetNormRmb);
+        const isNumMatch = targetRmbNum !== null && pRmbNum !== null && targetRmbNum === pRmbNum;
+
+        if (isExactMatch || isNumMatch) {
+          return {
+            type: "parcelle" as const,
+            id: p.id,
+            nameOrNumero: p.numero,
+            rmbNumber: p.rmb_number || p.numero,
+            buyerName: p.buyer_name,
+            status: p.status,
+            conflictType: "rmb" as const,
+          };
+        }
+      }
+
+      // Vérifier dans les hectares
+      for (const h of hectares) {
+        const hRmbNum = extractRmbNumber(h.rmb_number) ?? (h.name?.toUpperCase().includes("RMB") ? extractRmbNumber(h.name) : null);
+        const isExactMatch = (h.rmb_number && normalizeText(h.rmb_number) === targetNormRmb) || (h.name && normalizeText(h.name) === targetNormRmb);
+        const isNumMatch = targetRmbNum !== null && hRmbNum !== null && targetRmbNum === hRmbNum;
+
+        if (isExactMatch || isNumMatch) {
+          return {
+            type: "hectare" as const,
+            id: h.id,
+            nameOrNumero: h.name,
+            rmbNumber: h.rmb_number || h.name,
+            buyerName: h.buyer_name,
+            status: h.status,
+            conflictType: "rmb" as const,
+          };
+        }
+      }
+    }
+
+    // 2. Conflit direct sur le nom / numéro du bien (si non capturé par le RMB)
+    if (currentNumero) {
+      const targetNormNum = normalizeText(currentNumero);
+      const isRmbFormat = currentNumero.toUpperCase().includes("RMB");
+      const targetNumRmb = isRmbFormat ? extractRmbNumber(currentNumero) : null;
+
+      if (itemType === "hectare") {
+        for (const h of hectares) {
+          const isExact = normalizeText(h.name) === targetNormNum;
+          const isRmbMatch = targetNumRmb !== null && extractRmbNumber(h.name) === targetNumRmb;
+          if (isExact || isRmbMatch) {
+            return {
+              type: "hectare" as const,
+              id: h.id,
+              nameOrNumero: h.name,
+              rmbNumber: h.rmb_number || h.name,
+              buyerName: h.buyer_name,
+              status: h.status,
+              conflictType: isRmbFormat ? ("rmb" as const) : ("numero" as const),
+            };
+          }
+        }
+      } else {
+        for (const p of parcelles) {
+          const isExact = normalizeText(p.numero) === targetNormNum;
+          const isRmbMatch = targetNumRmb !== null && extractRmbNumber(p.numero) === targetNumRmb;
+          if (isExact || isRmbMatch) {
+            return {
+              type: "parcelle" as const,
+              id: p.id,
+              nameOrNumero: p.numero,
+              rmbNumber: p.rmb_number || p.numero,
+              buyerName: p.buyer_name,
+              status: p.status,
+              conflictType: isRmbFormat ? ("rmb" as const) : ("numero" as const),
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }, [rmbNumber, numero, parcelles, hectares, itemType]);
+
+  // Vérifier si le conflit est autorisé (acquéreur existant en mode conservation de son dossier RMB)
+  const isConflictAllowed = useMemo(() => {
+    if (!rmbConflict) return true;
+    if (selectedExistingBuyer && existingBuyerMode === "keep_rmb") {
+      const buyerNorm = normalizeText(selectedExistingBuyer.buyer_name);
+      const conflictBuyerNorm = normalizeText(rmbConflict.buyerName);
+      const targetRmbNum = extractRmbNumber(rmbConflict.rmbNumber);
+
+      const hasRmb = selectedExistingBuyer.rmbNumbers.some(
+        (r) =>
+          normalizeText(r) === normalizeText(rmbConflict.rmbNumber) ||
+          (targetRmbNum !== null && extractRmbNumber(r) === targetRmbNum)
+      );
+
+      if (hasRmb || (buyerNorm && conflictBuyerNorm && buyerNorm === conflictBuyerNorm)) {
+        return true;
+      }
+    }
+    return false;
+  }, [rmbConflict, selectedExistingBuyer, existingBuyerMode]);
+
+  // Liste des numéros RMB existants partageant le préfixe ou le texte tapé
+  const matchingPrefixRmbList = useMemo(() => {
+    const rawQuery = (rmbNumber || numero || "").trim();
+    if (rawQuery.length < 2) return [];
+    if (rmbConflict) return []; // Inutile si déjà un conflit exact
+
+    const query = rawQuery.toLowerCase();
+    const results: { rmb: string; owner?: string | null; type: string }[] = [];
+    const seen = new Set<string>();
+
+    for (const p of parcelles) {
+      const val = (p.rmb_number || p.numero || "").trim();
+      if (val && val.toLowerCase().includes(query) && !seen.has(val.toLowerCase())) {
+        seen.add(val.toLowerCase());
+        results.push({
+          rmb: val,
+          owner: p.buyer_name,
+          type: "Parcelle",
+        });
+        if (results.length >= 4) break;
+      }
+    }
+
+    if (results.length < 4) {
+      for (const h of hectares) {
+        const val = (h.rmb_number || h.name || "").trim();
+        if (val && val.toLowerCase().includes(query) && !seen.has(val.toLowerCase())) {
+          seen.add(val.toLowerCase());
+          results.push({
+            rmb: val,
+            owner: h.buyer_name,
+            type: "Hectare",
+          });
+          if (results.length >= 4) break;
+        }
+      }
+    }
+
+    return results;
+  }, [rmbNumber, numero, parcelles, hectares, rmbConflict]);
 
   // Sélection d'un acquéreur existant
   const handleSelectBuyer = (buyer: ExistingBuyer) => {
@@ -246,6 +413,13 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
     if (!numero.trim()) {
       toast.error("Veuillez renseigner un numéro pour ce terrain");
+      return;
+    }
+
+    if (rmbConflict && !isConflictAllowed) {
+      toast.error(
+        `Le numéro ${rmbConflict.rmbNumber || rmbConflict.nameOrNumero} est déjà attribué à ${rmbConflict.buyerName || "un autre dossier"}. Veuillez choisir un autre numéro ou utiliser la suite logique.`
+      );
       return;
     }
 
@@ -560,9 +734,11 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                 </div>
                 <Input
                   value={numero}
-                  onChange={(e) => setNumero(e.target.value)}
+                  onChange={(e) => handleNumeroChange(e.target.value)}
                   placeholder={itemType === "hectare" ? "Ex: Hectare 05" : "Ex: RMB 012"}
-                  className="mt-1 h-9 text-xs sm:text-sm"
+                  className={`mt-1 h-9 text-xs sm:text-sm ${
+                    rmbConflict && !isConflictAllowed ? "border-destructive focus-visible:ring-destructive" : ""
+                  }`}
                   required
                 />
               </div>
@@ -585,10 +761,88 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                   value={rmbNumber}
                   onChange={(e) => setRmbNumber(e.target.value)}
                   placeholder="Ex: RMB 012"
-                  className="mt-1 h-9 text-xs sm:text-sm font-mono"
+                  className={`mt-1 h-9 text-xs sm:text-sm font-mono ${
+                    rmbConflict && !isConflictAllowed ? "border-destructive focus-visible:ring-destructive" : ""
+                  }`}
                 />
               </div>
             </div>
+
+            {/* Détection en direct des doublons et alertes RMB */}
+            {rmbConflict ? (
+              isConflictAllowed ? (
+                <div className="p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-xs space-y-1 animate-in fade-in">
+                  <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-300 font-semibold">
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>Dossier RMB existant confirmé pour cet acquéreur</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pl-5">
+                    Le numéro <strong className="font-mono text-foreground">{rmbConflict.rmbNumber}</strong> correspond bien au dossier de{" "}
+                    <strong className="text-foreground">{selectedExistingBuyer?.buyer_name}</strong>. Ce bien sera rattaché à son dossier existant.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-destructive/10 border border-destructive/40 rounded-xl space-y-2 text-xs animate-in fade-in">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-bold text-destructive flex items-center justify-between">
+                        <span>Numéro déjà existant (Doublon détecté)</span>
+                        <Badge variant="destructive" className="text-[10px] uppercase font-bold py-0 h-4">
+                          Déjà attribué
+                        </Badge>
+                      </div>
+                      <p className="text-foreground/90 mt-1 text-[11px] leading-relaxed">
+                        Le numéro <strong className="font-mono underline">{rmbConflict.rmbNumber || rmbConflict.nameOrNumero}</strong> est déjà utilisé par{" "}
+                        <strong className="text-foreground">{rmbConflict.buyerName ? `l'acquéreur "${rmbConflict.buyerName}"` : `un terrain existant`}</strong> ({rmbConflict.type === "hectare" ? "Hectare" : "Parcelle"}).
+                      </p>
+                      <div className="mt-2.5 pt-2 border-t border-destructive/20 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] text-muted-foreground">
+                          Prochain RMB disponible : <strong className="font-mono text-primary font-bold">{nextRmbProposal.nextFormatted}</strong>
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setNumero(nextRmbProposal.nextFormatted);
+                            setRmbNumber(nextRmbProposal.nextFormatted);
+                            toast.success(`Numéro ajusté à ${nextRmbProposal.nextFormatted}`);
+                          }}
+                          className="h-7 text-xs bg-background border-primary/40 hover:bg-primary/10 text-primary font-semibold gap-1.5"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Utiliser {nextRmbProposal.nextFormatted}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            ) : matchingPrefixRmbList.length > 0 ? (
+              <div className="p-2.5 bg-muted/60 border border-border rounded-lg text-xs space-y-1.5 animate-in fade-in">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-primary" />
+                  <span>Numéros existants contenant cette saisie :</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {matchingPrefixRmbList.map((item, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-background border border-border text-foreground font-mono"
+                    >
+                      <span className="font-semibold text-primary">{item.rmb}</span>
+                      {item.owner && <span className="text-muted-foreground font-sans">({item.owner})</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (rmbNumber || numero) ? (
+              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium pl-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Numéro disponible (aucun doublon détecté)</span>
+              </div>
+            ) : null}
           </div>
 
           {/* ================= ÉTAPE 2 : ACQUÉREUR ================= */}
