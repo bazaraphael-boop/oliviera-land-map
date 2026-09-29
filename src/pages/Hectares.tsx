@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -344,10 +344,16 @@ const Hectares = () => {
     return details;
   };
 
-  const filteredHectares = hectares.filter((h) =>
-    h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    h.location?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  const filteredHectares = useMemo(() => {
+    const term = deferredSearchTerm.toLowerCase().trim();
+    if (!term) return hectares;
+    return hectares.filter((h) =>
+      h.name.toLowerCase().includes(term) ||
+      h.location?.toLowerCase().includes(term)
+    );
+  }, [hectares, deferredSearchTerm]);
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -962,7 +962,15 @@ const Acheteurs = () => {
     ).length;
   }, [acheteurs]);
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [displayLimit, setDisplayLimit] = useState(25);
+
+  useEffect(() => {
+    setDisplayLimit(25);
+  }, [deferredSearchTerm, docFilter]);
+
   const filteredAcheteurs = useMemo(() => {
+    const term = deferredSearchTerm.toLowerCase().trim();
     return acheteurs.filter((a) => {
       // Filtre de documents et ventes en attente
       if (docFilter === "missing" && a.has_documents) return false;
@@ -975,8 +983,7 @@ const Acheteurs = () => {
       }
 
       // Filtre de recherche
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
+      if (term) {
         const matchName = a.buyer_name.toLowerCase().includes(term);
         const matchPhone = a.buyer_phone?.toLowerCase().includes(term);
         const matchEmail = a.buyer_email?.toLowerCase().includes(term);
@@ -995,7 +1002,11 @@ const Acheteurs = () => {
 
       return true;
     });
-  }, [acheteurs, docFilter, searchTerm]);
+  }, [acheteurs, docFilter, deferredSearchTerm]);
+
+  const displayedAcheteurs = useMemo(() => {
+    return filteredAcheteurs.slice(0, displayLimit);
+  }, [filteredAcheteurs, displayLimit]);
 
   // Raccourcis de sélection de date pour l'export
   const handleSetDatePreset = (preset: "all" | "today" | "this_month" | "last_30" | "this_year") => {
@@ -1520,7 +1531,7 @@ const Acheteurs = () => {
         {viewMode === "cards" && (
           <div className="flex-1 overflow-y-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="flex flex-col gap-3">
-              {filteredAcheteurs.map((acheteur) => (
+              {displayedAcheteurs.map((acheteur) => (
                 <BuyerCard
                   key={acheteur.id}
                   acheteur={acheteur}
@@ -1537,6 +1548,34 @@ const Acheteurs = () => {
                   onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
                 />
               ))}
+
+              {filteredAcheteurs.length > displayLimit && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4 pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Affichage de <span className="font-semibold text-foreground">{Math.min(displayLimit, filteredAcheteurs.length)}</span> sur{" "}
+                    <span className="font-semibold text-foreground">{filteredAcheteurs.length}</span> concessionnaires
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDisplayLimit((prev) => prev + 25)}
+                      className="font-medium"
+                    >
+                      Afficher plus (+25)
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDisplayLimit(filteredAcheteurs.length)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Tout afficher ({filteredAcheteurs.length})
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {filteredAcheteurs.length === 0 && (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
@@ -1575,7 +1614,7 @@ const Acheteurs = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredAcheteurs.map((acheteur, idx) => {
+                {displayedAcheteurs.map((acheteur, idx) => {
                   const isPinned = !acheteur.paper_form_completed;
                   const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
                   const isAllPending = totalItemsCount > 0 &&
@@ -1766,6 +1805,33 @@ const Acheteurs = () => {
                 })}
               </tbody>
             </table>
+
+            {filteredAcheteurs.length > displayLimit && (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-4 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Affichage de <span className="font-semibold text-foreground">{Math.min(displayLimit, filteredAcheteurs.length)}</span> sur{" "}
+                  <span className="font-semibold text-foreground">{filteredAcheteurs.length}</span> concessionnaires
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDisplayLimit((prev) => prev + 25)}
+                    className="font-medium"
+                  >
+                    Afficher plus (+25)
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDisplayLimit(filteredAcheteurs.length)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Tout afficher ({filteredAcheteurs.length})
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {filteredAcheteurs.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">

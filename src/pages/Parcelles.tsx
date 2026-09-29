@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -222,8 +222,11 @@ const Parcelles = () => {
   useEffect(() => {
     checkAuth();
     fetchHectares();
-    fetchParcelles();
     fetchAllParcelles();
+  }, []);
+
+  useEffect(() => {
+    fetchParcelles();
   }, [selectedHectare]);
 
   const checkAuth = async () => {
@@ -669,9 +672,16 @@ const Parcelles = () => {
     }
   };
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [displayLimit, setDisplayLimit] = useState(36);
+
+  useEffect(() => {
+    setDisplayLimit(36);
+  }, [deferredSearchTerm, selectedHectare, sortBy]);
+
   // Filtrage et classement strict dans la suite logique RMB (ou critère choisi)
   const filteredParcelles = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const term = deferredSearchTerm.toLowerCase().trim();
     const result = parcelles.filter((p) => {
       if (!term) return true;
       const numMatch = (p.numero || "").toLowerCase().includes(term);
@@ -700,7 +710,11 @@ const Parcelles = () => {
       }
       return compareParcellesByRmbSuite(a, b);
     });
-  }, [parcelles, searchTerm, sortBy]);
+  }, [parcelles, deferredSearchTerm, sortBy]);
+
+  const displayedParcelles = useMemo(() => {
+    return filteredParcelles.slice(0, displayLimit);
+  }, [filteredParcelles, displayLimit]);
 
   // Détection en temps réel d'acquéreurs existants lors de la saisie
   const buyerMatches = useMemo(() => {
@@ -1152,7 +1166,7 @@ const Parcelles = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredParcelles.map((parcelle) => {
+          {displayedParcelles.map((parcelle) => {
             const quotaCount = Math.ceil(Number(parcelle.surface || 600) / 600);
             const isGratuit = parcelle.sale_type === "onereux" || parcelle.sale_type === "onéreux";
 
@@ -1326,6 +1340,33 @@ const Parcelles = () => {
             );
           })}
         </div>
+        
+        {filteredParcelles.length > displayLimit && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              Affichage de <span className="font-semibold text-foreground">{Math.min(displayLimit, filteredParcelles.length)}</span> sur{" "}
+              <span className="font-semibold text-foreground">{filteredParcelles.length}</span> parcelles
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDisplayLimit((prev) => prev + 36)}
+                className="font-medium"
+              >
+                Afficher plus (+36)
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDisplayLimit(filteredParcelles.length)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Tout afficher ({filteredParcelles.length})
+              </Button>
+            </div>
+          </div>
+        )}
 
         {filteredParcelles.length === 0 && (
           <div className="text-center py-12">

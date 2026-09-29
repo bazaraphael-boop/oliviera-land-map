@@ -51,28 +51,40 @@ export function extractParcelleSubNumber(numero?: string | null): number {
  * 2. Si même RMB (ex: même hectare RMB 225), classées par sous-numéro de parcelle croissant (RMB 225/1, RMB 225/2, ...)
  * 3. Parcelles sans RMB classées ensuite par numéro de parcelle naturel.
  */
-export function compareParcellesByRmbSuite(a: any, b: any): number {
-  const getSortInfo = (p: any) => {
-    // 1. Chercher le numéro RMB sur la parcelle ou sur son hectare rattaché
-    let rmbNum = extractRmbNumber(p.rmb_number) ?? extractRmbNumber(p.hectares?.rmb_number);
+// Cache WeakMap pour éviter d'exécuter les regex à chaque comparaison O(N log N)
+const sortInfoCache = new WeakMap<object, { hasRmb: boolean; rmbNum: number; subNum: number; numero: string }>();
 
-    // Si pas de RMB explicite mais le champ numero contient "RMB <digits>"
-    if (rmbNum === null && p.numero) {
-      rmbNum = extractRmbNumber(p.numero);
-    }
+export function getParcelleSortInfo(p: any) {
+  if (p && typeof p === "object") {
+    const cached = sortInfoCache.get(p);
+    if (cached) return cached;
+  }
 
-    const subNum = extractParcelleSubNumber(p.numero);
+  let rmbNum = extractRmbNumber(p?.rmb_number) ?? extractRmbNumber(p?.hectares?.rmb_number);
 
-    return {
-      hasRmb: rmbNum !== null,
-      rmbNum: rmbNum !== null ? rmbNum : 9999999,
-      subNum,
-      numero: p.numero || "",
-    };
+  if (rmbNum === null && p?.numero) {
+    rmbNum = extractRmbNumber(p.numero);
+  }
+
+  const subNum = extractParcelleSubNumber(p?.numero);
+
+  const info = {
+    hasRmb: rmbNum !== null,
+    rmbNum: rmbNum !== null ? rmbNum : 9999999,
+    subNum,
+    numero: p?.numero || "",
   };
 
-  const infoA = getSortInfo(a);
-  const infoB = getSortInfo(b);
+  if (p && typeof p === "object") {
+    sortInfoCache.set(p, info);
+  }
+
+  return info;
+}
+
+export function compareParcellesByRmbSuite(a: any, b: any): number {
+  const infoA = getParcelleSortInfo(a);
+  const infoB = getParcelleSortInfo(b);
 
   // Parcelles avec RMB classées selon la suite logique (RMB 001 -> RMB 002 -> ...)
   if (infoA.rmbNum !== infoB.rmbNum) {
