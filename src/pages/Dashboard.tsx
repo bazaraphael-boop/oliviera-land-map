@@ -657,6 +657,7 @@ const Dashboard = () => {
       toast.success("Parcelle et document ajoutés avec succès !");
       setShowAddParcelleDialog(false);
       setParcelleForm({
+        assignment_type: "hectare",
         hectare_id: "",
         numero: "",
         surface: "600",

@@ -47,6 +47,7 @@ import {
 
 interface Parcelle {
   id: string;
+  merged_group_id?: string | null;
   numero: string;
   surface: number;
   prix: number;

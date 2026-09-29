@@ -337,7 +337,7 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
 
                 {/* Parcelles */}
                 {acheteur.parcelles.map((parcelle) => {
-                  const pCount = parcelle.nombreParcelles || Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
+                  const pCount = (parcelle as { nombreParcelles?: number }).nombreParcelles || Math.max(1, Math.ceil(Number(parcelle.surface || 600) / 600));
                   return (
                     <div 
                       key={parcelle.id} 
