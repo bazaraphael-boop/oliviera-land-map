@@ -2141,6 +2141,7 @@ const Rapports = () => {
                           </td>
                           <td className="p-3 text-muted-foreground">{p.hectares?.name || "N/A"}</td>
                           <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
+                          <td className="p-3">
                             {(() => {
                               const isPAR = p.sale_type === "a_renseigner" || (!p.sale_type && p.status === "vendu");
                               return (
@@ -2155,6 +2156,7 @@ const Rapports = () => {
                                 </span>
                               );
                             })()}
+                          </td>
                           <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${p.prix?.toLocaleString()}`}</td>
                           <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(p.amount_paid || 0).toLocaleString()}`}</td>
                           <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
