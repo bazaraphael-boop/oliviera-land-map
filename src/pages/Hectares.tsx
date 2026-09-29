@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { 
   Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, 
-  Package, ListOrdered, Hash, AlertTriangle, CheckCircle2, LayoutGrid, LayoutList, Eye 
+  Package, ListOrdered, Hash, AlertTriangle, CheckCircle2, LayoutGrid, LayoutList, Eye, Clock 
 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -191,9 +191,10 @@ const Hectares = () => {
       // Déterminer si c'est une vente (si un nom d'acheteur est fourni)
       const isVente = formData.buyer_name.trim() !== "";
       const isOnereux = isVente && formData.sale_type === "onereux";
-      const prix = isOnereux ? 0 : (parseFloat(formData.prix) || 0);
-      const amountPaid = isOnereux ? 0 : (parseFloat(formData.amount_paid) || (formData.payment_type === "total" ? prix : 0));
-      const remainingAmount = isOnereux ? 0 : (formData.payment_type === "partiel" ? prix - amountPaid : 0);
+      const isARenseigner = isVente && formData.sale_type === "a_renseigner";
+      const prix = (isOnereux || isARenseigner) ? 0 : (parseFloat(formData.prix) || 0);
+      const amountPaid = (isOnereux || isARenseigner) ? 0 : (parseFloat(formData.amount_paid) || (formData.payment_type === "total" ? prix : 0));
+      const remainingAmount = (isOnereux || isARenseigner) ? 0 : (formData.payment_type === "partiel" ? prix - amountPaid : 0);
       
       const hectareData = {
         name: formData.name,
@@ -209,10 +210,10 @@ const Hectares = () => {
         buyer_email: isVente ? formData.buyer_email || null : null,
         sale_type: isVente ? formData.sale_type : null,
         purchase_type: isVente ? formData.purchase_type : null,
-        payment_type: isVente ? (isOnereux ? "total" : formData.payment_type) : null,
+        payment_type: isVente ? ((isOnereux || isARenseigner) ? "total" : formData.payment_type) : null,
         amount_paid: isVente ? amountPaid : 0,
         remaining_amount: isVente ? remainingAmount : 0,
-        sale_date: isVente ? new Date().toISOString() : null,
+        sale_date: isVente ? (isARenseigner ? null : new Date().toISOString()) : null,
         site_id: formData.site_id || null,
       };
       
@@ -591,31 +592,45 @@ const Hectares = () => {
                         </select>
                       </div>
                       
-                      <div>
-                        <Label className="text-sm font-medium">Type de paiement</Label>
-                        <select
-                          value={formData.payment_type}
-                          onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
-                          className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
-                        >
-                          <option value="total">Paiement total</option>
-                          <option value="partiel">Paiement partiel</option>
-                        </select>
-                      </div>
-                      
-                      {formData.payment_type === "partiel" && (
-                        <div>
-                          <Label className="text-sm font-medium">Montant payé (accompte)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.amount_paid}
-                            onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
-                            placeholder="Montant déjà payé"
-                            className="mt-1"
-                          />
+                      {formData.sale_type === "a_renseigner" ? (
+                        <div className="md:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                          <Clock className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                          <div>
+                            <p className="font-semibold">Informations de vente à renseigner ultérieurement</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Le montant et les modalités de paiement sont en attente et pourront être précisés plus tard.
+                            </p>
+                          </div>
                         </div>
-                      )}
+                      ) : formData.sale_type !== "onereux" ? (
+                        <>
+                          <div>
+                            <Label className="text-sm font-medium">Type de paiement</Label>
+                            <select
+                              value={formData.payment_type}
+                              onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                              className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
+                            >
+                              <option value="total">Paiement total</option>
+                              <option value="partiel">Paiement partiel</option>
+                            </select>
+                          </div>
+                          
+                          {formData.payment_type === "partiel" && (
+                            <div>
+                              <Label className="text-sm font-medium">Montant payé (accompte)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={formData.amount_paid}
+                                onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
+                                placeholder="Montant déjà payé"
+                                className="mt-1"
+                              />
+                            </div>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 )}

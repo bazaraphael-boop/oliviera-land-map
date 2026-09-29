@@ -44,6 +44,7 @@ import {
   Sparkles,
   Tag,
   Divide,
+  Clock,
   PieChart as PieChartIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -769,17 +770,22 @@ const Rapports = () => {
 
     const rmbTarget = selectedMissingEntry.rmbFormatted;
     const isOnereux = missingForm.saleType === "onereux";
-    const prix = isOnereux ? 0 : Number(missingForm.prix || 0);
-    const amountPaid = isOnereux
+    const isARenseigner = missingForm.saleType === "a_renseigner";
+    const prix = (isOnereux || isARenseigner) ? 0 : Number(missingForm.prix || 0);
+    const amountPaid = (isOnereux || isARenseigner)
       ? 0
       : missingForm.paymentType === "total"
       ? prix
       : Number(missingForm.amountPaid || 0);
-    const remainingAmount = isOnereux
+    const remainingAmount = (isOnereux || isARenseigner)
       ? 0
       : missingForm.paymentType === "partiel"
       ? Math.max(0, prix - amountPaid)
       : 0;
+    const paymentType = (isOnereux || isARenseigner) ? "total" : missingForm.paymentType;
+    const saleDate = isARenseigner
+      ? null
+      : missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString();
 
     try {
       setMissingSubmitting(true);
@@ -809,10 +815,10 @@ const Rapports = () => {
               buyer_email: missingForm.buyerEmail.trim() || null,
               buyer_profession: missingForm.buyerProfession.trim() || null,
               buyer_address: missingForm.buyerAddress.trim() || null,
-              sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+              sale_date: saleDate,
               sale_type: missingForm.saleType,
               purchase_type: "parcelle",
-              payment_type: isOnereux ? "total" : missingForm.paymentType,
+              payment_type: paymentType,
               prix: prix,
               amount_paid: amountPaid,
               remaining_amount: remainingAmount,
@@ -849,10 +855,10 @@ const Rapports = () => {
               buyer_email: missingForm.buyerEmail.trim() || null,
               buyer_profession: missingForm.buyerProfession.trim() || null,
               buyer_address: missingForm.buyerAddress.trim() || null,
-              sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+              sale_date: saleDate,
               sale_type: missingForm.saleType,
               purchase_type: "parcelle",
-              payment_type: isOnereux ? "total" : missingForm.paymentType,
+              payment_type: paymentType,
               amount_paid: amountPaid,
               remaining_amount: remainingAmount,
               merged_group_id: missingBuyerSelectedExisting?.mergedGroupId || crypto.randomUUID(),
@@ -897,10 +903,10 @@ const Rapports = () => {
             buyer_email: missingForm.buyerEmail.trim() || null,
             buyer_profession: missingForm.buyerProfession.trim() || null,
             buyer_address: missingForm.buyerAddress.trim() || null,
-            sale_date: missingForm.saleDate ? new Date(missingForm.saleDate).toISOString() : new Date().toISOString(),
+            sale_date: saleDate,
             sale_type: missingForm.saleType,
             purchase_type: purchaseType,
-            payment_type: isOnereux ? "total" : missingForm.paymentType,
+            payment_type: paymentType,
             prix: prix,
             amount_paid: amountPaid,
             remaining_amount: remainingAmount,
@@ -3579,7 +3585,7 @@ const Rapports = () => {
                   <span>Modalités financières & Date de la transaction</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className={`grid grid-cols-1 ${missingForm.saleType === "a_renseigner" ? "sm:grid-cols-1" : "sm:grid-cols-2 md:grid-cols-4"} gap-3`}>
                   <div>
                     <Label className="text-[11px]">Type de vente</Label>
                     <Select
@@ -3588,8 +3594,8 @@ const Rapports = () => {
                         setMissingForm((prev) => ({
                           ...prev,
                           saleType: val,
-                          prix: val === "onereux" ? 0 : prev.prix,
-                          amountPaid: val === "onereux" ? 0 : prev.amountPaid,
+                          prix: val === "onereux" || val === "a_renseigner" ? 0 : prev.prix,
+                          amountPaid: val === "onereux" || val === "a_renseigner" ? 0 : prev.amountPaid,
                         }))
                       }
                     >
@@ -3604,65 +3610,83 @@ const Rapports = () => {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label className="text-[11px]">Prix total (USD)</Label>
-                    <Input
-                      type="number"
-                      disabled={missingForm.saleType === "onereux"}
-                      value={missingForm.saleType === "onereux" ? 0 : missingForm.prix}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setMissingForm((prev) => ({
-                          ...prev,
-                          prix: val,
-                          amountPaid: prev.paymentType === "total" ? val : prev.amountPaid,
-                        }));
-                      }}
-                      className="mt-1 h-8 text-xs font-semibold"
-                    />
-                  </div>
+                  {missingForm.saleType !== "a_renseigner" && (
+                    <>
+                      <div>
+                        <Label className="text-[11px]">Prix total (USD)</Label>
+                        <Input
+                          type="number"
+                          disabled={missingForm.saleType === "onereux"}
+                          value={missingForm.saleType === "onereux" ? 0 : missingForm.prix}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setMissingForm((prev) => ({
+                              ...prev,
+                              prix: val,
+                              amountPaid: prev.paymentType === "total" ? val : prev.amountPaid,
+                            }));
+                          }}
+                          className="mt-1 h-8 text-xs font-semibold"
+                        />
+                      </div>
 
-                  <div>
-                    <Label className="text-[11px]">Paiement</Label>
-                    <Select
-                      disabled={missingForm.saleType === "onereux"}
-                      value={missingForm.paymentType}
-                      onValueChange={(val: "total" | "partiel") =>
-                        setMissingForm((prev) => ({
-                          ...prev,
-                          paymentType: val,
-                          amountPaid: val === "total" ? prev.prix : prev.amountPaid,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="mt-1 h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="total">Totalité réglée</SelectItem>
-                        <SelectItem value="partiel">Acompte / Partiel</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div>
+                        <Label className="text-[11px]">Paiement</Label>
+                        <Select
+                          disabled={missingForm.saleType === "onereux"}
+                          value={missingForm.paymentType}
+                          onValueChange={(val: "total" | "partiel") =>
+                            setMissingForm((prev) => ({
+                              ...prev,
+                              paymentType: val,
+                              amountPaid: val === "total" ? prev.prix : prev.amountPaid,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="total">Totalité réglée</SelectItem>
+                            <SelectItem value="partiel">Acompte / Partiel</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div>
-                    <Label className="text-[11px]">Date de transaction</Label>
-                    <Input
-                      type="date"
-                      value={missingForm.saleDate}
-                      onChange={(e) =>
-                        setMissingForm((prev) => ({
-                          ...prev,
-                          saleDate: e.target.value,
-                        }))
-                      }
-                      className="mt-1 h-8 text-xs"
-                    />
-                  </div>
+                      <div>
+                        <Label className="text-[11px]">Date de transaction</Label>
+                        <Input
+                          type="date"
+                          value={missingForm.saleDate}
+                          onChange={(e) =>
+                            setMissingForm((prev) => ({
+                              ...prev,
+                              saleDate: e.target.value,
+                            }))
+                          }
+                          className="mt-1 h-8 text-xs"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
+                {missingForm.saleType === "a_renseigner" && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                    <Clock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-semibold block text-amber-900 dark:text-amber-200">
+                        Informations financières et date en attente
+                      </span>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                        Le prix, les modalités de paiement et la date de vente sont masqués car ils seront complétés ultérieurement lors de la régularisation de la transaction.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Si paiement partiel */}
-                {missingForm.paymentType === "partiel" && missingForm.saleType !== "onereux" && (
+                {missingForm.paymentType === "partiel" && missingForm.saleType !== "onereux" && missingForm.saleType !== "a_renseigner" && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-border/60">
                     <div>
                       <Label className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">

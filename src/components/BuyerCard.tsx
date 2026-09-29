@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 
 interface Acheteur {
   id: string;
@@ -29,34 +29,86 @@ interface BuyerCardProps {
 export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }: BuyerCardProps) {
   const isPinned = !acheteur.paper_form_completed;
 
+  const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
+  const isAllPending = totalItemsCount > 0 &&
+    (acheteur.parcelles.length === 0 || acheteur.parcelles.every(p => p.sale_type === 'a_renseigner')) &&
+    (acheteur.hectares.length === 0 || acheteur.hectares.every(h => h.sale_type === 'a_renseigner'));
+
+  const hasPendingSale = acheteur.parcelles.some(p => p.sale_type === 'a_renseigner') ||
+    acheteur.hectares.some(h => h.sale_type === 'a_renseigner');
+
   // Collecter tous les RMB de parcelles
   const parcelleRmbs = acheteur.parcelles
     .map(p => ({
       numero: p.numero,
       rmb: p.rmb_number,
       surface: p.surface,
+      isPending: p.sale_type === 'a_renseigner',
       nombreParcelles: p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))
     }))
     .filter(p => p.numero || p.rmb);
 
   // Collecter tous les RMB d'hectares
   const hectareRmbs = acheteur.hectares
-    .map(h => ({ nom: h.name, rmb: h.rmb_number }))
+    .map(h => ({
+      nom: h.name,
+      rmb: h.rmb_number,
+      isPending: h.sale_type === 'a_renseigner',
+    }))
     .filter(h => h.nom || h.rmb);
 
   return (
-    <Card className={`relative overflow-hidden transition-all duration-200 ${isPinned ? 'border-orange-500/50 bg-gradient-to-r from-orange-500/5 via-card to-card shadow-sm' : 'bg-card hover:shadow-md'}`}>
-      {isPinned && <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />}
+    <Card className={`relative overflow-hidden transition-all duration-200 ${
+      isAllPending
+        ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/5 via-card to-card shadow-sm hover:shadow-md'
+        : isPinned
+        ? 'border-orange-500/50 bg-gradient-to-r from-orange-500/5 via-card to-card shadow-sm'
+        : 'bg-card hover:shadow-md'
+    }`}>
+      {isAllPending ? (
+        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
+      ) : isPinned ? (
+        <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
+      ) : null}
       <div className="p-3 sm:p-4 space-y-3">
 
         {/* Ligne 1 : Identité */}
         <div className="flex items-start gap-3">
-          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl shrink-0 flex items-center justify-center ${isPinned ? 'bg-orange-500/20' : 'bg-gradient-to-br from-primary/20 to-primary/5'}`}>
-            {isPinned ? <Pin className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" /> : <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />}
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl shrink-0 flex items-center justify-center ${
+            isAllPending
+              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+              : isPinned
+              ? 'bg-orange-500/20 text-orange-500'
+              : 'bg-gradient-to-br from-primary/20 to-primary/5 text-primary'
+          }`}>
+            {isAllPending ? (
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+            ) : isPinned ? (
+              <Pin className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+            ) : (
+              <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-foreground text-sm sm:text-base truncate">{acheteur.buyer_name}</h3>
+              {isAllPending ? (
+                <Badge
+                  variant="outline"
+                  className="bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-bold gap-1 px-2 py-0.5 shadow-2xs"
+                >
+                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>À renseigner (En attente)</span>
+                </Badge>
+              ) : hasPendingSale ? (
+                <Badge
+                  variant="outline"
+                  className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-medium gap-1 px-1.5 py-0.5"
+                >
+                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>Vente à régulariser</span>
+                </Badge>
+              ) : null}
               {!acheteur.has_documents ? (
                 <Badge
                   variant="outline"
@@ -119,7 +171,11 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
               <Badge
                 key={i}
                 variant="secondary"
-                className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium"
+                className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
+                  p.isPending
+                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                }`}
               >
                 {p.numero || p.rmb}
                 {p.rmb && p.numero && p.rmb !== p.numero && (
@@ -127,6 +183,9 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
                 )}
                 {p.nombreParcelles > 1 && (
                   <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({p.nombreParcelles} p.)</span>
+                )}
+                {p.isPending && (
+                  <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
                 )}
               </Badge>
             ))}
@@ -143,11 +202,18 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
               <Badge
                 key={i}
                 variant="secondary"
-                className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
+                  h.isPending
+                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                }`}
               >
                 {h.nom}
                 {h.rmb && (
                   <span className="ml-1 opacity-60">· {h.rmb}</span>
+                )}
+                {h.isPending && (
+                  <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
                 )}
               </Badge>
             ))}
@@ -168,10 +234,20 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
               {acheteur.nombreHectares} hectare{acheteur.nombreHectares > 1 ? 's' : ''}
             </Badge>
           )}
-          <Badge variant="outline" className="text-[10px] sm:text-xs ml-auto">
-            <DollarSign className="w-3 h-3 mr-0.5" />
-            {acheteur.totalAchat.toLocaleString()} USD
-          </Badge>
+          {isAllPending ? (
+            <Badge variant="outline" className="text-[10px] sm:text-xs ml-auto bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-semibold gap-1 px-2 py-0.5">
+              <Clock className="w-3 h-3 text-amber-600" />
+              <span>Montant à renseigner</span>
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] sm:text-xs ml-auto">
+              <DollarSign className="w-3 h-3 mr-0.5" />
+              {acheteur.totalAchat.toLocaleString()} USD
+              {hasPendingSale && (
+                <span className="text-[9px] text-amber-600 dark:text-amber-400 ml-1 font-medium">(+ en attente)</span>
+              )}
+            </Badge>
+          )}
         </div>
       </div>
     </Card>

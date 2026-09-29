@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical, ArrowUpDown, UserCheck } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical, ArrowUpDown, UserCheck, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,7 +325,8 @@ const Parcelles = () => {
       }
 
       const isOnereux = formData.sale_type === "onereux";
-      const prix = isOnereux ? 0 : parseFloat(formData.prix);
+      const isARenseigner = formData.sale_type === "a_renseigner";
+      const prix = (isOnereux || isARenseigner) ? 0 : parseFloat(formData.prix);
 
       const { data: newParcelleData, error } = await supabase.from("parcelles").insert([
         {
@@ -495,7 +496,8 @@ const Parcelles = () => {
       }
 
       const isOnereux = editFormData.sale_type === "onereux";
-      const prix = isOnereux ? 0 : (parseFloat(editFormData.prix) || selectedParcelle.prix || 0);
+      const isARenseigner = editFormData.sale_type === "a_renseigner";
+      const prix = (isOnereux || isARenseigner) ? 0 : (parseFloat(editFormData.prix) || selectedParcelle.prix || 0);
 
       const updateData: any = {
         status: editFormData.status,
@@ -514,14 +516,14 @@ const Parcelles = () => {
           return;
         }
         
-        const amountPaid = isOnereux ? 0 : (editFormData.payment_type === "total" ? prix : (parseFloat(editFormData.amount_paid) || 0));
-        const remainingAmount = isOnereux ? 0 : (editFormData.payment_type === "partiel" ? prix - amountPaid : 0);
+        const amountPaid = (isOnereux || isARenseigner) ? 0 : (editFormData.payment_type === "total" ? prix : (parseFloat(editFormData.amount_paid) || 0));
+        const remainingAmount = (isOnereux || isARenseigner) ? 0 : (editFormData.payment_type === "partiel" ? prix - amountPaid : 0);
         
         updateData.buyer_name = editFormData.buyer_name;
         updateData.buyer_phone = editFormData.buyer_phone || null;
         updateData.buyer_email = editFormData.buyer_email || null;
-        updateData.sale_date = editFormData.sale_date || new Date().toISOString();
-        updateData.payment_type = isOnereux ? "total" : editFormData.payment_type;
+        updateData.sale_date = isARenseigner ? null : (editFormData.sale_date || new Date().toISOString());
+        updateData.payment_type = (isOnereux || isARenseigner) ? "total" : editFormData.payment_type;
         updateData.amount_paid = amountPaid;
         updateData.remaining_amount = remainingAmount;
 
@@ -760,8 +762,17 @@ const Parcelles = () => {
       }
       yPos += 10;
       
-      // Détails financiers (sauf pour les ventes à titre onéreux)
-      if (saleData.sale_type !== "onéreux" && saleData.sale_type !== "onereux") {
+      // Détails financiers
+      if (saleData.sale_type === "a_renseigner") {
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("DÉTAILS FINANCIERS", 20, yPos);
+        yPos += 8;
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "italic");
+        pdf.text("Prix et modalités de paiement : À renseigner ultérieurement", 20, yPos);
+        yPos += 10;
+      } else if (saleData.sale_type !== "onéreux" && saleData.sale_type !== "onereux") {
         pdf.setFontSize(14);
         pdf.setFont("helvetica", "bold");
         pdf.text("DÉTAILS FINANCIERS", 20, yPos);
@@ -1046,7 +1057,17 @@ const Parcelles = () => {
                     </div>
                   </div>
                   
-                  {formData.sale_type !== "onereux" && (
+                  {formData.sale_type === "a_renseigner" ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                      <Clock className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                      <div>
+                        <p className="font-semibold">Informations de vente à renseigner ultérieurement</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Le prix et les modalités de paiement ne sont pas demandés maintenant. La parcelle sera enregistrée en attente de ces détails.
+                        </p>
+                      </div>
+                    </div>
+                  ) : formData.sale_type !== "onereux" ? (
                     <div>
                       <Label className="text-sm font-medium flex items-center gap-2">
                         <DollarSign className="w-4 h-4" />
@@ -1062,7 +1083,7 @@ const Parcelles = () => {
                         className="mt-1"
                       />
                     </div>
-                  )}
+                  ) : null}
                   
                   <div>
                     <div className="flex items-center justify-between">
@@ -1416,7 +1437,17 @@ const Parcelles = () => {
                     </Select>
                   </div>
                   
-                  {editFormData.sale_type !== "onereux" && (
+                  {editFormData.sale_type === "a_renseigner" ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                      <Clock className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                      <div>
+                        <p className="font-semibold">Informations de vente à renseigner ultérieurement</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Le montant et les modalités financières sont en attente.
+                        </p>
+                      </div>
+                    </div>
+                  ) : editFormData.sale_type !== "onereux" ? (
                     <div>
                       <Label className="text-sm font-medium flex items-center gap-2">
                         <DollarSign className="w-3.5 h-3.5" />
@@ -1433,7 +1464,7 @@ const Parcelles = () => {
                         className="mt-1 bg-background"
                       />
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1549,24 +1580,26 @@ const Parcelles = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="w-3 h-3" />
-                        Date de vente
-                      </Label>
-                      <Input
-                        type="date"
-                        value={editFormData.sale_date ? new Date(editFormData.sale_date).toISOString().split('T')[0] : ""}
-                        onChange={(e) =>
-                          setEditFormData({ ...editFormData, sale_date: e.target.value })
-                        }
-                        className="mt-1 bg-background"
-                      />
-                    </div>
+                    {editFormData.sale_type !== "a_renseigner" && (
+                      <div>
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Calendar className="w-3 h-3" />
+                          Date de vente
+                        </Label>
+                        <Input
+                          type="date"
+                          value={editFormData.sale_date ? new Date(editFormData.sale_date).toISOString().split('T')[0] : ""}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, sale_date: e.target.value })
+                          }
+                          className="mt-1 bg-background"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Section: Détails de paiement */}
-                  {editFormData.sale_type !== "onereux" && (
+                  {editFormData.sale_type !== "onereux" && editFormData.sale_type !== "a_renseigner" && (
                     <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 border-l-4 border-l-primary space-y-4">
                       <div className="flex items-center gap-2 pb-1 border-b border-primary/10">
                         <CreditCard className="w-4.5 h-4.5 text-primary" />

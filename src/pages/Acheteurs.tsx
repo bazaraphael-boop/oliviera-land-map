@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { 
   Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, 
   Map as MapIcon, Phone, Mail, Download, AlertTriangle, CheckCircle2, 
-  Calendar, FileSpreadsheet, FileText, Loader2, ArrowUpDown
+  Calendar, FileSpreadsheet, FileText, Loader2, ArrowUpDown, Clock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
@@ -117,8 +117,8 @@ const Acheteurs = () => {
   const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
   const [showEditIdentificationDialog, setShowEditIdentificationDialog] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
-  // Filtre par statut des documents ("all" | "missing" | "with")
-  const [docFilter, setDocFilter] = useState<"all" | "missing" | "with">("all");
+  // Filtre par statut des documents et ventes ("all" | "missing" | "with" | "pending_sale")
+  const [docFilter, setDocFilter] = useState<"all" | "missing" | "with" | "pending_sale">("all");
 
   // État de l'exportation par date
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -363,7 +363,7 @@ const Acheteurs = () => {
           hectares: parcelle.hectares,
           nombreParcelles: parcelleCount,
         });
-        acheteur.totalAchat += parcelle.sale_type === 'onereux' ? 0 : (parcelle.payment_type === 'partiel' ? Number(parcelle.amount_paid || 0) : Number(parcelle.prix || 0));
+        acheteur.totalAchat += (parcelle.sale_type === 'onereux' || parcelle.sale_type === 'a_renseigner') ? 0 : (parcelle.payment_type === 'partiel' ? Number(parcelle.amount_paid || 0) : Number(parcelle.prix || 0));
         acheteur.nombreParcelles += parcelleCount;
         
         // Si une parcelle n'est pas complétée, l'acheteur n'est pas complété
@@ -432,7 +432,7 @@ const Acheteurs = () => {
           rmb_number: hectare.rmb_number,
           paper_form_completed: hectare.paper_form_completed ?? false,
         });
-        acheteur.totalAchat += hectare.sale_type === 'onereux' ? 0 : (hectare.payment_type === 'partiel' ? Number(hectare.amount_paid || 0) : Number(hectare.prix || 0));
+        acheteur.totalAchat += (hectare.sale_type === 'onereux' || hectare.sale_type === 'a_renseigner') ? 0 : (hectare.payment_type === 'partiel' ? Number(hectare.amount_paid || 0) : Number(hectare.prix || 0));
         acheteur.nombreHectares += 1;
         
         // Si un hectare n'est pas complété, l'acheteur n'est pas complété
@@ -768,6 +768,7 @@ const Acheteurs = () => {
 
       // Pour les ventes à titre onéreux, pas de prix ni de paiements
       const isOnereux = newBuyerForm.sale_type === "onereux";
+      const isARenseigner = newBuyerForm.sale_type === "a_renseigner";
 
       if (newBuyerForm.item_type === "hectare") {
         const selectedItem = availableHectares.find(h => h.id === newBuyerForm.selected_item);
@@ -777,11 +778,11 @@ const Acheteurs = () => {
           return;
         }
 
-        const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0));
-        const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
+        const prix = (isOnereux || isARenseigner) ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : (selectedItem.prix || 0));
+        const amountPaid = (isOnereux || isARenseigner) ? 0 : (newBuyerForm.payment_type === "total" 
           ? prix 
           : Number(newBuyerForm.amount_paid));
-        const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
+        const remainingAmount = (isOnereux || isARenseigner) ? 0 : (prix - amountPaid);
 
         const updateData = {
           buyer_name: fullName,
@@ -801,10 +802,10 @@ const Acheteurs = () => {
           buyer_territoire: newBuyerForm.territoire || null,
           buyer_province: newBuyerForm.province || null,
           status: "vendu",
-          sale_date: new Date().toISOString(),
+          sale_date: isARenseigner ? null : new Date().toISOString(),
           sale_type: newBuyerForm.sale_type,
           purchase_type: newBuyerForm.purchase_type,
-          payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
+          payment_type: (isOnereux || isARenseigner) ? "total" : newBuyerForm.payment_type,
           amount_paid: amountPaid,
           remaining_amount: remainingAmount,
           rmb_number: newBuyerForm.rmb_number || null,
@@ -830,11 +831,11 @@ const Acheteurs = () => {
 
         // Calculer le prix total
         const prixTotal = selectedParcelles.reduce((sum, p) => sum + (p.prix || 0), 0);
-        const prix = isOnereux ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : prixTotal);
-        const amountPaid = isOnereux ? 0 : (newBuyerForm.payment_type === "total" 
+        const prix = (isOnereux || isARenseigner) ? 0 : (newBuyerForm.prix ? parseFloat(newBuyerForm.prix) : prixTotal);
+        const amountPaid = (isOnereux || isARenseigner) ? 0 : (newBuyerForm.payment_type === "total" 
           ? prix 
           : Number(newBuyerForm.amount_paid));
-        const remainingAmount = isOnereux ? 0 : (prix - amountPaid);
+        const remainingAmount = (isOnereux || isARenseigner) ? 0 : (prix - amountPaid);
 
         // Créer un ID de groupe si fusion demandée ou si rattaché à un acquéreur existant
         const mergeGroupId = newBuyerSelectedExisting?.mergedGroupId
@@ -864,10 +865,10 @@ const Acheteurs = () => {
             buyer_territoire: newBuyerForm.territoire || null,
             buyer_province: newBuyerForm.province || null,
             status: "vendu",
-            sale_date: new Date().toISOString(),
+            sale_date: isARenseigner ? null : new Date().toISOString(),
             sale_type: newBuyerForm.sale_type,
             purchase_type: newBuyerForm.purchase_type,
-            payment_type: isOnereux ? "total" : newBuyerForm.payment_type,
+            payment_type: (isOnereux || isARenseigner) ? "total" : newBuyerForm.payment_type,
             amount_paid: amountPaid / selectedParcelles.length,
             remaining_amount: remainingAmount / selectedParcelles.length,
             rmb_number: newBuyerForm.rmb_number || null,
@@ -953,11 +954,25 @@ const Acheteurs = () => {
     return acheteurs.filter((a) => a.has_documents).length;
   }, [acheteurs]);
 
+  const pendingSalesCount = useMemo(() => {
+    return acheteurs.filter(
+      (a) =>
+        a.parcelles.some((p: any) => p.sale_type === "a_renseigner") ||
+        a.hectares.some((h: any) => h.sale_type === "a_renseigner")
+    ).length;
+  }, [acheteurs]);
+
   const filteredAcheteurs = useMemo(() => {
     return acheteurs.filter((a) => {
-      // Filtre de documents
+      // Filtre de documents et ventes en attente
       if (docFilter === "missing" && a.has_documents) return false;
       if (docFilter === "with" && !a.has_documents) return false;
+      if (docFilter === "pending_sale") {
+        const hasPending =
+          a.parcelles.some((p: any) => p.sale_type === "a_renseigner") ||
+          a.hectares.some((h: any) => h.sale_type === "a_renseigner");
+        if (!hasPending) return false;
+      }
 
       // Filtre de recherche
       if (searchTerm.trim()) {
@@ -1475,6 +1490,18 @@ const Acheteurs = () => {
             <CheckCircle2 className="w-3.5 h-3.5" />
             ✓ Avec documents ({withDocsCount})
           </button>
+          <button
+            type="button"
+            onClick={() => setDocFilter("pending_sale")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              docFilter === "pending_sale"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            ⏳ Ventes à renseigner ({pendingSalesCount})
+          </button>
         </div>
 
         {/* Statistics Cards */}
@@ -1550,11 +1577,20 @@ const Acheteurs = () => {
               <tbody className="divide-y divide-border">
                 {filteredAcheteurs.map((acheteur, idx) => {
                   const isPinned = !acheteur.paper_form_completed;
+                  const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
+                  const isAllPending = totalItemsCount > 0 &&
+                    (acheteur.parcelles.length === 0 || acheteur.parcelles.every((p) => p.sale_type === 'a_renseigner')) &&
+                    (acheteur.hectares.length === 0 || acheteur.hectares.every((h) => h.sale_type === 'a_renseigner'));
+                  const hasPendingSale = acheteur.parcelles.some((p) => p.sale_type === 'a_renseigner') ||
+                    acheteur.hectares.some((h) => h.sale_type === 'a_renseigner');
+
                   return (
                     <tr
                       key={acheteur.id}
                       className={`transition-colors ${
-                        isPinned
+                        isAllPending
+                          ? "bg-amber-500/5 hover:bg-amber-500/10"
+                          : isPinned
                           ? "bg-orange-500/5 hover:bg-orange-500/10"
                           : idx % 2 === 0
                           ? "bg-background hover:bg-muted/40"
@@ -1563,9 +1599,22 @@ const Acheteurs = () => {
                     >
                       {/* Nom */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {isPinned && <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0" title="Formulaire à compléter" />}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isAllPending ? (
+                            <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Vente en attente d'informations" />
+                          ) : isPinned ? (
+                            <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0" title="Formulaire à compléter" />
+                          ) : null}
                           <span className="font-semibold text-foreground">{acheteur.buyer_name}</span>
+                          {isAllPending ? (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-bold px-1.5 py-0">
+                              À renseigner
+                            </Badge>
+                          ) : hasPendingSale ? (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[9px] px-1 py-0">
+                              À régulariser
+                            </Badge>
+                          ) : null}
                         </div>
                       </td>
 
@@ -1596,11 +1645,16 @@ const Acheteurs = () => {
                           <div className="flex flex-wrap gap-1">
                             {acheteur.parcelles.map((p, i) => {
                               const pCount = p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
+                              const isPending = p.sale_type === "a_renseigner";
                               return (
                                 <Badge
                                   key={i}
                                   variant="secondary"
-                                  className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium whitespace-nowrap"
+                                  className={`text-[10px] px-1.5 py-0.5 font-medium whitespace-nowrap ${
+                                    isPending
+                                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                  }`}
                                 >
                                   {p.numero}
                                   {p.rmb_number && p.rmb_number !== p.numero && (
@@ -1608,6 +1662,9 @@ const Acheteurs = () => {
                                   )}
                                   {pCount > 1 && (
                                     <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({pCount} p.)</span>
+                                  )}
+                                  {isPending && (
+                                    <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
                                   )}
                                 </Badge>
                               );
@@ -1622,28 +1679,49 @@ const Acheteurs = () => {
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
-                            {acheteur.hectares.map((h, i) => (
-                              <Badge
-                                key={i}
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium whitespace-nowrap"
-                              >
-                                {h.name}
-                                {h.rmb_number && (
-                                  <span className="ml-1 opacity-60">· {h.rmb_number}</span>
-                                )}
-                              </Badge>
-                            ))}
+                            {acheteur.hectares.map((h, i) => {
+                              const isPending = h.sale_type === "a_renseigner";
+                              return (
+                                <Badge
+                                  key={i}
+                                  variant="secondary"
+                                  className={`text-[10px] px-1.5 py-0.5 font-medium whitespace-nowrap ${
+                                    isPending
+                                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                                      : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                                  }`}
+                                >
+                                  {h.name}
+                                  {h.rmb_number && (
+                                    <span className="ml-1 opacity-60">· {h.rmb_number}</span>
+                                  )}
+                                  {isPending && (
+                                    <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
+                                  )}
+                                </Badge>
+                              );
+                            })}
                           </div>
                         )}
                       </td>
 
                       {/* Total */}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <span className="font-bold text-foreground">
-                          {acheteur.totalAchat.toLocaleString()}
-                        </span>
-                        <span className="text-xs font-normal text-muted-foreground ml-1">USD</span>
+                        {isAllPending ? (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-semibold px-2 py-0.5">
+                            À renseigner
+                          </Badge>
+                        ) : (
+                          <>
+                            <span className="font-bold text-foreground">
+                              {acheteur.totalAchat.toLocaleString()}
+                            </span>
+                            <span className="text-xs font-normal text-muted-foreground ml-1">USD</span>
+                            {hasPendingSale && (
+                              <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-medium">+ vente en attente</span>
+                            )}
+                          </>
+                        )}
                       </td>
 
                       {/* Statut Documents */}
@@ -2421,10 +2499,10 @@ const Acheteurs = () => {
                             className="mt-1.5 bg-background"
                           />
                         </div>
-                        {newBuyerForm.sale_type !== "onereux" && (
+                        {newBuyerForm.sale_type !== "onereux" && newBuyerForm.sale_type !== "a_renseigner" && (
                           <div>
                             <Label className="text-sm font-medium">
-                              Montant d'achat (USD) {newBuyerForm.sale_type === "a_renseigner" ? "(Optionnel)" : "*"}
+                              Montant d'achat (USD) *
                             </Label>
                             <Input
                               type="number"
@@ -2433,7 +2511,7 @@ const Acheteurs = () => {
                               onChange={(e) => setNewBuyerForm({ ...newBuyerForm, prix: e.target.value })}
                               placeholder="Montant en USD"
                               className="mt-1.5 bg-background"
-                              required={newBuyerForm.sale_type === "normal"}
+                              required
                             />
                             {newBuyerForm.item_type === "parcelle" && newBuyerForm.selected_parcelles.length > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">
@@ -2448,12 +2526,26 @@ const Acheteurs = () => {
                           </div>
                         )}
                       </div>
+
+                      {newBuyerForm.sale_type === "a_renseigner" && (
+                        <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                          <Clock className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <span className="font-semibold block text-amber-900 dark:text-amber-200">
+                              Modalités financières et date en attente
+                            </span>
+                            <p className="text-[11px] text-amber-700/90 dark:text-amber-300/90 leading-relaxed">
+                              Le montant d'achat, le plan de paiement et la date de transaction sont masqués et seront complétés ultérieurement lors de la régularisation du dossier.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
 
                 {/* Section 3: Paiement */}
-                {newBuyerForm.sale_type !== "onereux" && (
+                {newBuyerForm.sale_type !== "onereux" && newBuyerForm.sale_type !== "a_renseigner" && (
                   <AccordionItem value="paiement" className="border rounded-lg bg-muted/30 px-4">
                     <AccordionTrigger className="hover:no-underline py-4">
                       <div className="flex items-center gap-2 text-base font-semibold">
