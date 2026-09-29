@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download, AlertTriangle, FileText, Upload, Sparkles, MapPin } from "lucide-react";
+import { DollarSign, TrendingUp, BarChart2, Calendar, Bell, Search, LogOut, Download, AlertTriangle, FileText, Upload, Sparkles, MapPin, PlusCircle, Layers, Grid, PieChart as PieChartIcon } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
@@ -12,11 +12,7 @@ import { jsPDF } from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import landManagementGradient from "@/assets/land_management_gradient.png";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { HectareSelector } from "@/components/HectareSelector";
-import { auditHectare } from "@/lib/numberingAudit";
+import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -24,6 +20,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [canViewRevenue, setCanViewRevenue] = useState(false);
+  const [showUnifiedSaleDialog, setShowUnifiedSaleDialog] = useState(false);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     salesRate: 0,
@@ -31,45 +28,24 @@ const Dashboard = () => {
     available: 0,
     totalParcelles: 0,
     soldParcelles: 0,
+    // Quotas consolidés fonciers (1 ha = 15 parcelles)
+    directSoldHectares: 0,
+    directSoldHectaresCount: 0,
+    parcellesSoldInHectares: 0,
+    soldParcellesCount: 0,
+    totalHectaresEpuises: 0,
+    totalQuotasEpuisesParcelles: 0,
+    totalHectaresConcession: 0,
+    totalCapacityParcelles: 0,
+    remainingHectares: 0,
+    remainingParcelles: 0,
+    rateEpuisement: 0,
   });
   const [monthlyData, setMonthlyData] = useState<Array<{ month: string; ventes: number; revenus: number }>>([]);
   const [hectareStats, setHectareStats] = useState<Array<{ id: string; name: string; revenue: number; salesRate: number }>>([]);
   
-  // Nouveaux états pour l'ajout rapide d'hectares et parcelles
-  const [showAddHectareDialog, setShowAddHectareDialog] = useState(false);
-  const [showAddParcelleDialog, setShowAddParcelleDialog] = useState(false);
   const [hectaresList, setHectaresList] = useState<any[]>([]);
   const [allParcellesList, setAllParcellesList] = useState<any[]>([]);
-  
-  const [hectareForm, setHectareForm] = useState({
-    name: "",
-    surface: "1",
-    location: "",
-    prix: "0",
-    latitude: "",
-    longitude: "",
-    docTitle: "",
-    docType: "Contrat",
-    docFile: null as File | null
-  });
-  
-  const [parcelleForm, setParcelleForm] = useState({
-    assignment_type: "hectare" as "hectare" | "standalone",
-    hectare_id: "",
-    numero: "",
-    surface: "600",
-    prix: "0",
-    latitude: "",
-    longitude: "",
-    transaction_type: "disponible",
-    buyer_name: "",
-    buyer_phone: "",
-    buyer_email: "",
-    amount_paid: "0",
-    docTitle: "",
-    docType: "Contrat",
-    docFile: null as File | null
-  });
 
   useEffect(() => {
     checkUser();
@@ -130,13 +106,62 @@ const Dashboard = () => {
 
       if (hectaresError) throw hectaresError;
 
+      // Récupérer les données cadastrales des sites
+      const { data: sites } = await (supabase as any)
+        .from("sites")
+        .select("id, name, surface_totale");
+
       setHectaresList(hectares || []);
       setAllParcellesList(parcelles || []);
 
-      // Calculer les statistiques globales (même logique que Rapports.tsx)
+      const PARCELLES_PER_HA = 15;
+
+      // Calculer les statistiques globales (avec règle 1 ha = 15 parcelles)
       const soldParcelles = parcelles?.filter(p => p.status === "vendu") || [];
       const availableParcelles = parcelles?.filter(p => p.status === "disponible") || [];
       const soldHectares = hectares?.filter(h => h.status === "sold" || h.status === "vendu") || [];
+
+      // 1. Calcul des hectares vendus directement
+      let directSoldHectares = 0;
+      soldHectares.forEach(h => {
+        const raw = Number(h.surface || 1);
+        const inHa = raw >= 100 ? raw / 10000 : raw;
+        directSoldHectares += inHa;
+      });
+      const directSoldHectaresCount = soldHectares.length;
+      const directSoldParcellesEquiv = directSoldHectares * PARCELLES_PER_HA;
+
+      // 2. Calcul des parcelles vendues (hors hectares déjà vendus en bloc pour éviter tout double décompte)
+      const soldHectareIds = new Set(soldHectares.map(h => h.id));
+      const independentSoldParcelles = soldParcelles.filter(p => !p.hectare_id || !soldHectareIds.has(p.hectare_id));
+      
+      const soldParcellesCount = independentSoldParcelles.reduce((sum, p) => 
+        sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0
+      );
+      const parcellesSoldInHectares = soldParcellesCount / PARCELLES_PER_HA;
+
+      // 3. Quota compilé total réel épuisé (Règle d'or : 1 ha = 15 parcelles)
+      const totalHectaresEpuises = Math.round((directSoldHectares + parcellesSoldInHectares) * 1000) / 1000;
+      const totalQuotasEpuisesParcelles = Math.round(directSoldParcellesEquiv + soldParcellesCount);
+
+      // 4. Capacité globale de la concession
+      const sitesTotalHa = sites?.reduce((sum: number, s: any) => sum + Number(s.surface_totale || 0), 0) || 0;
+      const registeredHectaresHa = hectares?.reduce((sum, h) => {
+        const raw = Number(h.surface || 1);
+        const inHa = raw >= 100 ? raw / 10000 : raw;
+        return sum + inHa;
+      }, 0) || 0;
+
+      const totalHectaresConcession = sitesTotalHa > 0 
+        ? sitesTotalHa 
+        : (registeredHectaresHa > 0 ? registeredHectaresHa : Math.max(totalHectaresEpuises, 25));
+
+      const totalCapacityParcelles = Math.round(totalHectaresConcession * PARCELLES_PER_HA);
+      const remainingHectares = Math.max(0, Math.round((totalHectaresConcession - totalHectaresEpuises) * 1000) / 1000);
+      const remainingParcelles = Math.max(0, totalCapacityParcelles - totalQuotasEpuisesParcelles);
+      const rateEpuisement = totalHectaresConcession > 0 
+        ? Math.min(100, (totalHectaresEpuises / totalHectaresConcession) * 100) 
+        : 0;
       
       // Calculer le revenu total en excluant les ventes onéreuses
       const totalRevenue = soldParcelles.reduce((sum, p) => {
@@ -146,15 +171,12 @@ const Dashboard = () => {
       }, 0);
 
       const totalParcelles = parcelles?.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0) || 0;
-      const soldParcellesCount = soldParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
       const availableCount = availableParcelles.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0);
 
       const averagePrice = totalParcelles > 0
         ? parcelles.reduce((sum, p) => sum + Number(p.prix), 0) / totalParcelles
         : 0;
-      const salesRate = totalParcelles > 0
-        ? (soldParcellesCount / totalParcelles) * 100
-        : 0;
+      const salesRate = rateEpuisement;
 
       setStats({
         totalRevenue,
@@ -163,6 +185,17 @@ const Dashboard = () => {
         available: availableCount,
         totalParcelles,
         soldParcelles: soldParcellesCount + soldHectares.length,
+        directSoldHectares,
+        directSoldHectaresCount,
+        parcellesSoldInHectares,
+        soldParcellesCount,
+        totalHectaresEpuises,
+        totalQuotasEpuisesParcelles,
+        totalHectaresConcession,
+        totalCapacityParcelles,
+        remainingHectares,
+        remainingParcelles,
+        rateEpuisement,
       });
 
       // Calculer les données mensuelles
@@ -261,22 +294,16 @@ const Dashboard = () => {
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      const statsData = canViewRevenue
-        ? [
-            `Revenus Total: ${stats.totalRevenue.toFixed(0)} USD`,
-            `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
-            `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
-            `Parcelles Disponibles: ${stats.available}`,
-            `Total Parcelles: ${stats.totalParcelles}`,
-            `Parcelles Vendues: ${stats.soldParcelles}`,
-          ]
-        : [
-            `Taux de Vente: ${stats.salesRate.toFixed(1)}%`,
-            `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD`,
-            `Parcelles Disponibles: ${stats.available}`,
-            `Total Parcelles: ${stats.totalParcelles}`,
-            `Parcelles Vendues: ${stats.soldParcelles}`,
-          ];
+      const statsData = [
+        ...(canViewRevenue ? [`Revenus Total: ${stats.totalRevenue.toFixed(0)} USD`] : []),
+        `Taux d'Épuisement Foncier: ${stats.rateEpuisement.toFixed(1)}% (${stats.totalHectaresEpuises.toFixed(2)} ha / ${stats.totalHectaresConcession.toFixed(2)} ha)`,
+        `Règle de conversion: 1 Hectare = 15 Parcelles`,
+        `Hectares vendus directs: ${stats.directSoldHectares.toFixed(2)} ha (${stats.directSoldHectaresCount} vente(s), soit ${(stats.directSoldHectares * 15).toFixed(1)} parcelles équiv.)`,
+        `Parcelles vendues: ${stats.soldParcellesCount} parcelles (soit ${stats.parcellesSoldInHectares.toFixed(2)} ha)`,
+        `Total Quotas Épuisés: ${stats.totalQuotasEpuisesParcelles} parcelles consommées (${stats.totalHectaresEpuises.toFixed(2)} ha réels)`,
+        `Terres Disponibles Restantes: ${stats.remainingHectares.toFixed(2)} ha (~${stats.remainingParcelles} parcelles)`,
+        `Prix Moyen: ${stats.averagePrice.toFixed(0)} USD / parcelle`,
+      ];
       
       statsData.forEach(stat => {
         pdf.text(`• ${stat}`, 25, yPos);
@@ -453,296 +480,9 @@ const Dashboard = () => {
     }
   };
 
-  const handleAddHectare = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!hectareForm.name || !hectareForm.surface) {
-      toast.error("Veuillez remplir le nom et la surface");
-      return;
-    }
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const hectareData = {
-        name: hectareForm.name,
-        surface: parseFloat(hectareForm.surface),
-        location: hectareForm.location || null,
-        prix: parseFloat(hectareForm.prix) || 0,
-        status: "disponible",
-        latitude: hectareForm.latitude ? parseFloat(hectareForm.latitude) : null,
-        longitude: hectareForm.longitude ? parseFloat(hectareForm.longitude) : null,
-      };
 
-      const { data: newHectare, error } = await supabase
-        .from("hectares")
-        .insert(hectareData)
-        .select()
-        .single();
 
-      if (error) throw error;
-
-      // Si un fichier de document est fourni
-      if (hectareForm.docFile && hectareForm.docTitle) {
-        const fileExt = hectareForm.docFile.name.split(".").pop();
-        const filePath = `hectares/${newHectare.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("buyer-documents")
-          .upload(filePath, hectareForm.docFile);
-
-        if (uploadError) throw uploadError;
-
-        // Enregistrer le document
-        const { error: docError } = await supabase
-          .from("documents")
-          .insert({
-            title: `${hectareForm.name} - ${hectareForm.docTitle}`,
-            type: hectareForm.docType,
-            file_url: filePath,
-            uploaded_by: user?.id,
-            parcelle_id: null,
-          });
-
-        if (docError) throw docError;
-      }
-
-      toast.success("Hectare et document ajoutés avec succès !");
-      setShowAddHectareDialog(false);
-      setHectareForm({
-        name: "",
-        surface: "1",
-        location: "",
-        prix: "0",
-        latitude: "",
-        longitude: "",
-        docTitle: "",
-        docType: "Contrat",
-        docFile: null
-      });
-      loadStats();
-    } catch (error: any) {
-      console.error("Erreur lors de la création de l'hectare:", error);
-      toast.error("Erreur lors de la création de l'hectare");
-    }
-  };
-
-  const handleAddParcelle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const isStandalone = parcelleForm.assignment_type === "standalone";
-    const hectareIdToSave = isStandalone ? null : (parcelleForm.hectare_id || null);
-
-    if (!isStandalone && !hectareIdToSave) {
-      toast.error("Veuillez sélectionner un hectare existant ou choisir 'Parcelle seule'");
-      return;
-    }
-
-    if (!parcelleForm.numero || !parcelleForm.surface) {
-      toast.error("Veuillez renseigner le numéro et la surface");
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Vérifier la limite d'occupation uniquement si rattachée à un hectare
-      if (!isStandalone && hectareIdToSave) {
-        const { data: existingParcelles, error: countError } = await supabase
-          .from("parcelles")
-          .select("id, surface")
-          .eq("hectare_id", hectareIdToSave);
-
-        if (countError) throw countError;
-
-        const occupiedEffectif = (existingParcelles || []).reduce((total, p) => {
-          return total + Math.ceil(p.surface / 600);
-        }, 0);
-        
-        const newParcelleEffectif = Math.ceil(parseFloat(parcelleForm.surface) / 600);
-
-        if (occupiedEffectif + newParcelleEffectif > 16) {
-          toast.error(`Limite de capacité atteinte sur cet hectare (${16 - occupiedEffectif} slots de 600m² disponibles, ${newParcelleEffectif} requis)`);
-          return;
-        }
-      }
-
-      // Déterminer les valeurs selon le type de transaction
-      let status = "disponible";
-      let sale_type = null;
-      let payment_type = null;
-      let buyer_name = null;
-      let buyer_phone = null;
-      let buyer_email = null;
-      let prix = 0;
-      let amountPaid = 0;
-
-      if (parcelleForm.transaction_type === "disponible") {
-        prix = parseFloat(parcelleForm.prix) || 0;
-      } else if (parcelleForm.transaction_type === "gratuit") {
-        status = "vendu";
-        sale_type = "onereux";
-        payment_type = "total";
-        buyer_name = parcelleForm.buyer_name || null;
-        buyer_phone = parcelleForm.buyer_phone || null;
-        buyer_email = parcelleForm.buyer_email || null;
-      } else if (parcelleForm.transaction_type === "total") {
-        status = "vendu";
-        sale_type = "normal";
-        payment_type = "total";
-        buyer_name = parcelleForm.buyer_name || null;
-        buyer_phone = parcelleForm.buyer_phone || null;
-        buyer_email = parcelleForm.buyer_email || null;
-        prix = parseFloat(parcelleForm.prix) || 0;
-        amountPaid = prix;
-      } else if (parcelleForm.transaction_type === "partiel") {
-        status = "vendu";
-        sale_type = "normal";
-        payment_type = "partiel";
-        buyer_name = parcelleForm.buyer_name || null;
-        buyer_phone = parcelleForm.buyer_phone || null;
-        buyer_email = parcelleForm.buyer_email || null;
-        prix = parseFloat(parcelleForm.prix) || 0;
-        amountPaid = parseFloat(parcelleForm.amount_paid) || 0;
-      }
-
-      const parcelleData = {
-        numero: parcelleForm.numero,
-        surface: parseFloat(parcelleForm.surface),
-        prix: prix,
-        status: status,
-        sale_type: sale_type,
-        payment_type: payment_type,
-        buyer_name: buyer_name,
-        buyer_phone: buyer_phone,
-        buyer_email: buyer_email,
-        amount_paid: amountPaid,
-        hectare_id: hectareIdToSave,
-        latitude: parcelleForm.latitude ? parseFloat(parcelleForm.latitude) : null,
-        longitude: parcelleForm.longitude ? parseFloat(parcelleForm.longitude) : null,
-        sale_date: status === "vendu" ? new Date().toISOString() : null,
-      };
-
-      const { data: newParcelle, error } = await supabase
-        .from("parcelles")
-        .insert(parcelleData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Si un document est fourni
-      if (parcelleForm.docFile && parcelleForm.docTitle) {
-        const fileExt = parcelleForm.docFile.name.split(".").pop();
-        const filePath = `parcelles/${newParcelle.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("buyer-documents")
-          .upload(filePath, parcelleForm.docFile);
-
-        if (uploadError) throw uploadError;
-
-        // Enregistrer le document
-        const { error: docError } = await supabase
-          .from("documents")
-          .insert({
-            title: parcelleForm.docTitle,
-            type: parcelleForm.docType,
-            file_url: filePath,
-            uploaded_by: user?.id,
-            parcelle_id: newParcelle.id,
-          });
-
-        if (docError) throw docError;
-      }
-
-      toast.success("Parcelle et document ajoutés avec succès !");
-      setShowAddParcelleDialog(false);
-      setParcelleForm({
-        assignment_type: "hectare",
-        hectare_id: "",
-        numero: "",
-        surface: "600",
-        prix: "0",
-        latitude: "",
-        longitude: "",
-        transaction_type: "disponible",
-        buyer_name: "",
-        buyer_phone: "",
-        buyer_email: "",
-        amount_paid: "0",
-        docTitle: "",
-        docType: "Contrat",
-        docFile: null
-      });
-      loadStats();
-    } catch (error: any) {
-      console.error("Erreur lors de la création de la parcelle:", error);
-      toast.error("Erreur lors de la création de la parcelle");
-    }
-  };
-
-  const getHectarePrefix = (name: string) => {
-    const cleanName = name.replace(/\s+/g, ' ').trim();
-    const deIndex = cleanName.toLowerCase().indexOf(" de ");
-    if (deIndex > 0) {
-      return cleanName.substring(0, deIndex).trim();
-    }
-    const parIndex = cleanName.toLowerCase().indexOf(" par ");
-    if (parIndex > 0) {
-      return cleanName.substring(0, parIndex).trim();
-    }
-    const words = cleanName.split(' ');
-    if (words.length >= 2 && words[0].toUpperCase() === "RMB") {
-      return `${words[0]} ${words[1]}`;
-    }
-    return words[0];
-  };
-
-  const getHectareOccupancyDash = (hectareId: string) => {
-    const hParcelles = allParcellesList.filter(p => p.hectare_id === hectareId);
-    const occupied = hParcelles.reduce((total, p) => total + Math.ceil((p.surface || 600) / 600), 0);
-    return { occupied, remaining: 16 - occupied, total: 16 };
-  };
-
-  const handleDashboardHectareChange = async (hectareId: string) => {
-    setParcelleForm(prev => ({ ...prev, hectare_id: hectareId }));
-    if (!hectareId) return;
-
-    try {
-      const selectedHec = hectaresList.find(h => h.id === hectareId);
-      if (!selectedHec) return;
-
-      // Exclure les hectares contenant "ISETECH"
-      if (selectedHec.name.toUpperCase().includes("ISETECH")) {
-        setParcelleForm(prev => ({ ...prev, numero: "" }));
-        return;
-      }
-
-      // Récupérer toutes les parcelles déjà créées pour cet hectare
-      const { data: hParcelles, error } = await supabase
-        .from("parcelles")
-        .select("id, numero, hectare_id, status")
-        .eq("hectare_id", hectareId);
-
-      if (error) throw error;
-
-      // Audit intelligent : comble les trous dans la séquence en priorité
-      const audit = auditHectare(selectedHec, hParcelles || [], 16);
-      const autoNumero = audit.nextSuggestedNumero;
-
-      setParcelleForm(prev => ({
-        ...prev,
-        numero: autoNumero
-      }));
-
-      if (audit.hasGaps) {
-        toast.info(`Trou comblé : ${autoNumero} suggéré pour rétablir l'ordre`, {
-          duration: 3500,
-        });
-      }
-    } catch (err) {
-      console.error("Erreur lors du calcul du numéro de parcelle:", err);
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -838,18 +578,20 @@ const Dashboard = () => {
                 <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
                   Gérez vos parcelles, suivez les transactions foncières en temps réel, et administrez vos hectares de manière simple et sécurisée.
                 </p>
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2.5 pt-2">
                   <Button 
-                    onClick={() => setShowAddHectareDialog(true)}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
+                    onClick={() => setShowUnifiedSaleDialog(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 flex items-center gap-2 shadow-lg shadow-emerald-950/40 rounded-lg transition-all"
                   >
-                    + Nouvel Hectare
+                    <PlusCircle className="w-4 h-4" />
+                    Enregistrer une Vente / Acquéreur
                   </Button>
                   <Button 
-                    onClick={() => setShowAddParcelleDialog(true)}
-                    className="bg-indigo-500 hover:bg-indigo-600 text-white border-0 text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-950/40"
+                    variant="outline"
+                    onClick={() => navigate("/acheteurs")}
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs sm:text-sm font-semibold flex items-center gap-1.5"
                   >
-                    + Nouvelle Parcelle
+                    Consulter les Acquéreurs
                   </Button>
                 </div>
               </div>
@@ -860,6 +602,123 @@ const Dashboard = () => {
                   alt="Gestion des terres" 
                   className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
                 />
+              </div>
+            </div>
+          </Card>
+
+          {/* Section Quota Foncier & Épuisement Réel (Règle 1 ha = 15 parcelles) */}
+          <Card className="mb-6 p-5 sm:p-6 bg-card border-border/80 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+            
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-border/60">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-3 h-3" />
+                    Règle Cadastrale : 1 Hectare = 15 Parcelles
+                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">Calcul consolidé d'épuisement foncier</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+                  Synthèse d'Épuisement Foncier Réel
+                </h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-left lg:text-right">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+                    {stats.totalHectaresEpuises.toFixed(2)} <span className="text-sm font-semibold text-muted-foreground">ha épuisés</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    sur <span className="font-semibold text-foreground">{stats.totalHectaresConcession.toFixed(2)} ha</span> de concession ({stats.rateEpuisement.toFixed(1)}%)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Barre de progression globale */}
+            <div className="mt-4 space-y-1.5">
+              <div className="flex justify-between text-xs font-medium">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Progression de consommation du foncier
+                </span>
+                <span className="text-foreground font-semibold">
+                  {stats.rateEpuisement.toFixed(1)}% Consommé
+                </span>
+              </div>
+              <div className="h-3 w-full bg-muted/60 rounded-full overflow-hidden p-0.5 border border-border/40">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-primary transition-all duration-700"
+                  style={{ width: `${Math.min(100, Math.max(stats.rateEpuisement, 1))}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Grille des 4 indicateurs détaillés */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-5">
+              {/* 1. Hectares directs */}
+              <div className="p-3.5 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between text-muted-foreground mb-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Hectares Directs</span>
+                  <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-600">
+                    <Layers className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="text-lg sm:text-xl font-bold text-foreground">
+                  {stats.directSoldHectares.toFixed(2)} <span className="text-xs font-medium text-muted-foreground">ha</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  {stats.directSoldHectaresCount} vente(s) • ~{(stats.directSoldHectares * 15).toFixed(1)} p. équiv.
+                </p>
+              </div>
+
+              {/* 2. Parcelles vendues */}
+              <div className="p-3.5 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between text-muted-foreground mb-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Parcelles Vendues</span>
+                  <div className="p-1 rounded-md bg-indigo-500/10 text-indigo-600">
+                    <Grid className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="text-lg sm:text-xl font-bold text-foreground">
+                  {stats.soldParcellesCount} <span className="text-xs font-medium text-muted-foreground">parcelles</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  Soit {stats.parcellesSoldInHectares.toFixed(2)} ha convertis (÷ 15)
+                </p>
+              </div>
+
+              {/* 3. Total Quotas Épuisés */}
+              <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
+                <div className="flex items-center justify-between text-primary mb-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Total Quota Consommé</span>
+                  <div className="p-1 rounded-md bg-primary/10 text-primary">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="text-lg sm:text-xl font-bold text-primary">
+                  {stats.totalQuotasEpuisesParcelles} <span className="text-xs font-medium text-primary/80">p. cumulées</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  {stats.totalHectaresEpuises.toFixed(2)} ha réels ({stats.rateEpuisement.toFixed(1)}%)
+                </p>
+              </div>
+
+              {/* 4. Terres restantes */}
+              <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors">
+                <div className="flex items-center justify-between text-emerald-600 mb-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Terres Restantes</span>
+                  <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-600">
+                    <PieChartIcon className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                  {stats.remainingHectares.toFixed(2)} <span className="text-xs font-medium text-muted-foreground">ha disp.</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  Soit ~{stats.remainingParcelles} parcelles disponibles
+                </p>
               </div>
             </div>
           </Card>
@@ -894,15 +753,15 @@ const Dashboard = () => {
               <StatsCard
                 title="Revenus Total"
                 value={`${stats.totalRevenue.toFixed(0)} USD`}
-                subtitle={`${stats.soldParcelles} ventes réalisées`}
+                subtitle={`${stats.soldParcelles} ventes enregistrées`}
                 icon={DollarSign}
                 colorClass="bg-[hsl(160,84%,39%)]"
               />
             )}
             <StatsCard
-              title="Taux de Vente"
-              value={`${stats.salesRate.toFixed(1)}%`}
-              subtitle={`${stats.soldParcelles}/${stats.totalParcelles} parcelles`}
+              title="Taux d'Épuisement"
+              value={`${stats.rateEpuisement.toFixed(1)}%`}
+              subtitle={`${stats.totalHectaresEpuises.toFixed(2)} ha / ${stats.totalHectaresConcession.toFixed(2)} ha`}
               icon={TrendingUp}
               colorClass="bg-[hsl(217,91%,60%)]"
             />
@@ -914,9 +773,9 @@ const Dashboard = () => {
               colorClass="bg-[hsl(24,95%,53%)]"
             />
             <StatsCard
-              title="Disponibles"
-              value={stats.available.toString()}
-              subtitle="à vendre"
+              title="Terres Restantes"
+              value={`${stats.remainingHectares.toFixed(2)} ha`}
+              subtitle={`~${stats.remainingParcelles} parcelles disponibles`}
               icon={Calendar}
               colorClass="bg-[hsl(271,91%,65%)]"
             />
@@ -1035,515 +894,15 @@ const Dashboard = () => {
           </div>
         </main>
 
-        {/* Dialog Ajouter un Hectare */}
-        <Dialog open={showAddHectareDialog} onOpenChange={setShowAddHectareDialog}>
-          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Upload className="w-5 h-5 text-primary" />
-                </div>
-                Nouveau Hectare
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleAddHectare} className="space-y-4 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="h-name">Nom de l'hectare *</Label>
-                  <Input
-                    id="h-name"
-                    required
-                    value={hectareForm.name}
-                    onChange={(e) => setHectareForm({ ...hectareForm, name: e.target.value })}
-                    placeholder="Ex: Hectare G"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="h-surface">Surface (ha) *</Label>
-                  <Input
-                    id="h-surface"
-                    type="number"
-                    step="0.01"
-                    required
-                    value={hectareForm.surface}
-                    onChange={(e) => setHectareForm({ ...hectareForm, surface: e.target.value })}
-                    placeholder="1"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="h-location">Localisation / Secteur</Label>
-                <Input
-                  id="h-location"
-                  value={hectareForm.location}
-                  onChange={(e) => setHectareForm({ ...hectareForm, location: e.target.value })}
-                  placeholder="Ex: Oliviera Sector"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="h-prix">Prix (USD)</Label>
-                  <Input
-                    id="h-prix"
-                    type="number"
-                    value={hectareForm.prix}
-                    onChange={(e) => setHectareForm({ ...hectareForm, prix: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Coordonnées (Optionnel)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Lat"
-                      value={hectareForm.latitude}
-                      onChange={(e) => setHectareForm({ ...hectareForm, latitude: e.target.value })}
-                    />
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Lng"
-                      value={hectareForm.longitude}
-                      onChange={(e) => setHectareForm({ ...hectareForm, longitude: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Document upload section */}
-              <div className="border-t border-border pt-4 mt-2 space-y-4">
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5" />
-                  Document Associé (Optionnel)
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="h-doc-title">Titre du document</Label>
-                    <Input
-                      id="h-doc-title"
-                      value={hectareForm.docTitle}
-                      onChange={(e) => setHectareForm({ ...hectareForm, docTitle: e.target.value })}
-                      placeholder="Ex: Titre de propriété"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="h-doc-type">Type de document</Label>
-                    <Select
-                      value={hectareForm.docType}
-                      onValueChange={(val) => setHectareForm({ ...hectareForm, docType: val })}
-                    >
-                      <SelectTrigger id="h-doc-type">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Contrat">Contrat</SelectItem>
-                        <SelectItem value="Acte de vente">Acte de vente</SelectItem>
-                        <SelectItem value="Plan">Plan</SelectItem>
-                        <SelectItem value="Certificat">Certificat</SelectItem>
-                        <SelectItem value="Autre">Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="h-file">Sélectionner un document</Label>
-                    <Input
-                      id="h-file"
-                      type="file"
-                      className="cursor-pointer text-xs"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setHectareForm({ ...hectareForm, docFile: file });
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="h-camera">Prendre une photo (Caméra)</Label>
-                    <Input
-                      id="h-camera"
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="cursor-pointer text-xs"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setHectareForm({ ...hectareForm, docFile: file });
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter className="pt-4 border-t border-border">
-                <Button type="button" variant="outline" onClick={() => setShowAddHectareDialog(false)}>
-                  Annuler
-                </Button>
-                <Button type="submit">Ajouter Hectare</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog Ajouter une Parcelle */}
-        <Dialog open={showAddParcelleDialog} onOpenChange={setShowAddParcelleDialog}>
-          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Upload className="w-5 h-5 text-primary" />
-                </div>
-                Nouvelle Parcelle
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleAddParcelle} className="space-y-4 py-4">
-              {/* Deux chemins : Parcelle seule OU Affectée à un hectare */}
-              <div>
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
-                  Affectation de la parcelle *
-                </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setParcelleForm({
-                        ...parcelleForm,
-                        assignment_type: "standalone",
-                        hectare_id: "",
-                      })
-                    }
-                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                      parcelleForm.assignment_type === "standalone"
-                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
-                        : "border-border bg-card hover:bg-muted/50"
-                    }`}
-                  >
-                    <div
-                      className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                        parcelleForm.assignment_type === "standalone"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs sm:text-sm text-foreground">
-                        Parcelle seule
-                      </div>
-                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                        Indépendante / Hors hectare délimité
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setParcelleForm({
-                        ...parcelleForm,
-                        assignment_type: "hectare",
-                        hectare_id: parcelleForm.hectare_id || hectaresList[0]?.id || "",
-                      })
-                    }
-                    className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                      parcelleForm.assignment_type === "hectare"
-                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
-                        : "border-border bg-card hover:bg-muted/50"
-                    }`}
-                  >
-                    <div
-                      className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                        parcelleForm.assignment_type === "hectare"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <MapPin className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs sm:text-sm text-foreground">
-                        Affecter à un hectare
-                      </div>
-                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                        Rattacher à un hectare existant
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {parcelleForm.assignment_type === "hectare" && (
-                <div className="space-y-1.5 p-3 rounded-xl bg-muted/40 border border-border">
-                  <Label htmlFor="p-hectare" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-primary" />
-                    Hectare associé *
-                  </Label>
-                  <HectareSelector
-                    hectares={hectaresList}
-                    selectedId={parcelleForm.hectare_id}
-                    onSelect={handleDashboardHectareChange}
-                    getOccupancy={getHectareOccupancyDash}
-                    placeholder="Sélectionner un hectare existant"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="p-num">Numéro de la parcelle *</Label>
-                  <Input
-                    id="p-num"
-                    required
-                    value={parcelleForm.numero}
-                    onChange={(e) => setParcelleForm({ ...parcelleForm, numero: e.target.value })}
-                    placeholder="Ex: RMB-001"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p-surface">Surface (m²) *</Label>
-                  <Input
-                    id="p-surface"
-                    type="number"
-                    required
-                    value={parcelleForm.surface}
-                    onChange={(e) => setParcelleForm({ ...parcelleForm, surface: e.target.value })}
-                    placeholder="600"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="p-transaction">Type de transaction *</Label>
-                <Select
-                  value={parcelleForm.transaction_type}
-                  onValueChange={(val) => setParcelleForm({ ...parcelleForm, transaction_type: val })}
-                >
-                  <SelectTrigger id="p-transaction">
-                    <SelectValue placeholder="Sélectionner le type de transaction" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="disponible">Disponible (Pas encore vendue)</SelectItem>
-                    <SelectItem value="gratuit">À titre gratuit</SelectItem>
-                    <SelectItem value="total">Achat totalement payé</SelectItem>
-                    <SelectItem value="partiel">Achat partiellement payé</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {parcelleForm.transaction_type !== "disponible" && (
-                <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 space-y-4">
-                  <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-500 uppercase tracking-wider">
-                    Informations Acheteur / Bénéficiaire
-                  </h4>
-                  <div className="space-y-2">
-                    <Label htmlFor="p-buyer-name">Nom complet *</Label>
-                    <Input
-                      id="p-buyer-name"
-                      required
-                      value={parcelleForm.buyer_name}
-                      onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_name: e.target.value })}
-                      placeholder="Ex: Jean Dupont"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="p-buyer-phone">Téléphone</Label>
-                      <Input
-                        id="p-buyer-phone"
-                        value={parcelleForm.buyer_phone}
-                        onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_phone: e.target.value })}
-                        placeholder="+243..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="p-buyer-email">Email</Label>
-                      <Input
-                        id="p-buyer-email"
-                        type="email"
-                        value={parcelleForm.buyer_email}
-                        onChange={(e) => setParcelleForm({ ...parcelleForm, buyer_email: e.target.value })}
-                        placeholder="jean.dupont@example.com"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(parcelleForm.transaction_type === "total" || parcelleForm.transaction_type === "partiel") && (
-                <div className="p-3.5 rounded-lg bg-primary/5 border border-primary/10 space-y-4">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider">
-                    Finances
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="p-prix">Prix total (USD) *</Label>
-                      <Input
-                        id="p-prix"
-                        type="number"
-                        required
-                        value={parcelleForm.prix}
-                        onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
-                        placeholder="0"
-                      />
-                    </div>
-                    {parcelleForm.transaction_type === "partiel" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="p-paid">Acompte payé (USD) *</Label>
-                        <Input
-                          id="p-paid"
-                          type="number"
-                          required
-                          value={parcelleForm.amount_paid}
-                          onChange={(e) => setParcelleForm({ ...parcelleForm, amount_paid: e.target.value })}
-                          placeholder="0"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {parcelleForm.transaction_type === "disponible" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="p-prix">Prix (USD)</Label>
-                    <Input
-                      id="p-prix"
-                      type="number"
-                      value={parcelleForm.prix}
-                      onChange={(e) => setParcelleForm({ ...parcelleForm, prix: e.target.value })}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Coordonnées (Optionnel)</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="Lat"
-                        value={parcelleForm.latitude}
-                        onChange={(e) => setParcelleForm({ ...parcelleForm, latitude: e.target.value })}
-                      />
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="Lng"
-                        value={parcelleForm.longitude}
-                        onChange={(e) => setParcelleForm({ ...parcelleForm, longitude: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {parcelleForm.transaction_type !== "disponible" && (
-                <div className="space-y-2">
-                  <Label>Coordonnées (Optionnel)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Latitude"
-                      value={parcelleForm.latitude}
-                      onChange={(e) => setParcelleForm({ ...parcelleForm, latitude: e.target.value })}
-                    />
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Longitude"
-                      value={parcelleForm.longitude}
-                      onChange={(e) => setParcelleForm({ ...parcelleForm, longitude: e.target.value })}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Document upload section */}
-              <div className="border-t border-border pt-4 mt-2 space-y-4">
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5" />
-                  Document Associé (Optionnel)
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="p-doc-title">Titre du document</Label>
-                    <Input
-                      id="p-doc-title"
-                      value={parcelleForm.docTitle}
-                      onChange={(e) => setParcelleForm({ ...parcelleForm, docTitle: e.target.value })}
-                      placeholder="Ex: Fiche parcellaire"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="p-doc-type">Type de document</Label>
-                    <Select
-                      value={parcelleForm.docType}
-                      onValueChange={(val) => setParcelleForm({ ...parcelleForm, docType: val })}
-                    >
-                      <SelectTrigger id="p-doc-type">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Contrat">Contrat</SelectItem>
-                        <SelectItem value="Acte de vente">Acte de vente</SelectItem>
-                        <SelectItem value="Plan">Plan</SelectItem>
-                        <SelectItem value="Certificat">Certificat</SelectItem>
-                        <SelectItem value="Autre">Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="p-file">Sélectionner un document</Label>
-                    <Input
-                      id="p-file"
-                      type="file"
-                      className="cursor-pointer text-xs"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setParcelleForm({ ...parcelleForm, docFile: file });
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="p-camera">Prendre une photo (Caméra)</Label>
-                    <Input
-                      id="p-camera"
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="cursor-pointer text-xs"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setParcelleForm({ ...parcelleForm, docFile: file });
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter className="pt-4 border-t border-border">
-                <Button type="button" variant="outline" onClick={() => setShowAddParcelleDialog(false)}>
-                  Annuler
-                </Button>
-                <Button type="submit">Ajouter Parcelle</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {/* Guichet unique d'enregistrement de vente / terrain */}
+        <UnifiedLandSaleDialog
+          open={showUnifiedSaleDialog}
+          onOpenChange={setShowUnifiedSaleDialog}
+          onSuccess={() => {
+            setShowUnifiedSaleDialog(false);
+            loadStats();
+          }}
+        />
       </div>
     </div>
   );
