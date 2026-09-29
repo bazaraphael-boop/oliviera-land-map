@@ -210,11 +210,13 @@ const Rapports = () => {
         return isFree;
       }
 
+      const isARenseigner = item.sale_type === "a_renseigner" || (!item.sale_type && (item as any).status === "vendu");
+
       if (selectedSaleType === "a_renseigner") {
-        return item.sale_type === "a_renseigner";
+        return isARenseigner;
       }
       
-      if (isFree) return false;
+      if (isFree || isARenseigner) return false;
       
       const price = Number(item.prix || 0);
       const paid = Number(item.amount_paid || 0);
@@ -816,7 +818,7 @@ const Rapports = () => {
               buyer_profession: missingForm.buyerProfession.trim() || null,
               buyer_address: missingForm.buyerAddress.trim() || null,
               sale_date: saleDate,
-              sale_type: missingForm.saleType,
+              sale_type: isARenseigner ? null : missingForm.saleType,
               purchase_type: "parcelle",
               payment_type: paymentType,
               prix: prix,
@@ -856,7 +858,7 @@ const Rapports = () => {
               buyer_profession: missingForm.buyerProfession.trim() || null,
               buyer_address: missingForm.buyerAddress.trim() || null,
               sale_date: saleDate,
-              sale_type: missingForm.saleType,
+              sale_type: isARenseigner ? null : missingForm.saleType,
               purchase_type: "parcelle",
               payment_type: paymentType,
               amount_paid: amountPaid,
@@ -904,7 +906,7 @@ const Rapports = () => {
             buyer_profession: missingForm.buyerProfession.trim() || null,
             buyer_address: missingForm.buyerAddress.trim() || null,
             sale_date: saleDate,
-            sale_type: missingForm.saleType,
+            sale_type: isARenseigner ? null : missingForm.saleType,
             purchase_type: purchaseType,
             payment_type: paymentType,
             prix: prix,
@@ -2139,17 +2141,20 @@ const Rapports = () => {
                           </td>
                           <td className="p-3 text-muted-foreground">{p.hectares?.name || "N/A"}</td>
                           <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isFree 
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
-                                : p.sale_type === "a_renseigner"
-                                ? "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/20"
-                                : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
-                            }`}>
-                              {isFree ? "Gratuit" : p.sale_type === "a_renseigner" ? "À renseigner" : "Normal"}
-                            </span>
-                          </td>
+                            {(() => {
+                              const isPAR = p.sale_type === "a_renseigner" || (!p.sale_type && p.status === "vendu");
+                              return (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                  isFree 
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
+                                    : isPAR
+                                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                                    : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                                }`}>
+                                  {isFree ? "Gratuit" : isPAR ? "À renseigner" : "Normal"}
+                                </span>
+                              );
+                            })()}
                           <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${p.prix?.toLocaleString()}`}</td>
                           <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(p.amount_paid || 0).toLocaleString()}`}</td>
                           <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
@@ -2227,15 +2232,20 @@ const Rapports = () => {
                           </td>
                           <td className="p-3 font-medium text-foreground">{h.buyer_name || "N/A"}</td>
                           <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isFree 
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
-                                : h.sale_type === "a_renseigner"
-                                ? "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/20"
-                                : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
-                            }`}>
-                              {isFree ? "Gratuit" : h.sale_type === "a_renseigner" ? "À renseigner" : "Normal"}
-                            </span>
+                            {(() => {
+                              const isHAR = h.sale_type === "a_renseigner" || (!h.sale_type && (h.status === "vendu" || h.status === "sold"));
+                              return (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                  isFree 
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
+                                    : isHAR
+                                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                                    : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
+                                }`}>
+                                  {isFree ? "Gratuit" : isHAR ? "À renseigner" : "Normal"}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${h.prix?.toLocaleString()}`}</td>
                           <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(h.amount_paid || 0).toLocaleString()}`}</td>

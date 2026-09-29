@@ -339,7 +339,7 @@ const Parcelles = () => {
           hectare_id: hectareIdToSave,
           status: "disponible",
           rmb_number: formData.rmb_number || null,
-          sale_type: formData.sale_type,
+          sale_type: isARenseigner ? null : formData.sale_type,
           latitude: formData.latitude ? parseFloat(formData.latitude) : null,
           longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         },
@@ -414,7 +414,7 @@ const Parcelles = () => {
       payment_type: parcelle.payment_type || "total",
       amount_paid: parcelle.amount_paid?.toString() || "",
       hectare_id: parcelle.hectare_id || "",
-      sale_type: parcelle.sale_type || "normal",
+      sale_type: parcelle.sale_type === "a_renseigner" || (parcelle.status === "vendu" && !parcelle.sale_type) ? "a_renseigner" : (parcelle.sale_type || "normal"),
       prix: parcelle.prix?.toString() || "",
       purchase_type: parcelle.purchase_type || "parcelle",
       rmb_number: parcelle.rmb_number || "",
@@ -505,7 +505,7 @@ const Parcelles = () => {
       const updateData: any = {
         status: editFormData.status,
         prix: prix,
-        sale_type: editFormData.sale_type,
+        sale_type: isARenseigner ? null : editFormData.sale_type,
         purchase_type: editFormData.purchase_type,
         rmb_number: editFormData.rmb_number || null,
         hectare_id: newHectareId,
@@ -754,8 +754,9 @@ const Parcelles = () => {
       yPos += 15;
       
       // Type de vente
+      const isARenseignerSale = saleData.sale_type === "a_renseigner" || (!saleData.sale_type && (saleData.status === "vendu" || Boolean(saleData.buyer_name)));
       pdf.setFont("helvetica", "bold");
-      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre gratuit" : saleData.sale_type === "a_renseigner" ? "À renseigner" : "Vente normale"}`, 20, yPos);
+      pdf.text(`Type de vente: ${saleData.sale_type === "onereux" ? "À titre gratuit" : isARenseignerSale ? "À renseigner" : "Vente normale"}`, 20, yPos);
       yPos += 15;
       
       // Informations acheteur
@@ -777,7 +778,7 @@ const Parcelles = () => {
       yPos += 10;
       
       // Détails financiers
-      if (saleData.sale_type === "a_renseigner") {
+      if (isARenseignerSale) {
         pdf.setFontSize(14);
         pdf.setFont("helvetica", "bold");
         pdf.text("DÉTAILS FINANCIERS", 20, yPos);
@@ -1303,7 +1304,7 @@ const Parcelles = () => {
                         <Badge variant="secondary" className="text-[10px] font-medium">
                           À titre gratuit
                         </Badge>
-                      ) : parcelle.sale_type === "a_renseigner" ? (
+                      ) : (parcelle.sale_type === "a_renseigner" || (parcelle.status === "vendu" && !parcelle.sale_type)) ? (
                         <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
                           {Number(parcelle.prix) > 0 ? `$${Number(parcelle.prix).toLocaleString()} (À renseigner)` : "À renseigner"}
                         </Badge>

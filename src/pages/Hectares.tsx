@@ -208,7 +208,7 @@ const Hectares = () => {
         buyer_name: isVente ? formData.buyer_name : null,
         buyer_phone: isVente ? formData.buyer_phone || null : null,
         buyer_email: isVente ? formData.buyer_email || null : null,
-        sale_type: isVente ? formData.sale_type : null,
+        sale_type: isVente ? (isARenseigner ? null : formData.sale_type) : null,
         purchase_type: isVente ? formData.purchase_type : null,
         payment_type: isVente ? ((isOnereux || isARenseigner) ? "total" : formData.payment_type) : null,
         amount_paid: isVente ? amountPaid : 0,
@@ -259,7 +259,7 @@ const Hectares = () => {
       buyer_name: hectare.buyer_name || "",
       buyer_phone: hectare.buyer_phone || "",
       buyer_email: hectare.buyer_email || "",
-      sale_type: hectare.sale_type || "normal",
+      sale_type: hectare.sale_type === "a_renseigner" || (hectare.status === "vendu" && !hectare.sale_type) ? "a_renseigner" : (hectare.sale_type || "normal"),
       purchase_type: hectare.purchase_type || "hectare",
       payment_type: hectare.payment_type || "total",
       amount_paid: hectare.amount_paid.toString(),
@@ -707,7 +707,7 @@ const Hectares = () => {
                       {hectare.status === "vendu" && hectare.sale_type === "onereux" && (
                         <Badge variant="secondary" className="text-xs mt-1">Gratuit</Badge>
                       )}
-                      {hectare.status === "vendu" && hectare.sale_type === "a_renseigner" && (
+                      {hectare.status === "vendu" && (hectare.sale_type === "a_renseigner" || !hectare.sale_type) && (
                         <Badge variant="outline" className="text-xs mt-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">À renseigner</Badge>
                       )}
                     </div>

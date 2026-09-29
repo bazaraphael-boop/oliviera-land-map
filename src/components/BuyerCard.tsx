@@ -29,13 +29,14 @@ interface BuyerCardProps {
 export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }: BuyerCardProps) {
   const isPinned = !acheteur.paper_form_completed;
 
-  const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
-  const isAllPending = totalItemsCount > 0 &&
-    (acheteur.parcelles.length === 0 || acheteur.parcelles.every(p => p.sale_type === 'a_renseigner')) &&
-    (acheteur.hectares.length === 0 || acheteur.hectares.every(h => h.sale_type === 'a_renseigner'));
+  const isItemPending = (item: { sale_type?: string | null }) => item.sale_type === 'a_renseigner' || !item.sale_type;
 
-  const hasPendingSale = acheteur.parcelles.some(p => p.sale_type === 'a_renseigner') ||
-    acheteur.hectares.some(h => h.sale_type === 'a_renseigner');
+  const isAllPending = totalItemsCount > 0 &&
+    (acheteur.parcelles.length === 0 || acheteur.parcelles.every(isItemPending)) &&
+    (acheteur.hectares.length === 0 || acheteur.hectares.every(isItemPending));
+
+  const hasPendingSale = acheteur.parcelles.some(isItemPending) ||
+    acheteur.hectares.some(isItemPending);
 
   // Collecter tous les RMB de parcelles
   const parcelleRmbs = acheteur.parcelles
@@ -43,7 +44,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
       numero: p.numero,
       rmb: p.rmb_number,
       surface: p.surface,
-      isPending: p.sale_type === 'a_renseigner',
+      isPending: isItemPending(p),
       nombreParcelles: p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))
     }))
     .filter(p => p.numero || p.rmb);
@@ -53,7 +54,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
     .map(h => ({
       nom: h.name,
       rmb: h.rmb_number,
-      isPending: h.sale_type === 'a_renseigner',
+      isPending: isItemPending(h),
     }))
     .filter(h => h.nom || h.rmb);
 
