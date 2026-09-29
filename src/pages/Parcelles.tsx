@@ -901,19 +901,6 @@ const Parcelles = () => {
               <SelectItem value="status">🏷️ Par statut</SelectItem>
             </SelectContent>
           </Select>
-
-          <Button onClick={() => setIsDialogOpen(true)} className="shrink-0 w-full sm:w-auto font-semibold gap-1.5">
-            <Plus className="w-4 h-4" />
-            Nouvelle Inscription Parcelle
-          </Button>
-
-          <UnifiedLandSaleDialog
-            open={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            defaultItemType={selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? "parcelle_in_hectare" : "parcelle_alone"}
-            defaultHectareId={selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? selectedHectare : ""}
-            onSuccess={fetchParcelles}
-          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

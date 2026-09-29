@@ -2102,7 +2102,7 @@ const Acheteurs = () => {
         <UnifiedLandSaleDialog
           open={showNewBuyerDialog}
           onOpenChange={setShowNewBuyerDialog}
-          onSuccess={fetchData}
+          onSuccess={loadAcheteurs}
         />
 
         {/* Dialog Télécharger la liste des concessionnaires (Export par date & documents) */}

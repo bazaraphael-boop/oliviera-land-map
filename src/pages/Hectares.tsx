@@ -386,18 +386,6 @@ const Hectares = () => {
             />
           </div>
 
-          <Button onClick={() => setShowUnifiedDialog(true)} className="gap-1.5 font-semibold">
-            <Plus className="w-4 h-4" />
-            Nouvelle Inscription Hectare
-          </Button>
-
-          <UnifiedLandSaleDialog
-            open={showUnifiedDialog}
-            onOpenChange={setShowUnifiedDialog}
-            defaultItemType="hectare"
-            onSuccess={fetchHectares}
-          />
-
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
