@@ -17,6 +17,7 @@ interface HectareSelectorProps {
   getOccupancy?: (id: string) => { occupied: number; remaining: number; total: number };
   placeholder?: string;
   disabled?: boolean;
+  requiredQuota?: number;
 }
 
 export function HectareSelector({

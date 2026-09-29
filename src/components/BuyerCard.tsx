@@ -31,6 +31,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
 
   const isItemPending = (item: { sale_type?: string | null }) => item.sale_type === 'a_renseigner' || !item.sale_type;
 
+  const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
   const isAllPending = totalItemsCount > 0 &&
     (acheteur.parcelles.length === 0 || acheteur.parcelles.every(isItemPending)) &&
     (acheteur.hectares.length === 0 || acheteur.hectares.every(isItemPending));
