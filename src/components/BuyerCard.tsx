@@ -55,6 +55,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
     .map(h => ({
       nom: h.name,
       rmb: h.rmb_number,
+      surface: h.surface,
       isPending: isItemPending(h),
     }))
     .filter(h => h.nom || h.rmb);
@@ -200,25 +201,35 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mr-1">
               <MapIcon className="w-3 h-3" /> Hectares :
             </span>
-            {hectareRmbs.map((h, i) => (
-              <Badge
-                key={i}
-                variant="secondary"
-                className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
-                  h.isPending
-                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
-                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
-                }`}
-              >
-                {h.nom}
-                {h.rmb && (
-                  <span className="ml-1 opacity-60">· {h.rmb}</span>
-                )}
-                {h.isPending && (
-                  <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
-                )}
-              </Badge>
-            ))}
+            {hectareRmbs.map((h, i) => {
+              const surfHa = Number(h.surface || 1);
+              const surfDisplay =
+                surfHa < 1
+                  ? `${surfHa} ha (${Math.round(surfHa * 10000).toLocaleString("fr-FR")} m²)`
+                  : `${surfHa} ha`;
+              return (
+                <Badge
+                  key={i}
+                  variant="secondary"
+                  className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
+                    h.isPending
+                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                      : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                  }`}
+                >
+                  {h.nom}
+                  {h.rmb && (
+                    <span className="ml-1 opacity-60">· {h.rmb}</span>
+                  )}
+                  <span className="ml-1 font-semibold text-blue-800 dark:text-blue-300">
+                    ({surfDisplay})
+                  </span>
+                  {h.isPending && (
+                    <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
+                  )}
+                </Badge>
+              );
+            })}
           </div>
         )}
 
@@ -233,7 +244,9 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
           {acheteur.nombreHectares > 0 && (
             <Badge className="text-[10px] sm:text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
               <MapIcon className="w-3 h-3 mr-1" />
-              {acheteur.nombreHectares} hectare{acheteur.nombreHectares > 1 ? 's' : ''}
+              {acheteur.nombreHectares < 1
+                ? `${acheteur.nombreHectares} ha (${Math.round(acheteur.nombreHectares * 10000).toLocaleString("fr-FR")} m²)`
+                : `${acheteur.nombreHectares} ha`}
             </Badge>
           )}
           {isAllPending ? (

@@ -417,10 +417,13 @@ const Acheteurs = () => {
         }
 
         const acheteur = acheteursMap.get(buyerKey)!;
+        const rawSurf = Number(hectare.surface || 1);
+        const hSurfHa = rawSurf >= 100 ? rawSurf / 10000 : rawSurf;
+
         acheteur.hectares.push({
           id: hectare.id,
           name: hectare.name,
-          surface: hectare.surface,
+          surface: hSurfHa,
           prix: hectare.prix,
           sale_date: hectare.sale_date,
           created_at: hectare.created_at,
@@ -434,7 +437,7 @@ const Acheteurs = () => {
           paper_form_completed: hectare.paper_form_completed ?? false,
         });
         acheteur.totalAchat += (hectare.sale_type === 'onereux' || hectare.sale_type === 'a_renseigner') ? 0 : (hectare.payment_type === 'partiel' ? Number(hectare.amount_paid || 0) : Number(hectare.prix || 0));
-        acheteur.nombreHectares += 1;
+        acheteur.nombreHectares = Math.round((acheteur.nombreHectares + hSurfHa) * 1000) / 1000;
         
         // Si un hectare n'est pas complété, l'acheteur n'est pas complété
         if (!hectare.paper_form_completed) {
@@ -1099,15 +1102,16 @@ const Acheteurs = () => {
     }
 
     const headers = [
-      "Date d'ajout / vente",
-      "Nom complet",
+      "Date",
+      "Nom du concessionnaire",
       "Téléphone",
       "Email",
       "Profession",
       "Adresse",
       "Parcelles & RMB",
       "Hectares & RMB",
-      "Surface Totale (m2)",
+      "Quantité & Détails",
+      "Superficie Totale (m2)",
       "Montant Total (USD)",
       "Statut Document",
       "Nombre Documents",
@@ -1121,20 +1125,33 @@ const Acheteurs = () => {
         : "N/A";
 
       const parcellesList = a.parcelles
-        .map((p) => `P.${p.numero}${p.rmb_number ? ` [${p.rmb_number}]` : ""}`)
+        .map((p) => `P.${p.numero}${p.rmb_number ? ` [${p.rmb_number}]` : ""} (${p.surface || 600} m²)`)
         .join(", ");
 
       const hectaresList = a.hectares
-        .map((h) => `${h.name}${h.rmb_number ? ` [${h.rmb_number}]` : ""}`)
+        .map((h) => {
+          const ha = Number(h.surface || 1);
+          const m2 = Math.round(ha * 10000);
+          return `${h.name}${h.rmb_number ? ` [${h.rmb_number}]` : ""} (${ha} ha · ${m2} m²)`;
+        })
         .join(", ");
 
-      const totalSurface =
-        a.parcelles.reduce((sum, p) => sum + (p.surface || 0), 0) +
-        a.hectares.reduce((sum, h) => sum + (h.surface || 0), 0);
+      const parcellesM2 = a.parcelles.reduce((sum, p) => sum + Number(p.surface || 600), 0);
+      const hectaresM2 = a.hectares.reduce((sum, h) => {
+        const ha = Number(h.surface || 1);
+        return sum + (ha >= 100 ? ha : Math.round(ha * 10000));
+      }, 0);
+      const totalSurface = parcellesM2 + hectaresM2;
+
+      const pCount = a.parcelles.reduce((sum, p) => sum + (p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))), 0);
+      const qtyDisplay = [
+        a.parcelles.length > 0 ? `${pCount} parcelle(s) (${parcellesM2} m²)` : null,
+        a.hectares.length > 0 ? `${a.nombreHectares} ha (${hectaresM2} m²)` : null,
+      ].filter(Boolean).join(" + ") || "—";
 
       const docStatus = a.has_documents
         ? `Document joint (${a.documents_count})`
-        : "NON AJOUTÉ (MANQUANT)";
+        : "NON AJOUTE (MANQUANT)";
 
       return [
         dateDisplay,
@@ -1145,6 +1162,7 @@ const Acheteurs = () => {
         `"${(a.buyer_address || "").replace(/"/g, '""')}"`,
         `"${parcellesList.replace(/"/g, '""')}"`,
         `"${hectaresList.replace(/"/g, '""')}"`,
+        `"${qtyDisplay.replace(/"/g, '""')}"`,
         totalSurface,
         a.totalAchat,
         `"${docStatus}"`,
@@ -1167,7 +1185,7 @@ const Acheteurs = () => {
     notify("Succès", `Export CSV téléchargé (${buyersForExport.length} concessionnaires)`, "success");
   };
 
-  // Exportation PDF officiel avec mise en page soignée et en-tête de la concession
+  // Exportation PDF officiel avec mise en page soignée, en-tête bien proportionné et quantité
   const handleExportPDF = async () => {
     if (buyersForExport.length === 0) {
       notify("Attention", "Aucun concessionnaire à exporter avec ces critères.", "error");
@@ -1186,16 +1204,17 @@ const Acheteurs = () => {
 
       const pdfWidth = 297;
       const pdfHeight = 210;
-      const imgRatio = img.height / img.width;
-      const headerHeight = Math.min(pdfWidth * imgRatio, 32);
-      const imgWidth = headerHeight / imgRatio;
+      const imgRatio = img.height / img.width; // 0.409375
+      // En-tête bien proportionné et centré (140mm de large)
+      const imgWidth = 140;
+      const headerHeight = Math.round(imgWidth * imgRatio * 10) / 10; // ~57.3mm
       const imgX = (pdfWidth - imgWidth) / 2;
       pdf.addImage(headerImage, "JPEG", imgX, 4, imgWidth, headerHeight);
 
-      let yPos = headerHeight + 10;
+      let yPos = 4 + headerHeight + 5;
 
       // Titre
-      pdf.setFontSize(14);
+      pdf.setFontSize(13);
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(30, 41, 59);
       pdf.text(
@@ -1204,10 +1223,10 @@ const Acheteurs = () => {
         yPos,
         { align: "center" }
       );
-      yPos += 6;
+      yPos += 5.5;
 
       // Sous-titre Période et Date
-      pdf.setFontSize(9);
+      pdf.setFontSize(8.5);
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(100, 116, 139);
       const periodeLabel =
@@ -1222,7 +1241,7 @@ const Acheteurs = () => {
         yPos,
         { align: "center" }
       );
-      yPos += 8;
+      yPos += 6.5;
 
       // Cadre de synthèse
       const totalSelected = buyersForExport.length;
@@ -1232,30 +1251,30 @@ const Acheteurs = () => {
 
       pdf.setFillColor(248, 250, 252);
       pdf.setDrawColor(226, 232, 240);
-      pdf.roundedRect(15, yPos, 267, 10, 1.5, 1.5, "FD");
+      pdf.roundedRect(15, yPos, 267, 8.5, 1.5, 1.5, "FD");
 
-      pdf.setFontSize(8.5);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(15, 23, 42);
-      pdf.text(`Total concessionnaires : ${totalSelected}`, 20, yPos + 6.5);
+      pdf.text(`Total concessionnaires : ${totalSelected}`, 20, yPos + 5.5);
 
       if (missingCount > 0) {
         pdf.setTextColor(220, 38, 38);
-        pdf.text(`⚠ Documents manquants : ${missingCount}`, 85, yPos + 6.5);
+        pdf.text(`! Documents manquants : ${missingCount}`, 85, yPos + 5.5);
       } else {
         pdf.setTextColor(22, 101, 52);
-        pdf.text(`✓ Tous les dossiers ont des documents`, 85, yPos + 6.5);
+        pdf.text(`Dossiers complets : ${totalSelected}`, 85, yPos + 5.5);
       }
 
       pdf.setTextColor(22, 101, 52);
-      pdf.text(`Dossiers avec pièces : ${withDocsCountInExport}`, 160, yPos + 6.5);
+      pdf.text(`Dossiers avec pièces : ${withDocsCountInExport}`, 160, yPos + 5.5);
 
       pdf.setTextColor(30, 41, 59);
-      pdf.text(`Montant total : ${totalAmount.toLocaleString()} USD`, 225, yPos + 6.5);
+      pdf.text(`Montant total : ${totalAmount.toLocaleString()} USD`, 225, yPos + 5.5);
 
-      yPos += 14;
+      yPos += 12;
 
-      // En-têtes du tableau
+      // En-têtes du tableau (Largeur totale = 267mm de 15 à 282)
       const drawTableHeader = () => {
         pdf.setFillColor(241, 245, 249);
         pdf.setDrawColor(203, 213, 225);
@@ -1266,11 +1285,12 @@ const Acheteurs = () => {
 
         pdf.text("N°", 17, yPos + 4.5);
         pdf.text("Date", 25, yPos + 4.5);
-        pdf.text("Nom du concessionnaire", 48, yPos + 4.5);
-        pdf.text("Contact (Tél / Email)", 115, yPos + 4.5);
-        pdf.text("Biens acquis (Parcelles & Hectares)", 165, yPos + 4.5);
-        pdf.text("Total Payé", 225, yPos + 4.5);
-        pdf.text("Statut Document", 250, yPos + 4.5);
+        pdf.text("Nom du concessionnaire", 44, yPos + 4.5);
+        pdf.text("Contact (Tél / Email)", 92, yPos + 4.5);
+        pdf.text("Biens acquis (RMB / N°)", 124, yPos + 4.5);
+        pdf.text("Quantité & Superficie", 168, yPos + 4.5);
+        pdf.text("Total Payé", 216, yPos + 4.5);
+        pdf.text("Statut Document", 242, yPos + 4.5);
         yPos += 7;
       };
 
@@ -1278,7 +1298,7 @@ const Acheteurs = () => {
 
       // Lignes du tableau
       buyersForExport.forEach((b, idx) => {
-        if (yPos > 190) {
+        if (yPos > 192) {
           pdf.addPage();
           yPos = 15;
           drawTableHeader();
@@ -1304,26 +1324,26 @@ const Acheteurs = () => {
         pdf.setTextColor(30, 41, 59);
 
         // N°
-        pdf.text(`${idx + 1}`, 17, yPos + 5.5);
+        pdf.text(`${idx + 1}`, 17, yPos + 5.2);
 
         // Date
         const dateStr = b.latest_date || b.first_date;
-        pdf.text(formatDateDisplay(dateStr), 25, yPos + 5.5);
+        pdf.text(formatDateDisplay(dateStr), 25, yPos + 5.2);
 
         // Nom
         pdf.setFont("helvetica", "bold");
         const truncatedName =
-          b.buyer_name.length > 32 ? b.buyer_name.slice(0, 30) + "…" : b.buyer_name;
-        pdf.text(truncatedName, 48, yPos + 5.5);
+          b.buyer_name.length > 28 ? b.buyer_name.slice(0, 26) + "…" : b.buyer_name;
+        pdf.text(truncatedName, 44, yPos + 5.2);
 
         // Contact
         pdf.setFont("helvetica", "normal");
         const contactStr = b.buyer_phone || b.buyer_email || "—";
         const truncatedContact =
-          contactStr.length > 25 ? contactStr.slice(0, 23) + "…" : contactStr;
-        pdf.text(truncatedContact, 115, yPos + 5.5);
+          contactStr.length > 20 ? contactStr.slice(0, 18) + "…" : contactStr;
+        pdf.text(truncatedContact, 92, yPos + 5.2);
 
-        // Biens
+        // Biens (N° et RMB)
         const parcelsStr = b.parcelles
           .map((p) => `P.${p.numero}${p.rmb_number ? ` (${p.rmb_number})` : ""}`)
           .join(", ");
@@ -1331,22 +1351,41 @@ const Acheteurs = () => {
           .map((h) => `${h.name}${h.rmb_number ? ` (${h.rmb_number})` : ""}`)
           .join(", ");
         const biensText = [parcelsStr, hectStr].filter(Boolean).join(" · ") || "—";
-        const truncatedBiens = biensText.length > 36 ? biensText.slice(0, 34) + "…" : biensText;
-        pdf.text(truncatedBiens, 165, yPos + 5.5);
+        const truncatedBiens = biensText.length > 26 ? biensText.slice(0, 24) + "…" : biensText;
+        pdf.text(truncatedBiens, 124, yPos + 5.2);
+
+        // Quantité & Superficie
+        const pCount = b.parcelles.reduce((sum, p) => sum + (p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))), 0);
+        const pSurf = b.parcelles.reduce((sum, p) => sum + Number(p.surface || 600), 0);
+        const hSurfHa = Math.round(b.hectares.reduce((sum, h) => sum + (Number(h.surface || 1) >= 100 ? Number(h.surface) / 10000 : Number(h.surface || 1)), 0) * 1000) / 1000;
+        const hSurfM2 = Math.round(hSurfHa * 10000);
+
+        let qtyDisplay = "";
+        if (b.parcelles.length > 0 && b.hectares.length > 0) {
+          qtyDisplay = `${pCount} p. (${pSurf}m²) + ${hSurfHa}ha (${hSurfM2}m²)`;
+        } else if (b.hectares.length > 0) {
+          qtyDisplay = `${hSurfHa} ha (${hSurfM2.toLocaleString("fr-FR")} m²)`;
+        } else if (b.parcelles.length > 0) {
+          qtyDisplay = `${pCount} parcelle${pCount > 1 ? "s" : ""} (${pSurf.toLocaleString("fr-FR")} m²)`;
+        } else {
+          qtyDisplay = "—";
+        }
+        const truncatedQty = qtyDisplay.length > 28 ? qtyDisplay.slice(0, 26) + "…" : qtyDisplay;
+        pdf.text(truncatedQty, 168, yPos + 5.2);
 
         // Montant
         pdf.setFont("helvetica", "bold");
-        pdf.text(`${b.totalAchat.toLocaleString()} $`, 225, yPos + 5.5);
+        pdf.text(`${b.totalAchat.toLocaleString()} $`, 216, yPos + 5.2);
 
         // Statut Document
         if (!b.has_documents) {
           pdf.setTextColor(220, 38, 38);
           pdf.setFont("helvetica", "bold");
-          pdf.text("⚠ NON AJOUTÉ", 250, yPos + 5.5);
+          pdf.text("NON AJOUTE", 242, yPos + 5.2);
         } else {
           pdf.setTextColor(22, 101, 52);
           pdf.setFont("helvetica", "normal");
-          pdf.text(`✓ Joint (${b.documents_count})`, 250, yPos + 5.5);
+          pdf.text(`Joint (${b.documents_count} doc${b.documents_count > 1 ? "s" : ""})`, 242, yPos + 5.2);
         }
 
         yPos += 8;
@@ -1700,6 +1739,9 @@ const Acheteurs = () => {
                                   {p.rmb_number && p.rmb_number !== p.numero && (
                                     <span className="ml-1 opacity-60">· {p.rmb_number}</span>
                                   )}
+                                  <span className="ml-1 font-semibold text-emerald-800 dark:text-emerald-300">
+                                    ({p.surface || 600} m²)
+                                  </span>
                                   {pCount > 1 && (
                                     <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({pCount} p.)</span>
                                   )}
@@ -1721,6 +1763,11 @@ const Acheteurs = () => {
                           <div className="flex flex-wrap gap-1">
                             {acheteur.hectares.map((h, i) => {
                               const isPending = h.sale_type === "a_renseigner";
+                              const surfHa = Number(h.surface || 1);
+                              const surfDisplay =
+                                surfHa < 1
+                                  ? `${surfHa} ha (${Math.round(surfHa * 10000).toLocaleString("fr-FR")} m²)`
+                                  : `${surfHa} ha`;
                               return (
                                 <Badge
                                   key={i}
@@ -1735,6 +1782,9 @@ const Acheteurs = () => {
                                   {h.rmb_number && (
                                     <span className="ml-1 opacity-60">· {h.rmb_number}</span>
                                   )}
+                                  <span className="ml-1 font-semibold text-blue-800 dark:text-blue-300">
+                                    ({surfDisplay})
+                                  </span>
                                   {isPending && (
                                     <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
                                   )}

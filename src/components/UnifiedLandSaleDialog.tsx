@@ -89,7 +89,8 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
   // État du formulaire
   const [itemType, setItemType] = useState<LandItemType>(defaultItemType);
-  const [hectareSubType, setHectareSubType] = useState<"complet" | "demi" | "custom">("complet");
+  const [hectareQuantity, setHectareQuantity] = useState<string>("1");
+  const [hectarePreset, setHectarePreset] = useState<string>("1ha");
   const [hectareId, setHectareId] = useState<string>(defaultHectareId);
   const [numero, setNumero] = useState<string>("");
   const [rmbNumber, setRmbNumber] = useState<string>("");
@@ -137,17 +138,57 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     }
   }, [open, defaultItemType, defaultHectareId, hectares]);
 
-  // Synchronisation de la surface selon le type de bien
-  useEffect(() => {
-    if (itemType === "hectare") {
-      if (hectareSubType === "complet") setSurface("10000");
-      else if (hectareSubType === "demi") setSurface("5000");
+  // Gestion du type de bien et presets
+  const handleItemTypeChange = (newType: LandItemType) => {
+    setItemType(newType);
+    if (newType === "hectare") {
+      setHectarePreset("1ha");
+      setHectareQuantity("1");
+      setSurface("10000");
     } else {
-      if (surface === "10000" || surface === "5000") {
+      if (surface === "10000" || surface === "5000" || surface === "2000" || surface === "20000") {
         setSurface("600");
       }
     }
-  }, [itemType, hectareSubType]);
+  };
+
+  const handleHectareQuantityChange = (val: string) => {
+    setHectareQuantity(val);
+    setHectarePreset("custom");
+    const n = parseFloat(val);
+    if (!isNaN(n) && n > 0) {
+      setSurface(Math.round(n * 10000).toString());
+    }
+  };
+
+  const handleSurfaceChange = (val: string) => {
+    setSurface(val);
+    if (itemType === "hectare") {
+      const n = parseFloat(val);
+      if (!isNaN(n) && n > 0) {
+        const ha = Math.round((n / 10000) * 10000) / 10000;
+        setHectareQuantity(ha.toString());
+        setHectarePreset("custom");
+      }
+    }
+  };
+
+  const applyHectarePreset = (preset: "1ha" | "2ha" | "demi" | "2000m2") => {
+    setHectarePreset(preset);
+    if (preset === "1ha") {
+      setHectareQuantity("1");
+      setSurface("10000");
+    } else if (preset === "2ha") {
+      setHectareQuantity("2");
+      setSurface("20000");
+    } else if (preset === "demi") {
+      setHectareQuantity("0.5");
+      setSurface("5000");
+    } else if (preset === "2000m2") {
+      setHectareQuantity("0.2");
+      setSurface("2000");
+    }
+  };
 
   // Détection en direct des acquéreurs existants
   const fullNameComputed = `${nom.trim()} ${postNom.trim()} ${prenom.trim()}`.trim();
@@ -399,6 +440,8 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     setPaymentType("total");
     setAmountPaid("");
     setShowCivilDetails(false);
+    setHectareQuantity("1");
+    setHectarePreset("1ha");
   };
 
   // Validation et soumission atomique
@@ -465,18 +508,26 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       setIsSubmitting(true);
 
       if (itemType === "hectare") {
-        // Enregistrement d'un Hectare
+        // Enregistrement d'un Hectare avec surface exacte
+        const surfaceInHa = Math.round((surfaceNum / 10000) * 10000) / 10000;
+        const purchaseType =
+          surfaceInHa === 1
+            ? "hectare"
+            : surfaceInHa === 0.5
+            ? "demi_hectare"
+            : `${surfaceInHa}_hectare`;
+
         const { error } = await supabase.from("hectares").insert([
           {
             name: numero.trim(),
-            surface: surfaceNum / 10000, // En hectares
+            surface: surfaceInHa,
             status: "vendu",
             buyer_name: buyerName,
             buyer_phone: telephone.trim() || null,
             buyer_email: email.trim() || null,
             rmb_number: rmbNumber.trim() || null,
             sale_type: isARenseigner ? null : saleType,
-            purchase_type: hectareSubType === "demi" ? "demi_hectare" : "hectare",
+            purchase_type: purchaseType,
             prix: parsedPrix,
             payment_type: (isOnereux || isARenseigner) ? "total" : paymentType,
             amount_paid: parsedAmountPaid,
@@ -578,10 +629,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
             </Label>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* Carte 1 : Parcelle dans un hectare */}
+              {/* Carte 1 : Parcelle dans hectare */}
               <button
                 type="button"
-                onClick={() => setItemType("parcelle_in_hectare")}
+                onClick={() => handleItemTypeChange("parcelle_in_hectare")}
                 className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
                   itemType === "parcelle_in_hectare"
                     ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
@@ -609,7 +660,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
               {/* Carte 2 : Parcelle seule */}
               <button
                 type="button"
-                onClick={() => setItemType("parcelle_alone")}
+                onClick={() => handleItemTypeChange("parcelle_alone")}
                 className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
                   itemType === "parcelle_alone"
                     ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
@@ -634,10 +685,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                 </div>
               </button>
 
-              {/* Carte 3 : Hectare complet ou demi */}
+              {/* Carte 3 : Hectare complet, fraction ou multiple */}
               <button
                 type="button"
-                onClick={() => setItemType("hectare")}
+                onClick={() => handleItemTypeChange("hectare")}
                 className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
                   itemType === "hectare"
                     ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
@@ -654,10 +705,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                     )}
                   </div>
                   <div className="font-bold text-xs sm:text-sm text-foreground">
-                    Hectare Entier
+                    Hectare (Terrain)
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                    Hectare complet ou demi-hectare
+                    1 ha, 2 ha, 0.2 ha (2 000 m²), etc.
                   </div>
                 </div>
               </button>
@@ -689,33 +740,75 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
             )}
 
             {itemType === "hectare" && (
-              <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-2">
-                <Label className="text-xs font-semibold text-purple-900 dark:text-purple-300">
-                  Format de l'hectare *
-                </Label>
-                <RadioGroup
-                  value={hectareSubType}
-                  onValueChange={(val: any) => setHectareSubType(val)}
-                  className="grid grid-cols-2 gap-2"
-                >
-                  <div className="flex items-center space-x-2 border rounded-lg p-2.5 bg-background">
-                    <RadioGroupItem value="complet" id="h-complet" />
-                    <label htmlFor="h-complet" className="text-xs font-medium cursor-pointer">
-                      Hectare complet (10 000 m²)
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2 border rounded-lg p-2.5 bg-background">
-                    <RadioGroupItem value="demi" id="h-demi" />
-                    <label htmlFor="h-demi" className="text-xs font-medium cursor-pointer">
-                      Demi-hectare (5 000 m²)
-                    </label>
-                  </div>
-                </RadioGroup>
+              <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-purple-900 dark:text-purple-300">
+                    Quantité & Format d'hectare souhaité *
+                  </Label>
+                  <span className="text-[11px] text-purple-700 dark:text-purple-300 font-mono font-bold">
+                    {hectareQuantity} ha = {Number(surface || 0).toLocaleString("fr-FR")} m²
+                  </span>
+                </div>
+
+                {/* Boutons de présélection rapide */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <Button
+                    type="button"
+                    variant={hectarePreset === "1ha" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyHectarePreset("1ha")}
+                    className={`h-8 text-xs font-semibold ${
+                      hectarePreset === "1ha" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                    }`}
+                  >
+                    1 ha (10 000 m²)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={hectarePreset === "2ha" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyHectarePreset("2ha")}
+                    className={`h-8 text-xs font-semibold ${
+                      hectarePreset === "2ha" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                    }`}
+                  >
+                    2 ha (20 000 m²)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={hectarePreset === "demi" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyHectarePreset("demi")}
+                    className={`h-8 text-xs font-semibold ${
+                      hectarePreset === "demi" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                    }`}
+                  >
+                    Demi-ha (5 000 m²)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={hectarePreset === "2000m2" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyHectarePreset("2000m2")}
+                    className={`h-8 text-xs font-semibold ${
+                      hectarePreset === "2000m2" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                    }`}
+                  >
+                    0.2 ha (2 000 m²)
+                  </Button>
+                </div>
+
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+                  <Info className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span>
+                    Vous pouvez choisir un bouton rapide ou renseigner librement la quantité ou la surface en m².
+                  </span>
+                </div>
               </div>
             )}
 
             {/* Numérotation et surface */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 ${itemType === "hectare" ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"} gap-3`}>
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium">Nom / N° du bien *</Label>
@@ -743,13 +836,39 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                 />
               </div>
 
+              {itemType === "hectare" && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Quantité d'ha *</Label>
+                    <span className="text-[10px] text-muted-foreground">Ex: 1, 0.2, 2</span>
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={hectareQuantity}
+                    onChange={(e) => handleHectareQuantityChange(e.target.value)}
+                    className="mt-1 h-9 text-xs sm:text-sm font-semibold"
+                    placeholder="1"
+                    required
+                  />
+                </div>
+              )}
+
               <div>
-                <Label className="text-xs font-medium">Surface (m²) *</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Surface (m²) *</Label>
+                  {itemType === "hectare" && (
+                    <span className="text-[10px] text-purple-700 dark:text-purple-300 font-medium">
+                      Calcul auto
+                    </span>
+                  )}
+                </div>
                 <Input
                   type="number"
                   step="0.01"
                   value={surface}
-                  onChange={(e) => setSurface(e.target.value)}
+                  onChange={(e) => handleSurfaceChange(e.target.value)}
                   className="mt-1 h-9 text-xs sm:text-sm"
                   required
                 />

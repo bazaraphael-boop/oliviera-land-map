@@ -180,9 +180,10 @@ export function useBuyerDetection() {
       (hectares || []).forEach((h) => {
         if (!h.buyer_name) return;
         const b = getOrCreateBuyer(h.buyer_name, h);
-        const surface = Number(h.surface || 10000);
-        b.totalSurface += surface;
-        b.quotas += Math.max(1, Math.ceil(surface / 600));
+        const rawHectareSurf = Number(h.surface || 1);
+        const hSurfM2 = rawHectareSurf >= 100 ? rawHectareSurf : Math.round(rawHectareSurf * 10000);
+        b.totalSurface += hSurfM2;
+        b.quotas += Math.max(1, Math.ceil(hSurfM2 / 600));
         b.hectaresCount += 1;
 
         if (h.rmb_number && !b.rmbNumbers.includes(h.rmb_number.trim())) {
