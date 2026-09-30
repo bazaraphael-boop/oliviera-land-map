@@ -1221,14 +1221,12 @@ const Acheteurs = () => {
 
       const pdfWidth = 297;
       const pdfHeight = 210;
-      const imgRatio = img.height / img.width; // 0.409375
-      // En-tête bien proportionné et centré (140mm de large)
-      const imgWidth = 140;
-      const headerHeight = Math.round(imgWidth * imgRatio * 10) / 10; // ~57.3mm
-      const imgX = (pdfWidth - imgWidth) / 2;
-      pdf.addImage(headerImage, "JPEG", imgX, 4, imgWidth, headerHeight);
+      const imgRatio = img.height / img.width; // 376 / 2048 ≈ 0.1836
+      // En-tête officiel en pleine largeur (x=0, y=0) exactement selon la maquette
+      const headerHeight = Math.round(pdfWidth * imgRatio * 10) / 10; // ~54.5mm
+      pdf.addImage(headerImage, "JPEG", 0, 0, pdfWidth, headerHeight);
 
-      let yPos = 4 + headerHeight + 5;
+      let yPos = headerHeight + 5;
 
       // Titre
       pdf.setFontSize(13);
@@ -1287,7 +1285,8 @@ const Acheteurs = () => {
       pdf.text(`Dossiers avec pièces : ${withDocsCountInExport}`, 160, yPos + 5.5);
 
       pdf.setTextColor(30, 41, 59);
-      pdf.text(`Montant total : ${totalAmount.toLocaleString()} USD`, 225, yPos + 5.5);
+      const formatPdfMoney = (amt: number) => Math.round(amt).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      pdf.text(`Montant total : ${formatPdfMoney(totalAmount)} USD`, 225, yPos + 5.5);
 
       yPos += 12;
 
@@ -1371,19 +1370,19 @@ const Acheteurs = () => {
         const truncatedBiens = biensText.length > 26 ? biensText.slice(0, 24) + "…" : biensText;
         pdf.text(truncatedBiens, 124, yPos + 5.2);
 
-        // Quantité & Superficie
+        // Quantité & Superficie - Écriture directe des surfaces sans barre ni séparateur slash (ex: 1800 m²)
         const pCount = b.parcelles.reduce((sum, p) => sum + (p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))), 0);
-        const pSurf = b.parcelles.reduce((sum, p) => sum + Number(p.surface || 600), 0);
+        const pSurf = Math.round(b.parcelles.reduce((sum, p) => sum + Number(p.surface || 600), 0));
         const hSurfHa = Math.round(b.hectares.reduce((sum, h) => sum + (Number(h.surface || 1) >= 100 ? Number(h.surface) / 10000 : Number(h.surface || 1)), 0) * 1000) / 1000;
         const hSurfM2 = Math.round(hSurfHa * 10000);
 
         let qtyDisplay = "";
         if (b.parcelles.length > 0 && b.hectares.length > 0) {
-          qtyDisplay = `${pCount} p. (${pSurf}m²) + ${hSurfHa}ha (${hSurfM2}m²)`;
+          qtyDisplay = `${pCount} p. (${pSurf} m²) + ${hSurfHa} ha (${hSurfM2} m²)`;
         } else if (b.hectares.length > 0) {
-          qtyDisplay = `${hSurfHa} ha (${hSurfM2.toLocaleString("fr-FR")} m²)`;
+          qtyDisplay = `${hSurfHa} ha (${hSurfM2} m²)`;
         } else if (b.parcelles.length > 0) {
-          qtyDisplay = `${pCount} parcelle${pCount > 1 ? "s" : ""} (${pSurf.toLocaleString("fr-FR")} m²)`;
+          qtyDisplay = `${pCount} parcelle${pCount > 1 ? "s" : ""} (${pSurf} m²)`;
         } else {
           qtyDisplay = "—";
         }
@@ -1392,7 +1391,7 @@ const Acheteurs = () => {
 
         // Montant
         pdf.setFont("helvetica", "bold");
-        pdf.text(`${b.totalAchat.toLocaleString()} $`, 216, yPos + 5.2);
+        pdf.text(`${formatPdfMoney(b.totalAchat)} $`, 216, yPos + 5.2);
 
         // Statut Document
         if (!b.has_documents) {
@@ -1783,9 +1782,9 @@ const Acheteurs = () => {
                             {acheteur.hectares.map((h, i) => {
                               const isPending = h.sale_type === "a_renseigner";
                               const surfHa = Number(h.surface || 1);
-                              const surfDisplay =
+                               const surfDisplay =
                                 surfHa < 1
-                                  ? `${surfHa} ha (${Math.round(surfHa * 10000).toLocaleString("fr-FR")} m²)`
+                                  ? `${surfHa} ha (${Math.round(surfHa * 10000)} m²)`
                                   : `${surfHa} ha`;
                               return (
                                 <Badge

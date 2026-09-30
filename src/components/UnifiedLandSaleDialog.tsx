@@ -806,7 +806,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                     Quantité & Format d'hectare souhaité *
                   </Label>
                   <span className="text-[11px] text-purple-700 dark:text-purple-300 font-mono font-bold">
-                    {hectareQuantity} ha = {Number(surface || 0).toLocaleString("fr-FR")} m²
+                    {hectareQuantity} ha = {Number(surface || 0)} m²
                   </span>
                 </div>
 
