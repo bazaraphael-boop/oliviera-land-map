@@ -53,10 +53,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   onSuccess,
 }) => {
   const queryClient = useQueryClient();
-  const { buyers, findMatchingBuyers } = useBuyerDetection();
+  const { buyers, findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
 
   // Chargement des hectares et parcelles pour le calcul de RMB et jauges
-  const { data: hectares = [] } = useQuery({
+  const { data: hectares = [], refetch: refetchHectares } = useQuery({
     queryKey: ["unified-dialog-hectares"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,9 +67,11 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       return data || [];
     },
     enabled: open,
+    staleTime: 0,
+    gcTime: 0,
   });
 
-  const { data: parcelles = [] } = useQuery({
+  const { data: parcelles = [], refetch: refetchParcelles } = useQuery({
     queryKey: ["unified-dialog-parcelles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -80,6 +82,8 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       return data || [];
     },
     enabled: open,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Suggestion automatique du prochain numéro RMB
@@ -121,9 +125,13 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   const [amountPaid, setAmountPaid] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Initialisation à l'ouverture
+  // Initialisation à l'ouverture : rafraîchissement immédiat des données fraîches
   useEffect(() => {
     if (open) {
+      refetchHectares();
+      refetchParcelles();
+      refetchBuyerDetection();
+
       setItemType(defaultItemType);
       if (defaultHectareId) {
         setHectareId(defaultHectareId);
@@ -136,7 +144,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       setNumero(proposal);
       setRmbNumber(proposal);
     }
-  }, [open, defaultItemType, defaultHectareId, hectares]);
+  }, [open, defaultItemType, defaultHectareId]);
 
   // Gestion du type de bien et presets
   const handleItemTypeChange = (newType: LandItemType) => {
@@ -218,8 +226,12 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       const targetRmbNum = extractRmbNumber(currentRmb);
       const targetNormRmb = normalizeText(currentRmb);
 
-      // Vérifier dans les parcelles
+      // Vérifier dans les parcelles (seules les parcelles vendues avec acquéreur actif bloquent)
       for (const p of parcelles) {
+        const isSold = p.status === "vendu" || p.status === "sold";
+        const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
+        if (!isSold || !hasBuyer) continue;
+
         const pRmbNum = extractRmbNumber(p.rmb_number) ?? (p.numero?.toUpperCase().includes("RMB") ? extractRmbNumber(p.numero) : null);
         const isExactMatch = (p.rmb_number && normalizeText(p.rmb_number) === targetNormRmb) || (p.numero && normalizeText(p.numero) === targetNormRmb);
         const isNumMatch = targetRmbNum !== null && pRmbNum !== null && targetRmbNum === pRmbNum;
@@ -239,6 +251,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
       // Vérifier dans les hectares
       for (const h of hectares) {
+        const isSold = h.status === "vendu" || h.status === "sold";
+        const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
+        if (!isSold || !hasBuyer) continue;
+
         const hRmbNum = extractRmbNumber(h.rmb_number) ?? (h.name?.toUpperCase().includes("RMB") ? extractRmbNumber(h.name) : null);
         const isExactMatch = (h.rmb_number && normalizeText(h.rmb_number) === targetNormRmb) || (h.name && normalizeText(h.name) === targetNormRmb);
         const isNumMatch = targetRmbNum !== null && hRmbNum !== null && targetRmbNum === hRmbNum;
@@ -265,6 +281,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
       if (itemType === "hectare") {
         for (const h of hectares) {
+          const isSold = h.status === "vendu" || h.status === "sold";
+          const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
+          if (!isSold || !hasBuyer) continue;
+
           const isExact = normalizeText(h.name) === targetNormNum;
           const isRmbMatch = targetNumRmb !== null && extractRmbNumber(h.name) === targetNumRmb;
           if (isExact || isRmbMatch) {
@@ -281,6 +301,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
         }
       } else {
         for (const p of parcelles) {
+          const isSold = p.status === "vendu" || p.status === "sold";
+          const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
+          if (!isSold || !hasBuyer) continue;
+
           const isExact = normalizeText(p.numero) === targetNormNum;
           const isRmbMatch = targetNumRmb !== null && extractRmbNumber(p.numero) === targetNumRmb;
           if (isExact || isRmbMatch) {
@@ -333,6 +357,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     const seen = new Set<string>();
 
     for (const p of parcelles) {
+      const isSold = p.status === "vendu" || p.status === "sold";
+      const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
+      if (!isSold || !hasBuyer) continue;
+
       const val = (p.rmb_number || p.numero || "").trim();
       if (val && val.toLowerCase().includes(query) && !seen.has(val.toLowerCase())) {
         seen.add(val.toLowerCase());
@@ -347,6 +375,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
     if (results.length < 4) {
       for (const h of hectares) {
+        const isSold = h.status === "vendu" || h.status === "sold";
+        const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
+        if (!isSold || !hasBuyer) continue;
+
         const val = (h.rmb_number || h.name || "").trim();
         if (val && val.toLowerCase().includes(query) && !seen.has(val.toLowerCase())) {
           seen.add(val.toLowerCase());
@@ -513,68 +545,98 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
         // La contrainte PostgreSQL check autorise 'parcelle', 'hectare', 'demi-hectare'
         const purchaseType = (surfaceInHa >= 0.49 && surfaceInHa <= 0.51) ? "demi-hectare" : "hectare";
 
-        const { error } = await supabase.from("hectares").insert([
-          {
-            name: numero.trim(),
-            surface: surfaceInHa,
-            status: "vendu",
-            buyer_name: buyerName,
-            buyer_last_name: postNom.trim() || null,
-            buyer_first_name: prenom.trim() || null,
-            buyer_phone: telephone.trim() || null,
-            buyer_email: email.trim() || null,
-            buyer_profession: profession.trim() || null,
-            buyer_address: adresse.trim() || null,
-            buyer_marital_status: maritalStatus || null,
-            buyer_children_count: childrenCount ? parseInt(childrenCount, 10) : null,
-            buyer_birth_place: birthPlace.trim() || null,
-            buyer_birth_date: birthDate || null,
-            rmb_number: rmbNumber.trim() || null,
-            sale_type: isARenseigner ? null : saleType,
-            purchase_type: purchaseType,
-            prix: parsedPrix,
-            payment_type: (isOnereux || isARenseigner) ? "total" : paymentType,
-            amount_paid: parsedAmountPaid,
-            remaining_amount: parsedRemaining,
-            sale_date: isARenseigner ? null : new Date().toISOString(),
-          },
-        ]);
+        const hectarePayload = {
+          name: numero.trim(),
+          surface: surfaceInHa,
+          status: "vendu",
+          buyer_name: buyerName,
+          buyer_last_name: postNom.trim() || null,
+          buyer_first_name: prenom.trim() || null,
+          buyer_phone: telephone.trim() || null,
+          buyer_email: email.trim() || null,
+          buyer_profession: profession.trim() || null,
+          buyer_address: adresse.trim() || null,
+          buyer_marital_status: maritalStatus || null,
+          buyer_children_count: childrenCount ? parseInt(childrenCount, 10) : null,
+          buyer_birth_place: birthPlace.trim() || null,
+          buyer_birth_date: birthDate || null,
+          rmb_number: rmbNumber.trim() || null,
+          sale_type: isARenseigner ? null : saleType,
+          purchase_type: purchaseType,
+          prix: parsedPrix,
+          payment_type: (isOnereux || isARenseigner) ? "total" : paymentType,
+          amount_paid: parsedAmountPaid,
+          remaining_amount: parsedRemaining,
+          sale_date: isARenseigner ? null : new Date().toISOString(),
+        };
 
-        if (error) throw error;
+        const existingAvailableHectare = hectares.find(
+          (h) =>
+            h.status !== "vendu" &&
+            h.status !== "sold" &&
+            (normalizeText(h.name) === normalizeText(numero.trim()) ||
+              (rmbNumber.trim() && h.rmb_number && normalizeText(h.rmb_number) === normalizeText(rmbNumber.trim())))
+        );
+
+        if (existingAvailableHectare) {
+          const { error } = await supabase
+            .from("hectares")
+            .update(hectarePayload)
+            .eq("id", existingAvailableHectare.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("hectares").insert([hectarePayload]);
+          if (error) throw error;
+        }
       } else {
         // Enregistrement d'une Parcelle (seule ou dans un hectare)
         const targetHectareId = itemType === "parcelle_in_hectare" ? hectareId : null;
 
-        const { error } = await supabase.from("parcelles").insert([
-          {
-            numero: numero.trim(),
-            surface: surfaceNum,
-            hectare_id: targetHectareId,
-            status: "vendu",
-            buyer_name: buyerName,
-            buyer_last_name: postNom.trim() || null,
-            buyer_first_name: prenom.trim() || null,
-            buyer_phone: telephone.trim() || null,
-            buyer_email: email.trim() || null,
-            buyer_profession: profession.trim() || null,
-            buyer_address: adresse.trim() || null,
-            buyer_marital_status: maritalStatus || null,
-            buyer_children_count: childrenCount ? parseInt(childrenCount, 10) : null,
-            buyer_birth_place: birthPlace.trim() || null,
-            buyer_birth_date: birthDate || null,
-            rmb_number: rmbNumber.trim() || null,
-            sale_type: isARenseigner ? null : saleType,
-            purchase_type: "parcelle",
-            prix: parsedPrix,
-            payment_type: (isOnereux || isARenseigner) ? "total" : paymentType,
-            amount_paid: parsedAmountPaid,
-            remaining_amount: parsedRemaining,
-            merged_group_id: finalMergeGroupId,
-            sale_date: isARenseigner ? null : new Date().toISOString(),
-          },
-        ]);
+        const parcellePayload = {
+          numero: numero.trim(),
+          surface: surfaceNum,
+          hectare_id: targetHectareId,
+          status: "vendu",
+          buyer_name: buyerName,
+          buyer_last_name: postNom.trim() || null,
+          buyer_first_name: prenom.trim() || null,
+          buyer_phone: telephone.trim() || null,
+          buyer_email: email.trim() || null,
+          buyer_profession: profession.trim() || null,
+          buyer_address: adresse.trim() || null,
+          buyer_marital_status: maritalStatus || null,
+          buyer_children_count: childrenCount ? parseInt(childrenCount, 10) : null,
+          buyer_birth_place: birthPlace.trim() || null,
+          buyer_birth_date: birthDate || null,
+          rmb_number: rmbNumber.trim() || null,
+          sale_type: isARenseigner ? null : saleType,
+          purchase_type: "parcelle",
+          prix: parsedPrix,
+          payment_type: (isOnereux || isARenseigner) ? "total" : paymentType,
+          amount_paid: parsedAmountPaid,
+          remaining_amount: parsedRemaining,
+          merged_group_id: finalMergeGroupId,
+          sale_date: isARenseigner ? null : new Date().toISOString(),
+        };
 
-        if (error) throw error;
+        const existingAvailableParcelle = parcelles.find(
+          (p) =>
+            p.status !== "vendu" &&
+            p.status !== "sold" &&
+            (normalizeText(p.numero) === normalizeText(numero.trim()) ||
+              (rmbNumber.trim() && p.rmb_number && normalizeText(p.rmb_number) === normalizeText(rmbNumber.trim())))
+        );
+
+        if (existingAvailableParcelle) {
+          const { error } = await supabase
+            .from("parcelles")
+            .update(parcellePayload)
+            .eq("id", existingAvailableParcelle.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("parcelles").insert([parcellePayload]);
+          if (error) throw error;
+        }
       }
 
       // Invalidation des caches

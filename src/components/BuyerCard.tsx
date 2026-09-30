@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2, Clock, SlidersHorizontal, Trash2 } from "lucide-react";
 
 interface Acheteur {
   id: string;
@@ -24,9 +24,18 @@ interface BuyerCardProps {
   onShowDetails: () => void;
   onEdit: () => void;
   onTogglePaperForm: () => void;
+  onEditQuota?: () => void;
+  onDelete?: () => void;
 }
 
-export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }: BuyerCardProps) {
+export function BuyerCard({
+  acheteur,
+  onShowDetails,
+  onEdit,
+  onTogglePaperForm,
+  onEditQuota,
+  onDelete,
+}: BuyerCardProps) {
   const isPinned = !acheteur.paper_form_completed;
 
   const isItemPending = (item: { sale_type?: string | null }) => item.sale_type === 'a_renseigner' || !item.sale_type;
@@ -153,9 +162,43 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
               <Checkbox checked={acheteur.paper_form_completed} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <FileText className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${acheteur.paper_form_completed ? 'text-emerald-500' : 'text-orange-500'}`} />
             </div>
-            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onEdit(); }} className="h-7 w-7 sm:h-8 sm:w-8 p-0">
+            {onEditQuota && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditQuota();
+                }}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                title="Modifier le quota de parcelles"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+              title="Modifier les coordonnées"
+            >
               <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                title="Supprimer ce concessionnaire"
+              >
+                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={onShowDetails} className="h-7 sm:h-8 px-2 sm:px-3 text-xs">
               <span className="hidden sm:inline">Détails</span>
               <span className="sm:hidden">Voir</span>
@@ -166,7 +209,7 @@ export function BuyerCard({ acheteur, onShowDetails, onEdit, onTogglePaperForm }
 
         {/* Ligne 2 : Parcelles avec numéros */}
         {parcelleRmbs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pl-0 sm:pl-[52px]">
+          <div className="flex flex-wrap items-center gap-1.5 pl-0 sm:pl-[52px]">
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mr-1">
               <Grid3x3 className="w-3 h-3" /> Parcelles :
             </span>

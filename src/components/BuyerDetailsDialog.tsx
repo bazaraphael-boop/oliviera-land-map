@@ -13,7 +13,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   User, MapPin, Phone, Mail, Calendar, DollarSign, 
   Briefcase, Heart, Baby, Home, Globe, ChevronRight, 
-  ChevronDown, FileText, FolderOpen, Pencil, AlertTriangle, CheckCircle2
+  ChevronDown, FileText, FolderOpen, Pencil, AlertTriangle, CheckCircle2,
+  SlidersHorizontal, Trash2
 } from "lucide-react";
 import { BuyerDocuments } from "@/components/BuyerDocuments";
 
@@ -79,6 +80,8 @@ interface BuyerDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   acheteur: Acheteur | null;
   onEditIdentification?: (acheteur: Acheteur) => void;
+  onEditQuota?: (acheteur: Acheteur) => void;
+  onDeleteBuyer?: (acheteur: Acheteur) => void;
 }
 
 function InfoItem({ icon: Icon, label, value, className = "" }: { 
@@ -152,7 +155,14 @@ function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, b
   );
 }
 
-export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentification }: BuyerDetailsDialogProps) {
+export function BuyerDetailsDialog({
+  open,
+  onOpenChange,
+  acheteur,
+  onEditIdentification,
+  onEditQuota,
+  onDeleteBuyer,
+}: BuyerDetailsDialogProps) {
   if (!acheteur) return null;
 
   return (
@@ -161,17 +171,46 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
         {/* Header fixe */}
         <div className="shrink-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-border">
           <DialogHeader className="p-3 sm:p-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center shadow-sm shrink-0">
-                <User className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+            <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center shadow-sm shrink-0">
+                  <User className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-lg sm:text-xl font-bold text-foreground truncate">
+                    {acheteur.buyer_name}
+                  </DialogTitle>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Fiche complète de l'acheteur
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground truncate">
-                  {acheteur.buyer_name}
-                </DialogTitle>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Fiche complète de l'acheteur
-                </p>
+
+              {/* Actions Header */}
+              <div className="flex items-center gap-2">
+                {onEditQuota && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEditQuota(acheteur)}
+                    className="h-8 text-xs font-semibold gap-1.5 border-primary/30 hover:bg-primary/10 text-primary shadow-2xs"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Modifier le quota</span>
+                  </Button>
+                )}
+                {onDeleteBuyer && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDeleteBuyer(acheteur)}
+                    className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                    title="Supprimer ce concessionnaire"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Supprimer</span>
+                  </Button>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -277,6 +316,7 @@ export function BuyerDetailsDialog({ open, onOpenChange, acheteur, onEditIdentif
               icon={MapPin} 
               defaultOpen={true}
               badge={`${acheteur.nombreParcelles + acheteur.nombreHectares}`}
+              onEdit={onEditQuota ? () => onEditQuota(acheteur) : undefined}
             >
               <div className="space-y-2">
                 {/* Hectares */}

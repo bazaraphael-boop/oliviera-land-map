@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { 
   Search, User, Plus, MapPin, DollarSign, LayoutList, LayoutGrid, Grid3x3, 
   Map as MapIcon, Phone, Mail, Download, AlertTriangle, CheckCircle2, 
-  Calendar, FileSpreadsheet, FileText, Loader2, ArrowUpDown, Clock
+  Calendar, FileSpreadsheet, FileText, Loader2, ArrowUpDown, Clock,
+  SlidersHorizontal, Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNotify } from "@/hooks/useNotify";
@@ -40,6 +41,8 @@ import { BuyerDetailsDialog } from "@/components/BuyerDetailsDialog";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
+import { EditBuyerQuotaDialog } from "@/components/EditBuyerQuotaDialog";
+import { DeleteBuyerDialog } from "@/components/DeleteBuyerDialog";
 
 interface Acheteur {
   id: string;
@@ -117,6 +120,10 @@ const Acheteurs = () => {
   const [showNewBuyerDialog, setShowNewBuyerDialog] = useState(false);
   const [showEditBuyerDialog, setShowEditBuyerDialog] = useState(false);
   const [showEditIdentificationDialog, setShowEditIdentificationDialog] = useState(false);
+  const [showEditQuotaDialog, setShowEditQuotaDialog] = useState(false);
+  const [buyerForQuota, setBuyerForQuota] = useState<Acheteur | null>(null);
+  const [showDeleteBuyerDialog, setShowDeleteBuyerDialog] = useState(false);
+  const [buyerForDelete, setBuyerForDelete] = useState<Acheteur | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   // Filtre par statut des documents et ventes ("all" | "missing" | "with" | "pending_sale")
   const [docFilter, setDocFilter] = useState<"all" | "missing" | "with" | "pending_sale">("all");
@@ -556,6 +563,16 @@ const Acheteurs = () => {
   const handleShowDetails = (acheteur: Acheteur) => {
     setSelectedAcheteur(acheteur);
     setShowDetails(true);
+  };
+
+  const handleOpenEditQuota = (acheteur: Acheteur) => {
+    setBuyerForQuota(acheteur);
+    setShowEditQuotaDialog(true);
+  };
+
+  const handleOpenDelete = (acheteur: Acheteur) => {
+    setBuyerForDelete(acheteur);
+    setShowDeleteBuyerDialog(true);
   };
 
   const handleTogglePaperForm = async (acheteur: Acheteur) => {
@@ -1586,6 +1603,8 @@ const Acheteurs = () => {
                     setShowEditBuyerDialog(true);
                   }}
                   onTogglePaperForm={() => handleTogglePaperForm(acheteur)}
+                  onEditQuota={() => handleOpenEditQuota(acheteur)}
+                  onDelete={() => handleOpenDelete(acheteur)}
                 />
               ))}
 
@@ -1842,14 +1861,36 @@ const Acheteurs = () => {
 
                       {/* Actions */}
                       <td className="px-4 py-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2.5 text-xs"
-                          onClick={() => handleShowDetails(acheteur)}
-                        >
-                          Détails
-                        </Button>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5 text-xs font-medium"
+                            onClick={() => handleShowDetails(acheteur)}
+                            title="Voir la fiche détaillée"
+                          >
+                            Détails
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-semibold text-primary border-primary/30 hover:bg-primary/10 gap-1"
+                            onClick={() => handleOpenEditQuota(acheteur)}
+                            title="Modifier le quota de parcelles"
+                          >
+                            <SlidersHorizontal className="w-3 h-3" />
+                            <span className="hidden xl:inline">Quota</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleOpenDelete(acheteur)}
+                            title="Supprimer ce concessionnaire"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1899,6 +1940,8 @@ const Acheteurs = () => {
           onOpenChange={setShowDetails}
           acheteur={selectedAcheteur}
           onEditIdentification={handleOpenEditIdentification}
+          onEditQuota={handleOpenEditQuota}
+          onDeleteBuyer={handleOpenDelete}
         />
 
         {/* Dialog Modifier Acheteur */}
@@ -2153,6 +2196,28 @@ const Acheteurs = () => {
           open={showNewBuyerDialog}
           onOpenChange={setShowNewBuyerDialog}
           onSuccess={loadAcheteurs}
+        />
+
+        {/* Modal de Modification du Quota de Parcelles */}
+        <EditBuyerQuotaDialog
+          open={showEditQuotaDialog}
+          onOpenChange={setShowEditQuotaDialog}
+          acheteur={buyerForQuota}
+          onSuccess={async () => {
+            await loadAcheteurs();
+          }}
+        />
+
+        {/* Modal de Suppression / Libération d'un Concessionnaire */}
+        <DeleteBuyerDialog
+          open={showDeleteBuyerDialog}
+          onOpenChange={setShowDeleteBuyerDialog}
+          acheteur={buyerForDelete}
+          onSuccess={async () => {
+            setShowDetails(false);
+            setSelectedAcheteur(null);
+            await loadAcheteurs();
+          }}
         />
 
         {/* Dialog Télécharger la liste des concessionnaires (Export par date & documents) */}

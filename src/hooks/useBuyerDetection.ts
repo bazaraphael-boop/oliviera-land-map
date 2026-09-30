@@ -200,7 +200,8 @@ export function useBuyerDetection() {
 
       return Array.from(buyersMap.values());
     },
-    staleTime: 1000 * 30, // 30 secondes
+    staleTime: 0,
+    gcTime: 0,
   });
 
   /**
