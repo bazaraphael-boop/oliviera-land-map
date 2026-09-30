@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -135,7 +135,7 @@ export function EditBuyerQuotaDialog({
       return data || [];
     },
     enabled: open,
-    staleTime: 0,
+    staleTime: 1000 * 30,
   });
 
   const { data: allParcelles = [] } = useQuery({
@@ -149,7 +149,7 @@ export function EditBuyerQuotaDialog({
       return data || [];
     },
     enabled: open,
-    staleTime: 0,
+    staleTime: 1000 * 30,
   });
 
   // Suggestion automatique du prochain RMB disponible
@@ -158,8 +158,8 @@ export function EditBuyerQuotaDialog({
   }, [allParcelles, allHectares]);
 
   // Initialisation à chaque ouverture ou changement d'acheteur
-  useMemo(() => {
-    if (!acheteur) return;
+  useEffect(() => {
+    if (!open || !acheteur) return;
     const initialDrafts: Record<string, any> = {};
     acheteur.parcelles.forEach((p) => {
       initialDrafts[p.id] = {
@@ -178,10 +178,10 @@ export function EditBuyerQuotaDialog({
     const nextProp = nextRmbProposal.nextFormatted;
     setNewParcelNumero(nextProp);
     setNewParcelRmb(nextProp);
-    if (allHectares.length > 0 && !newParcelHectareId) {
-      setNewParcelHectareId(allHectares[0].id);
+    if (allHectares.length > 0) {
+      setNewParcelHectareId((prev) => prev || allHectares[0].id);
     }
-  }, [acheteur, open, allHectares, nextRmbProposal]);
+  }, [acheteur?.id, open]);
 
   if (!acheteur) return null;
 

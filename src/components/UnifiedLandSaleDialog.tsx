@@ -56,7 +56,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   const { buyers, findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
 
   // Chargement des hectares et parcelles pour le calcul de RMB et jauges
-  const { data: hectares = [], refetch: refetchHectares } = useQuery({
+  const { data: hectares = [] } = useQuery({
     queryKey: ["unified-dialog-hectares"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,11 +67,10 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       return data || [];
     },
     enabled: open,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 30,
   });
 
-  const { data: parcelles = [], refetch: refetchParcelles } = useQuery({
+  const { data: parcelles = [] } = useQuery({
     queryKey: ["unified-dialog-parcelles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -82,8 +81,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       return data || [];
     },
     enabled: open,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 30,
   });
 
   // Suggestion automatique du prochain numéro RMB
@@ -125,13 +123,9 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   const [amountPaid, setAmountPaid] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Initialisation à l'ouverture : rafraîchissement immédiat des données fraîches
+  // Initialisation à l'ouverture du dialogue
   useEffect(() => {
     if (open) {
-      refetchHectares();
-      refetchParcelles();
-      refetchBuyerDetection();
-
       setItemType(defaultItemType);
       if (defaultHectareId) {
         setHectareId(defaultHectareId);

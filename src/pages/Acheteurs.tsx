@@ -2199,26 +2199,30 @@ const Acheteurs = () => {
         />
 
         {/* Modal de Modification du Quota de Parcelles */}
-        <EditBuyerQuotaDialog
-          open={showEditQuotaDialog}
-          onOpenChange={setShowEditQuotaDialog}
-          acheteur={buyerForQuota}
-          onSuccess={async () => {
-            await loadAcheteurs();
-          }}
-        />
+        {showEditQuotaDialog && buyerForQuota && (
+          <EditBuyerQuotaDialog
+            open={showEditQuotaDialog}
+            onOpenChange={setShowEditQuotaDialog}
+            acheteur={buyerForQuota}
+            onSuccess={async () => {
+              await loadAcheteurs();
+            }}
+          />
+        )}
 
         {/* Modal de Suppression / Libération d'un Concessionnaire */}
-        <DeleteBuyerDialog
-          open={showDeleteBuyerDialog}
-          onOpenChange={setShowDeleteBuyerDialog}
-          acheteur={buyerForDelete}
-          onSuccess={async () => {
-            setShowDetails(false);
-            setSelectedAcheteur(null);
-            await loadAcheteurs();
-          }}
-        />
+        {showDeleteBuyerDialog && buyerForDelete && (
+          <DeleteBuyerDialog
+            open={showDeleteBuyerDialog}
+            onOpenChange={setShowDeleteBuyerDialog}
+            acheteur={buyerForDelete}
+            onSuccess={async () => {
+              setShowDetails(false);
+              setSelectedAcheteur(null);
+              await loadAcheteurs();
+            }}
+          />
+        )}
 
         {/* Dialog Télécharger la liste des concessionnaires (Export par date & documents) */}
         <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>

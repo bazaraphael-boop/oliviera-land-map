@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -200,45 +200,47 @@ export function useBuyerDetection() {
 
       return Array.from(buyersMap.values());
     },
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 30, // Conserver le cache 30s pour éviter des refetchs en boucle
   });
 
   /**
    * Détecte si un nom d'acquéreur saisi correspond à un acquéreur déjà enregistré
    */
-  const findMatchingBuyers = (nameQuery?: string | null): ExistingBuyer[] => {
-    if (!nameQuery) return [];
-    const cleanQuery = normalizeText(nameQuery);
-    if (cleanQuery.length < 2) return [];
+  const findMatchingBuyers = useCallback(
+    (nameQuery?: string | null): ExistingBuyer[] => {
+      if (!nameQuery) return [];
+      const cleanQuery = normalizeText(nameQuery);
+      if (cleanQuery.length < 2) return [];
 
-    const queryWords = cleanQuery.split(" ").filter((w) => w.length > 1);
+      const queryWords = cleanQuery.split(" ").filter((w) => w.length > 1);
 
-    return buyers.filter((buyer) => {
-      const buyerCleanName = normalizeText(buyer.buyer_name);
-      
-      // Correspondance exacte ou commence par
-      if (buyerCleanName.includes(cleanQuery) || cleanQuery.includes(buyerCleanName)) {
-        return true;
-      }
+      return buyers.filter((buyer) => {
+        const buyerCleanName = normalizeText(buyer.buyer_name);
+        
+        // Correspondance exacte ou commence par
+        if (buyerCleanName.includes(cleanQuery) || cleanQuery.includes(buyerCleanName)) {
+          return true;
+        }
 
-      // Correspondance mot à mot
-      if (queryWords.length > 0) {
-        const matchesAllWords = queryWords.every((w) => buyerCleanName.includes(w));
-        if (matchesAllWords) return true;
-      }
+        // Correspondance mot à mot
+        if (queryWords.length > 0) {
+          const matchesAllWords = queryWords.every((w) => buyerCleanName.includes(w));
+          if (matchesAllWords) return true;
+        }
 
-      // Correspondance prénom / nom
-      if (buyer.buyer_first_name && normalizeText(buyer.buyer_first_name).includes(cleanQuery)) {
-        return true;
-      }
-      if (buyer.buyer_last_name && normalizeText(buyer.buyer_last_name).includes(cleanQuery)) {
-        return true;
-      }
+        // Correspondance prénom / nom
+        if (buyer.buyer_first_name && normalizeText(buyer.buyer_first_name).includes(cleanQuery)) {
+          return true;
+        }
+        if (buyer.buyer_last_name && normalizeText(buyer.buyer_last_name).includes(cleanQuery)) {
+          return true;
+        }
 
-      return false;
-    });
-  };
+        return false;
+      });
+    },
+    [buyers]
+  );
 
   return {
     buyers,
