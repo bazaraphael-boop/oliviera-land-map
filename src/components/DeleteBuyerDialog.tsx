@@ -74,7 +74,7 @@ export function DeleteBuyerDialog({
     try {
       setIsDeleting(true);
 
-      const clearedBuyerFields = {
+      const clearedParcelFields = {
         status: "disponible",
         buyer_name: null,
         buyer_last_name: null,
@@ -93,6 +93,7 @@ export function DeleteBuyerDialog({
         buyer_territoire: null,
         buyer_province: null,
         merged_group_id: null,
+        rmb_number: null,
         prix: 0,
         amount_paid: 0,
         remaining_amount: 0,
@@ -102,12 +103,49 @@ export function DeleteBuyerDialog({
         paper_form_completed: false,
       };
 
-      // 1. Suppression des documents associés si cochée
-      if (deleteDocuments && parcelleIds.length > 0) {
-        await supabase
-          .from("documents")
+      const clearedHectareFields = {
+        status: "available",
+        buyer_name: null,
+        buyer_last_name: null,
+        buyer_first_name: null,
+        buyer_phone: null,
+        buyer_email: null,
+        buyer_profession: null,
+        buyer_birth_place: null,
+        buyer_birth_date: null,
+        buyer_marital_status: null,
+        buyer_children_count: null,
+        buyer_address: null,
+        buyer_village_origin: null,
+        buyer_groupement: null,
+        buyer_secteur: null,
+        buyer_territoire: null,
+        buyer_province: null,
+        rmb_number: null,
+        prix: 0,
+        amount_paid: 0,
+        remaining_amount: 0,
+        sale_date: null,
+        sale_type: null,
+        purchase_type: "hectare",
+        payment_type: "total",
+        paper_form_completed: false,
+      };
+
+      // 1. Suppression des documents associés si cochée ou si suppression définitive
+      if (deleteDocuments || deleteMode === "hard_delete") {
+        if (parcelleIds.length > 0) {
+          const { error: docErr } = await supabase
+            .from("documents")
+            .delete()
+            .in("parcelle_id", parcelleIds);
+          if (docErr) console.warn("Erreur suppression documents parcelles:", docErr);
+        }
+        const { error: bDocErr } = await supabase
+          .from("buyer_documents")
           .delete()
-          .in("parcelle_id", parcelleIds);
+          .or(`buyer_id.eq.${acheteur.id},buyer_id.eq.${acheteur.buyer_name}`);
+        if (bDocErr) console.warn("Erreur suppression buyer_documents:", bDocErr);
       }
 
       // 2. Traitement des parcelles
@@ -123,17 +161,17 @@ export function DeleteBuyerDialog({
           // Libération des parcelles : repasse en disponible et efface les données de l'acquéreur
           const { error: pUpdateErr } = await supabase
             .from("parcelles")
-            .update(clearedBuyerFields)
+            .update(clearedParcelFields)
             .in("id", parcelleIds);
           if (pUpdateErr) throw pUpdateErr;
         }
       }
 
-      // 3. Traitement des hectares : on les libère pour préserver le plan d'ensemble
+      // 3. Traitement des hectares : on les libère pour préserver le plan d'ensemble (SANS merged_group_id)
       if (hectareIds.length > 0) {
         const { error: hUpdateErr } = await supabase
           .from("hectares")
-          .update(clearedBuyerFields)
+          .update(clearedHectareFields)
           .in("id", hectareIds);
         if (hUpdateErr) throw hUpdateErr;
       }
