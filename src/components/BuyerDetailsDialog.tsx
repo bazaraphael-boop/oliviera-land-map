@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +82,7 @@ interface BuyerDetailsDialogProps {
   onEditIdentification?: (acheteur: Acheteur) => void;
   onEditQuota?: (acheteur: Acheteur) => void;
   onDeleteBuyer?: (acheteur: Acheteur) => void;
+  onDocumentsUpdated?: () => void;
 }
 
 function InfoItem({ icon: Icon, label, value, className = "" }: { 
@@ -162,8 +163,19 @@ export function BuyerDetailsDialog({
   onEditIdentification,
   onEditQuota,
   onDeleteBuyer,
+  onDocumentsUpdated,
 }: BuyerDetailsDialogProps) {
   if (!acheteur) return null;
+
+  const [liveDocsCount, setLiveDocsCount] = useState<number>(
+    acheteur.documents_count ?? (acheteur.has_documents ? 1 : 0)
+  );
+
+  useEffect(() => {
+    setLiveDocsCount(acheteur.documents_count ?? (acheteur.has_documents ? 1 : 0));
+  }, [acheteur.id, acheteur.documents_count, acheteur.has_documents]);
+
+  const hasDocs = liveDocsCount > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -459,11 +471,12 @@ export function BuyerDetailsDialog({
 
             {/* Section Documents - collapsible */}
             <CollapsibleSection 
-              title={`Documents & Pièces Justificatives ${acheteur.has_documents ? `(${acheteur.documents_count})` : '(0 - Manquant)'}`} 
+              title={`Documents & Pièces Justificatives (${hasDocs ? liveDocsCount : '0 - Manquant'})`} 
               icon={FolderOpen} 
-              defaultOpen={!acheteur.has_documents}
+              defaultOpen={true}
+              badge={hasDocs ? `${liveDocsCount} pièce(s)` : undefined}
             >
-              {!acheteur.has_documents && (
+              {!hasDocs ? (
                 <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-300">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                   <div>
@@ -473,10 +486,17 @@ export function BuyerDetailsDialog({
                     </span>
                   </div>
                 </div>
+              ) : (
+                <div className="mb-4 p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-medium">Dossier régularisé : {liveDocsCount} pièce(s) justificative(s) archivée(s)</span>
+                </div>
               )}
               <BuyerDocuments 
                 buyerId={acheteur.id}
                 buyerName={acheteur.buyer_name}
+                onDocumentsCountChange={(count) => setLiveDocsCount(count)}
+                onDocumentsUpdated={onDocumentsUpdated}
               />
             </CollapsibleSection>
           </div>

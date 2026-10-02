@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, FileText, Upload, Download, Trash2, Calendar } from "lucide-react";
+import { Search, FileText, Upload, Download, Trash2, Calendar, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
@@ -51,6 +51,7 @@ interface UnifiedDocument {
   created_at: string;
   source: 'parcelle' | 'acheteur';
   file_url?: string | null;
+  file_path?: string | null;
   buyer_id?: string;
   parcelle_id?: string | null;
   notes?: string | null;
@@ -66,6 +67,7 @@ const Documents = () => {
   const [documents, setDocuments] = useState<UnifiedDocument[]>([]);
   const [parcelles, setParcelles] = useState<Parcelle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newDocument, setNewDocument] = useState({
@@ -161,6 +163,7 @@ const Documents = () => {
         created_at: doc.uploaded_at,
         source: 'acheteur' as const,
         buyer_id: doc.buyer_id,
+        file_path: doc.file_path,
         notes: doc.notes,
       }));
 
@@ -192,6 +195,76 @@ const Documents = () => {
     }
   };
 
+  const handleDownloadUnified = async (doc: UnifiedDocument) => {
+    try {
+      setDownloadingId(doc.id);
+      toast.info("Téléchargement en cours...");
+
+      const filePath = doc.file_path || doc.file_url;
+      if (!filePath) {
+        toast.error("Aucun fichier associé à ce document");
+        return;
+      }
+
+      // Si c'est une URL externe complète HTTP(S)
+      if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+        const response = await fetch(filePath);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = doc.title || "document";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+        toast.success("Document téléchargé");
+        return;
+      }
+
+      // C'est un chemin de stockage Supabase dans "buyer-documents"
+      const { data, error } = await supabase.storage
+        .from("buyer-documents")
+        .download(filePath);
+
+      if (error || !data) {
+        // Fallback: URL signée
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from("buyer-documents")
+          .createSignedUrl(filePath, 3600, {
+            download: doc.title || "document",
+          });
+
+        if (signedError || !signedData?.signedUrl) {
+          throw signedError || new Error("Impossible de télécharger le fichier");
+        }
+
+        const link = document.createElement("a");
+        link.href = signedData.signedUrl;
+        link.download = doc.title || "document";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        const blobUrl = window.URL.createObjectURL(data);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = doc.title || "document";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+      }
+      toast.success("Document téléchargé avec succès");
+    } catch (err: any) {
+      console.error("Erreur téléchargement:", err);
+      toast.error("Erreur lors du téléchargement : " + (err?.message || "inconnue"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleAddDocument = async () => {
     if (!newDocument.type || !newDocument.title) {
       toast.error("Veuillez remplir tous les champs requis");
@@ -220,18 +293,31 @@ const Documents = () => {
     }
   };
 
-  const handleDeleteDocument = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
+  const handleDeleteDocument = async (doc: UnifiedDocument) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer "${doc.title}" ?`)) {
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      if (doc.source === 'acheteur') {
+        if (doc.file_path) {
+          await supabase.storage.from("buyer-documents").remove([doc.file_path]);
+        }
+        const { error } = await supabase
+          .from("buyer_documents")
+          .delete()
+          .eq("id", doc.id);
+        if (error) throw error;
+      } else {
+        if (doc.file_url && !doc.file_url.startsWith("http")) {
+          await supabase.storage.from("buyer-documents").remove([doc.file_url]);
+        }
+        const { error } = await supabase
+          .from("documents")
+          .delete()
+          .eq("id", doc.id);
+        if (error) throw error;
+      }
 
       toast.success("Document supprimé avec succès");
       loadAllDocuments();
@@ -302,7 +388,8 @@ const Documents = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteDocument(doc.id)}
+                    onClick={() => handleDeleteDocument(doc)}
+                    title="Supprimer ce document"
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
@@ -331,15 +418,20 @@ const Documents = () => {
                 )}
               </div>
 
-              {doc.file_url && (
+              {(doc.file_url || doc.file_path) && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full mt-4"
-                  onClick={() => window.open(doc.file_url!, "_blank")}
+                  className="w-full mt-4 gap-1.5"
+                  disabled={downloadingId === doc.id}
+                  onClick={() => handleDownloadUnified(doc)}
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Télécharger
+                  {downloadingId === doc.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  ) : (
+                    <Download className="w-4 h-4 text-primary" />
+                  )}
+                  <span>Télécharger</span>
                 </Button>
               )}
             </Card>

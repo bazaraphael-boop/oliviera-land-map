@@ -472,13 +472,11 @@ const Acheteurs = () => {
         }
       });
 
-      const buyerDocsCount = new Map<string, number>();
-      allBuyerDocs?.forEach((doc) => {
-        if (doc.buyer_id) {
-          const k = doc.buyer_id.toLowerCase().trim();
-          buyerDocsCount.set(k, (buyerDocsCount.get(k) || 0) + 1);
-        }
-      });
+      const buyerDocsNormalized = (allBuyerDocs || []).map((doc) => ({
+        id: doc.id,
+        rawBuyerId: doc.buyer_id || "",
+        normalizedBuyerId: normalizeText(doc.buyer_id),
+      }));
 
       // Associer documents et dates à chaque concessionnaire
       acheteursMap.forEach((acheteur) => {
@@ -491,21 +489,19 @@ const Acheteurs = () => {
           else if (p.created_at) allDates.push(p.created_at);
         });
 
-        let bDocs = 0;
-        const bId = acheteur.id;
-        const bName = acheteur.buyer_name.toLowerCase().trim();
+        const normId = normalizeText(acheteur.id);
+        const normName = normalizeText(acheteur.buyer_name);
 
-        if (buyerDocsCount.has(bId)) {
-          bDocs += buyerDocsCount.get(bId) || 0;
-        }
-        if (bName !== bId && buyerDocsCount.has(bName)) {
-          bDocs += buyerDocsCount.get(bName) || 0;
-        }
-        buyerDocsCount.forEach((cnt, docBuyerKey) => {
-          if (docBuyerKey !== bId && docBuyerKey !== bName && docBuyerKey.startsWith(bName)) {
-            bDocs += cnt;
-          }
-        });
+        const bDocs = buyerDocsNormalized.filter((d) => {
+          if (!d.normalizedBuyerId) return false;
+          return (
+            d.normalizedBuyerId === normId ||
+            d.normalizedBuyerId === normName ||
+            d.rawBuyerId === acheteur.id ||
+            (normName.length >= 3 && d.normalizedBuyerId.includes(normName)) ||
+            (d.normalizedBuyerId.length >= 3 && normName.includes(d.normalizedBuyerId))
+          );
+        }).length;
 
         acheteur.hectares.forEach((h) => {
           if (h.sale_date) allDates.push(h.sale_date);
@@ -551,6 +547,15 @@ const Acheteurs = () => {
       });
 
       setAcheteurs(acheteursArray);
+
+      // Mettre à jour selectedAcheteur si le dialogue est actuellement ouvert
+      setSelectedAcheteur((prev) => {
+        if (!prev) return null;
+        const updated = acheteursArray.find(
+          (a) => a.id === prev.id || normalizeText(a.buyer_name) === normalizeText(prev.buyer_name)
+        );
+        return updated || prev;
+      });
     } catch (error: any) {
       const msg = error?.message || error?.details || JSON.stringify(error) || "Erreur inconnue";
       console.error("Erreur loadAcheteurs:", error);
@@ -1941,6 +1946,7 @@ const Acheteurs = () => {
           onEditIdentification={handleOpenEditIdentification}
           onEditQuota={handleOpenEditQuota}
           onDeleteBuyer={handleOpenDelete}
+          onDocumentsUpdated={loadAcheteurs}
         />
 
         {/* Dialog Modifier Acheteur */}

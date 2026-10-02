@@ -19,8 +19,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Camera, Upload, FileText, Trash2, Eye, X } from "lucide-react";
+import { Camera, Upload, FileText, Trash2, Eye, X, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { normalizeText } from "@/hooks/useBuyerDetection";
 
 interface BuyerDocument {
   id: string;
@@ -34,12 +36,21 @@ interface BuyerDocument {
 interface BuyerDocumentsProps {
   buyerId: string; // Identifiant unique de l'acheteur
   buyerName: string;
+  onDocumentsCountChange?: (count: number) => void;
+  onDocumentsUpdated?: () => void;
 }
 
-export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
+export const BuyerDocuments = ({ 
+  buyerId, 
+  buyerName,
+  onDocumentsCountChange,
+  onDocumentsUpdated,
+}: BuyerDocumentsProps) => {
+  const queryClient = useQueryClient();
   const [documents, setDocuments] = useState<BuyerDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -73,7 +84,7 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [buyerId]);
+  }, [buyerId, buyerName]);
 
   const checkAuthAndLoadDocuments = async () => {
     try {
@@ -87,7 +98,7 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
         return;
       }
       
-      loadDocuments();
+      await loadDocuments();
     } catch (error) {
       console.error("Erreur vérification authentification:", error);
       toast.error("Erreur d'authentification");
@@ -97,14 +108,34 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
 
   const loadDocuments = async () => {
     try {
-      const { data, error } = await supabase
-        .from("buyer_documents")
-        .select("*")
-        .eq("buyer_id", buyerId)
-        .order("uploaded_at", { ascending: false });
+      setLoading(true);
+      let query = supabase.from("buyer_documents").select("*");
+      if (buyerId && buyerName) {
+        query = query.or(`buyer_id.eq.${buyerId},buyer_id.ilike.%${buyerName.trim()}%`);
+      } else if (buyerId) {
+        query = query.eq("buyer_id", buyerId);
+      }
+      const { data, error } = await query.order("uploaded_at", { ascending: false });
 
       if (error) throw error;
-      setDocuments(data || []);
+
+      const normId = normalizeText(buyerId);
+      const normName = normalizeText(buyerName);
+
+      const matched: BuyerDocument[] = (data || []).filter((doc: any) => {
+        if (!doc.buyer_id) return false;
+        const docNorm = normalizeText(doc.buyer_id);
+        return (
+          docNorm === normId ||
+          docNorm === normName ||
+          doc.buyer_id === buyerId ||
+          (normName.length >= 3 && docNorm.includes(normName)) ||
+          (docNorm.length >= 3 && normName.includes(docNorm))
+        );
+      });
+
+      setDocuments(matched);
+      onDocumentsCountChange?.(matched.length);
     } catch (error: any) {
       console.error("Erreur chargement documents:", error);
       toast.error("Erreur lors du chargement des documents");
@@ -245,7 +276,9 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
       toast.success("Document ajouté avec succès");
       setShowUploadDialog(false);
       setUploadForm({ document_type: "", notes: "", file: null });
-      loadDocuments();
+      await loadDocuments();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+      onDocumentsUpdated?.();
     } catch (error: any) {
       console.error("Erreur upload:", error);
       
@@ -283,10 +316,60 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
       if (dbError) throw dbError;
 
       toast.success("Document supprimé");
-      loadDocuments();
+      await loadDocuments();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+      onDocumentsUpdated?.();
     } catch (error: any) {
       console.error("Erreur suppression:", error);
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const handleDownload = async (doc: BuyerDocument) => {
+    try {
+      setDownloadingId(doc.id);
+      toast.info("Téléchargement du document en cours...");
+
+      // Tentative 1 : téléchargement direct Blob via storage.download
+      const { data, error } = await supabase.storage
+        .from("buyer-documents")
+        .download(doc.file_path);
+
+      if (error || !data) {
+        // Tentative 2 : fallback via createSignedUrl
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from("buyer-documents")
+          .createSignedUrl(doc.file_path, 3600, {
+            download: doc.file_name || "document",
+          });
+
+        if (signedError || !signedData?.signedUrl) {
+          throw signedError || new Error("Impossible de générer le lien de téléchargement");
+        }
+
+        const link = document.createElement("a");
+        link.href = signedData.signedUrl;
+        link.download = doc.file_name || "document";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        const blobUrl = window.URL.createObjectURL(data);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = doc.file_name || "document";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+      }
+      toast.success("Téléchargement réussi");
+    } catch (err: any) {
+      console.error("Erreur téléchargement:", err);
+      toast.error("Erreur lors du téléchargement : " + (err?.message || "inconnue"));
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -487,11 +570,28 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
                     })}
                   </p>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload(doc)}
+                    disabled={downloadingId === doc.id}
+                    className="h-8 px-2.5 text-xs gap-1"
+                    title="Télécharger ce document"
+                  >
+                    {downloadingId === doc.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 text-primary" />
+                    )}
+                    <span className="hidden sm:inline">Télécharger</span>
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => handlePreview(doc)}
+                    className="h-8 w-8 p-0"
+                    title="Aperçu"
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
@@ -499,8 +599,10 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
                     size="sm"
                     variant="ghost"
                     onClick={() => handleDelete(doc)}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Supprimer"
                   >
-                    <Trash2 className="w-4 h-4 text-destructive" />
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -511,32 +613,58 @@ export const BuyerDocuments = ({ buyerId, buyerName }: BuyerDocumentsProps) => {
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>{previewDocument?.file_name}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowPreview(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </DialogTitle>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6">
+          <DialogHeader className="shrink-0 pb-3 border-b">
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="truncate text-base sm:text-lg">
+                  {previewDocument?.file_name}
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {documentTypes.find(t => t.value === previewDocument?.document_type)?.label || "Document"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {previewDocument && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload(previewDocument)}
+                    disabled={downloadingId === previewDocument.id}
+                    className="gap-1.5 h-8 text-xs font-medium"
+                  >
+                    {downloadingId === previewDocument.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    <span>Télécharger</span>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowPreview(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </DialogHeader>
           {previewUrl && (
-            <div className="overflow-auto">
+            <div className="flex-1 overflow-auto py-4 flex items-center justify-center min-h-[300px]">
               {previewDocument?.file_name.toLowerCase().endsWith('.pdf') ? (
                 <iframe
                   src={previewUrl}
-                  className="w-full h-[70vh]"
+                  className="w-full h-[70vh] border rounded-lg"
                   title="Document preview"
                 />
               ) : (
                 <img
                   src={previewUrl}
                   alt="Document preview"
-                  className="w-full h-auto rounded-lg"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm"
                 />
               )}
             </div>
