@@ -13,6 +13,7 @@ import headerImage from "@/assets/en_tete_concession_manuel.jpg";
 import landManagementGradient from "@/assets/land_management_gradient.png";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
+import { RecentActivityFeed } from "@/components/RecentActivityFeed";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -891,6 +892,11 @@ const Dashboard = () => {
                 )}
               </div>
             </Card>
+          </div>
+
+          {/* Section Activités Récentes en Direct */}
+          <div className="mt-6 sm:mt-8">
+            <RecentActivityFeed />
           </div>
         </main>
 
