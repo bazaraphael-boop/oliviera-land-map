@@ -31,7 +31,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNextAvailableRmb, extractRmbNumber } from "@/lib/rmbSuite";
+import { getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb } from "@/lib/rmbSuite";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { HectareSelector } from "@/components/HectareSelector";
 
@@ -123,14 +123,34 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   const [amountPaid, setAmountPaid] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Calcul de la proposition de numéro selon le type de bien
+  const getSubParcelleProposal = (hId?: string) => {
+    const targetId = hId || hectareId || (hectares.length > 0 ? hectares[0].id : undefined);
+    if (!targetId) return null;
+    const targetHec = hectares.find((h) => h.id === targetId);
+    if (!targetHec) return null;
+    const parcellesInHec = parcelles.filter((p) => p.hectare_id === targetId);
+    return getNextParcelleInHectareRmb(targetHec, parcellesInHec);
+  };
+
   // Initialisation à l'ouverture du dialogue
   useEffect(() => {
     if (open) {
       setItemType(defaultItemType);
+      const chosenHecId = defaultHectareId || (hectares.length > 0 ? hectares[0].id : "");
       if (defaultHectareId) {
         setHectareId(defaultHectareId);
       } else if (hectares.length > 0 && !hectareId) {
         setHectareId(hectares[0].id);
+      }
+
+      if (defaultItemType === "parcelle_in_hectare" && chosenHecId) {
+        const prop = getSubParcelleProposal(chosenHecId);
+        if (prop) {
+          setNumero(prop.formattedNumero);
+          setRmbNumber(prop.formattedRmb);
+          return;
+        }
       }
 
       // Par défaut, pré-suggérer le prochain RMB
@@ -147,9 +167,33 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       setHectarePreset("1ha");
       setHectareQuantity("1");
       setSurface("10000");
+      setNumero(nextRmbProposal.nextFormatted);
+      setRmbNumber(nextRmbProposal.nextFormatted);
+    } else if (newType === "parcelle_in_hectare") {
+      if (surface === "10000" || surface === "5000" || surface === "2000" || surface === "20000") {
+        setSurface("600");
+      }
+      const prop = getSubParcelleProposal();
+      if (prop) {
+        setNumero(prop.formattedNumero);
+        setRmbNumber(prop.formattedRmb);
+      }
     } else {
       if (surface === "10000" || surface === "5000" || surface === "2000" || surface === "20000") {
         setSurface("600");
+      }
+      setNumero(nextRmbProposal.nextFormatted);
+      setRmbNumber(nextRmbProposal.nextFormatted);
+    }
+  };
+
+  const handleSelectHectare = (newHecId: string) => {
+    setHectareId(newHecId);
+    if (itemType === "parcelle_in_hectare") {
+      const prop = getSubParcelleProposal(newHecId);
+      if (prop) {
+        setNumero(prop.formattedNumero);
+        setRmbNumber(prop.formattedRmb);
       }
     }
   };
@@ -792,10 +836,18 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                 <HectareSelector
                   hectares={hectares}
                   selectedId={hectareId}
-                  onSelect={(id) => setHectareId(id)}
+                  onSelect={handleSelectHectare}
                   getOccupancy={getHectareOccupancy}
                   placeholder="Sélectionner un hectare existant"
                 />
+                <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-800 dark:text-purple-300 flex items-start gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-tight">
+                    <span>Indexation sous-parcelle racine : </span>
+                    <strong className="font-mono">{numero}</strong>
+                    <span> — Rattachée à cet hectare racine, ne sera pas mélangée dans la liste principale.</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -875,6 +927,14 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (itemType === "parcelle_in_hectare") {
+                        const prop = getSubParcelleProposal();
+                        if (prop) {
+                          setNumero(prop.formattedNumero);
+                          setRmbNumber(prop.formattedRmb);
+                          return;
+                        }
+                      }
                       setNumero(nextRmbProposal.nextFormatted);
                       setRmbNumber(nextRmbProposal.nextFormatted);
                     }}
@@ -882,7 +942,11 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                     title="Insérer le prochain numéro dans la suite logique"
                   >
                     <Sparkles className="w-2.5 h-2.5" />
-                    <span>Suite {nextRmbProposal.nextFormatted}</span>
+                    <span>
+                      {itemType === "parcelle_in_hectare" && hectareId
+                        ? `Suite ${getSubParcelleProposal()?.formattedRmb || nextRmbProposal.nextFormatted}`
+                        : `Suite ${nextRmbProposal.nextFormatted}`}
+                    </span>
                   </button>
                 </div>
                 <Input

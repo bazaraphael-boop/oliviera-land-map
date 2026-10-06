@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { 
   Plus, Search, Edit, Trash2, MapPin, DollarSign, User, CreditCard, 
-  Package, ListOrdered, Hash, AlertTriangle, CheckCircle2, LayoutGrid, LayoutList, Eye, Clock 
+  Package, ListOrdered, Hash, AlertTriangle, CheckCircle2, LayoutGrid, LayoutList, Eye, Clock,
+  Sparkles, Layers, Scissors, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -15,11 +16,13 @@ import PageHeader from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
+import { getHectareRootRmb, getNextParcelleInHectareRmb } from "@/lib/rmbSuite";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -81,6 +84,42 @@ const Hectares = () => {
   const [parcelleCountByHectare, setParcelleCountByHectare] = useState<{ [key: string]: number }>({});
   const [parcelleFilter, setParcelleFilter] = useState<"all" | "vendu" | "disponible">("all");
   const [parcelleViewMode, setParcelleViewMode] = useState<"grid" | "table">("grid");
+
+  // État d'enregistrement d'une sous-parcelle dans l'hectare racine
+  const [addParcelleModalOpen, setAddParcelleModalOpen] = useState(false);
+  const [addParcelleSubmitting, setAddParcelleSubmitting] = useState(false);
+  const [addParcelleForm, setAddParcelleForm] = useState({
+    numero: "",
+    rmb_number: "",
+    surface: "600",
+    status: "disponible",
+    prix: "",
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    sale_type: "normal",
+    payment_type: "total",
+    amount_paid: "",
+  });
+
+  // État d'édition d'une sous-parcelle dans l'hectare racine
+  const [editParcelleInHectareOpen, setEditParcelleInHectareOpen] = useState(false);
+  const [editParcelleInHectareSubmitting, setEditParcelleInHectareSubmitting] = useState(false);
+  const [editParcelleInHectareForm, setEditParcelleInHectareForm] = useState({
+    id: "",
+    numero: "",
+    rmb_number: "",
+    surface: "600",
+    status: "disponible",
+    prix: "",
+    buyer_name: "",
+    buyer_phone: "",
+    buyer_email: "",
+    sale_type: "normal",
+    payment_type: "total",
+    amount_paid: "",
+  });
+
   const [formData, setFormData] = useState({
     name: "",
     surface: "",
@@ -321,6 +360,216 @@ const Hectares = () => {
     const parcelle = parcelles.find(p => p.numero === parcelleNum);
     setSelectedParcelle(parcelle || { numero: parcelleNum, status: 'disponible' });
     setParcelleDetailsOpen(true);
+  };
+
+  const handleOpenAddParcelleModal = () => {
+    if (!selectedHectare) return;
+    const proposal = getNextParcelleInHectareRmb(selectedHectare, parcelles);
+    setAddParcelleForm({
+      numero: proposal.formattedNumero,
+      rmb_number: proposal.formattedRmb,
+      surface: "600",
+      status: "disponible",
+      prix: "",
+      buyer_name: "",
+      buyer_phone: "",
+      buyer_email: "",
+      sale_type: "normal",
+      payment_type: "total",
+      amount_paid: "",
+    });
+    setAddParcelleModalOpen(true);
+  };
+
+  const handleSaveNewParcelleInHectare = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedHectare) return;
+    if (!addParcelleForm.numero.trim()) {
+      toast.error("Le numéro de la sous-parcelle est requis.");
+      return;
+    }
+
+    try {
+      setAddParcelleSubmitting(true);
+      const isVente = addParcelleForm.status === "vendu" || Boolean(addParcelleForm.buyer_name?.trim());
+      const isOnereux = isVente && addParcelleForm.sale_type === "onereux";
+      const isARenseigner = isVente && addParcelleForm.sale_type === "a_renseigner";
+      const prix = (isOnereux || isARenseigner) ? 0 : (parseFloat(addParcelleForm.prix) || 0);
+      const amountPaid = (isOnereux || isARenseigner) ? 0 : (parseFloat(addParcelleForm.amount_paid) || (addParcelleForm.payment_type === "total" ? prix : 0));
+      const remainingAmount = (isOnereux || isARenseigner) ? 0 : (addParcelleForm.payment_type === "partiel" ? Math.max(0, prix - amountPaid) : 0);
+
+      const payload = {
+        hectare_id: selectedHectare.id,
+        numero: addParcelleForm.numero.trim(),
+        rmb_number: addParcelleForm.rmb_number.trim() || null,
+        surface: parseFloat(addParcelleForm.surface) || 600,
+        status: isVente ? "vendu" : addParcelleForm.status,
+        prix,
+        buyer_name: isVente ? addParcelleForm.buyer_name.trim() : null,
+        buyer_phone: isVente ? (addParcelleForm.buyer_phone.trim() || null) : null,
+        buyer_email: isVente ? (addParcelleForm.buyer_email.trim() || null) : null,
+        sale_type: isVente ? (isARenseigner ? null : addParcelleForm.sale_type) : null,
+        purchase_type: "parcelle",
+        payment_type: isVente ? ((isOnereux || isARenseigner) ? "total" : addParcelleForm.payment_type) : null,
+        amount_paid: isVente ? amountPaid : 0,
+        remaining_amount: isVente ? remainingAmount : 0,
+        sale_date: isVente ? (isARenseigner ? null : new Date().toISOString()) : null,
+      };
+
+      const { error } = await supabase.from("parcelles").insert([payload]);
+      if (error) throw error;
+
+      toast.success(`Sous-parcelle ${payload.numero} enregistrée dans ${selectedHectare.name}`);
+      setAddParcelleModalOpen(false);
+      await fetchParcelles(selectedHectare.id);
+      await fetchHectares();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+    } catch (err: any) {
+      console.error("Erreur enregistrement sous-parcelle:", err);
+      toast.error("Erreur lors de l'enregistrement de la sous-parcelle");
+    } finally {
+      setAddParcelleSubmitting(false);
+    }
+  };
+
+  const handleBatchInitParcellesInHectare = async () => {
+    if (!selectedHectare) return;
+    const rootRmb = getHectareRootRmb(selectedHectare);
+    
+    // Identifier les indices déjà occupés
+    const existingIndices = new Set<number>();
+    parcelles.forEach((p) => {
+      const numStr = `${p.numero || ""} ${p.rmb_number || ""}`;
+      const match = numStr.match(/\/(\d+)/);
+      if (match && match[1]) {
+        existingIndices.add(parseInt(match[1], 10));
+      }
+    });
+
+    const toInsert = [];
+    for (let i = 1; i <= 16; i++) {
+      if (!existingIndices.has(i)) {
+        const padded = String(i).padStart(2, "0");
+        toInsert.push({
+          hectare_id: selectedHectare.id,
+          numero: `${rootRmb}/${padded}`,
+          rmb_number: `RMB ${rootRmb}/${padded}`,
+          surface: 600,
+          status: "disponible",
+          prix: 0,
+          amount_paid: 0,
+          remaining_amount: 0,
+          purchase_type: "parcelle",
+        });
+      }
+    }
+
+    if (toInsert.length === 0) {
+      toast.info("Toutes les 16 sous-parcelles (01 à 16) sont déjà créées pour cet hectare.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("parcelles").insert(toInsert);
+      if (error) throw error;
+
+      toast.success(`${toInsert.length} sous-parcelles (RMB ${rootRmb}/01..) découpées et créées avec succès !`);
+      await fetchParcelles(selectedHectare.id);
+      await fetchHectares();
+    } catch (err: any) {
+      console.error("Erreur découpage automatique:", err);
+      toast.error("Erreur lors de la génération automatique des parcelles");
+    }
+  };
+
+  const handleOpenEditParcelleInHectare = (parcelle: any) => {
+    setEditParcelleInHectareForm({
+      id: parcelle.id,
+      numero: parcelle.numero || "",
+      rmb_number: parcelle.rmb_number || "",
+      surface: (parcelle.surface || 600).toString(),
+      status: parcelle.status || "disponible",
+      prix: (parcelle.prix || 0).toString(),
+      buyer_name: parcelle.buyer_name || "",
+      buyer_phone: parcelle.buyer_phone || "",
+      buyer_email: parcelle.buyer_email || "",
+      sale_type: parcelle.sale_type || "normal",
+      payment_type: parcelle.payment_type || "total",
+      amount_paid: (parcelle.amount_paid || 0).toString(),
+    });
+    setEditParcelleInHectareOpen(true);
+  };
+
+  const handleUpdateParcelleInHectare = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editParcelleInHectareForm.id) return;
+
+    try {
+      setEditParcelleInHectareSubmitting(true);
+      const isVente = editParcelleInHectareForm.status === "vendu" || Boolean(editParcelleInHectareForm.buyer_name?.trim());
+      const isOnereux = isVente && editParcelleInHectareForm.sale_type === "onereux";
+      const isARenseigner = isVente && editParcelleInHectareForm.sale_type === "a_renseigner";
+      const prix = (isOnereux || isARenseigner) ? 0 : (parseFloat(editParcelleInHectareForm.prix) || 0);
+      const amountPaid = (isOnereux || isARenseigner) ? 0 : (parseFloat(editParcelleInHectareForm.amount_paid) || (editParcelleInHectareForm.payment_type === "total" ? prix : 0));
+      const remainingAmount = (isOnereux || isARenseigner) ? 0 : (editParcelleInHectareForm.payment_type === "partiel" ? Math.max(0, prix - amountPaid) : 0);
+
+      const updateData: any = {
+        numero: editParcelleInHectareForm.numero.trim(),
+        rmb_number: editParcelleInHectareForm.rmb_number.trim() || null,
+        surface: parseFloat(editParcelleInHectareForm.surface) || 600,
+        status: isVente ? "vendu" : editParcelleInHectareForm.status,
+        prix,
+        buyer_name: isVente ? editParcelleInHectareForm.buyer_name.trim() : null,
+        buyer_phone: isVente ? (editParcelleInHectareForm.buyer_phone.trim() || null) : null,
+        buyer_email: isVente ? (editParcelleInHectareForm.buyer_email.trim() || null) : null,
+        sale_type: isVente ? (isARenseigner ? null : editParcelleInHectareForm.sale_type) : null,
+        payment_type: isVente ? ((isOnereux || isARenseigner) ? "total" : editParcelleInHectareForm.payment_type) : null,
+        amount_paid: isVente ? amountPaid : 0,
+        remaining_amount: isVente ? remainingAmount : 0,
+        sale_date: isVente ? (isARenseigner ? null : new Date().toISOString()) : null,
+      };
+
+      const { error } = await supabase
+        .from("parcelles")
+        .update(updateData)
+        .eq("id", editParcelleInHectareForm.id);
+
+      if (error) throw error;
+
+      toast.success("Sous-parcelle mise à jour avec succès");
+      setEditParcelleInHectareOpen(false);
+      setParcelleDetailsOpen(false);
+      if (selectedHectare) {
+        await fetchParcelles(selectedHectare.id);
+      }
+      await fetchHectares();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+    } catch (err) {
+      console.error("Erreur modification sous-parcelle:", err);
+      toast.error("Erreur lors de la modification de la parcelle");
+    } finally {
+      setEditParcelleInHectareSubmitting(false);
+    }
+  };
+
+  const handleDeleteParcelleFromHectare = async (parcelleId: string, parcelleNumero: string) => {
+    if (!confirm(`Supprimer définitivement la sous-parcelle ${parcelleNumero} de cet hectare racine ?`)) return;
+
+    try {
+      const { error } = await supabase.from("parcelles").delete().eq("id", parcelleId);
+      if (error) throw error;
+
+      toast.success(`Sous-parcelle ${parcelleNumero} supprimée`);
+      setParcelleDetailsOpen(false);
+      if (selectedHectare) {
+        await fetchParcelles(selectedHectare.id);
+      }
+      await fetchHectares();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de la suppression de la parcelle");
+    }
   };
 
   // Détecter les RMB en double
@@ -900,7 +1149,7 @@ const Hectares = () => {
             return (
               <>
                 <DialogHeader className="border-b border-border pb-3 sm:pb-4">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <div className="p-2 bg-primary/10 rounded-xl shrink-0">
                         <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
@@ -913,11 +1162,38 @@ const Hectares = () => {
                           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[11px] font-semibold">
                             {soldCount}/16 vendue{soldCount > 1 ? "s" : ""} ({percentSold}%)
                           </Badge>
+                          <Badge variant="outline" className="text-[11px] font-mono bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                            🔒 Racine : RMB {getHectareRootRmb(selectedHectare)}
+                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
                           {selectedHectare?.location || "Concession"} · 16 parcelles de 600 m² (ou regroupées)
                         </p>
                       </div>
+                    </div>
+
+                    {/* Actions d'enregistrement et découpage direct dans l'hectare racine */}
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={handleOpenAddParcelleModal}
+                        className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Enregistrer une sous-parcelle</span>
+                      </Button>
+                      {parcelles.length < 16 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBatchInitParcellesInHectare}
+                          className="h-8 px-2.5 text-xs font-medium gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                          title="Générer en 1 clic les 16 sous-parcelles (ex: RMB 223/01 à 223/16)"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Découper (16 parcelles)</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </DialogHeader>
@@ -1401,9 +1677,35 @@ const Hectares = () => {
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-4 border-t border-border">
+            <div className="flex items-center gap-2">
+              {selectedParcelle?.id && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => handleOpenEditParcelleInHectare(selectedParcelle)}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Modifier</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => handleDeleteParcelleFromHectare(selectedParcelle.id, selectedParcelle.numero)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Supprimer</span>
+                  </Button>
+                </>
+              )}
+            </div>
             <Button
               variant="outline"
+              size="sm"
+              className="h-8 text-xs"
               onClick={() => setParcelleDetailsOpen(false)}
             >
               Fermer
@@ -1545,6 +1847,361 @@ const Hectares = () => {
               });
             })()}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Enregistrer une sous-parcelle dans l'hectare racine */}
+      <Dialog open={addParcelleModalOpen} onOpenChange={setAddParcelleModalOpen}>
+        <DialogContent className="max-w-md bg-card p-5">
+          <DialogHeader className="border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  Enregistrer une sous-parcelle
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Hectare racine : <strong className="text-foreground">{selectedHectare?.name}</strong>
+                  {selectedHectare?.rmb_number && ` (${selectedHectare.rmb_number})`}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveNewParcelleInHectare} className="space-y-4 pt-3">
+            <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-800 dark:text-purple-300 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-purple-600" />
+              <div>
+                <span className="font-bold">Indexation racine automatique :</span> cette sous-parcelle porte le numéro dérivé <strong className="font-mono">{addParcelleForm.numero}</strong> ({addParcelleForm.rmb_number}) et restera confinée à l'intérieur de cet hectare racine sans encombrer la liste principale.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium">N° de sous-parcelle *</Label>
+                <Input
+                  value={addParcelleForm.numero}
+                  onChange={(e) => setAddParcelleForm({ ...addParcelleForm, numero: e.target.value })}
+                  placeholder="Ex: 223/01"
+                  required
+                  className="mt-1 h-9 text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium">Numéro RMB *</Label>
+                <Input
+                  value={addParcelleForm.rmb_number}
+                  onChange={(e) => setAddParcelleForm({ ...addParcelleForm, rmb_number: e.target.value })}
+                  placeholder="Ex: RMB 223/01"
+                  required
+                  className="mt-1 h-9 text-xs font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium">Surface (m²) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={addParcelleForm.surface}
+                  onChange={(e) => setAddParcelleForm({ ...addParcelleForm, surface: e.target.value })}
+                  placeholder="600"
+                  required
+                  className="mt-1 h-9 text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium">Statut</Label>
+                <Select
+                  value={addParcelleForm.status}
+                  onValueChange={(val) => setAddParcelleForm({ ...addParcelleForm, status: val })}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disponible">Libre / Disponible</SelectItem>
+                    <SelectItem value="vendu">Vendue</SelectItem>
+                    <SelectItem value="reserve">Réservée</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {addParcelleForm.status === "vendu" && (
+              <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-3">
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span>Informations Acquéreur</span>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-medium">Nom de l'acheteur *</Label>
+                  <Input
+                    value={addParcelleForm.buyer_name}
+                    onChange={(e) => setAddParcelleForm({ ...addParcelleForm, buyer_name: e.target.value })}
+                    placeholder="Ex: Jean Dupont"
+                    required
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] font-medium">Téléphone</Label>
+                    <Input
+                      value={addParcelleForm.buyer_phone}
+                      onChange={(e) => setAddParcelleForm({ ...addParcelleForm, buyer_phone: e.target.value })}
+                      placeholder="+243..."
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-medium">Prix (USD)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={addParcelleForm.prix}
+                      onChange={(e) => setAddParcelleForm({ ...addParcelleForm, prix: e.target.value })}
+                      placeholder="0"
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] font-medium">Type de paiement</Label>
+                    <Select
+                      value={addParcelleForm.payment_type}
+                      onValueChange={(val) => setAddParcelleForm({ ...addParcelleForm, payment_type: val })}
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="total">Total</SelectItem>
+                        <SelectItem value="partiel">Partiel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {addParcelleForm.payment_type === "partiel" && (
+                    <div>
+                      <Label className="text-[11px] font-medium">Montant payé</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={addParcelleForm.amount_paid}
+                        onChange={(e) => setAddParcelleForm({ ...addParcelleForm, amount_paid: e.target.value })}
+                        placeholder="0"
+                        className="mt-1 h-8 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAddParcelleModalOpen(false)}
+                disabled={addParcelleSubmitting}
+                className="h-8 text-xs"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={addParcelleSubmitting}
+                className="h-8 text-xs font-semibold gap-1.5"
+              >
+                {addParcelleSubmitting ? "Enregistrement..." : "Confirmer l'enregistrement"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Modifier une sous-parcelle dans l'hectare racine */}
+      <Dialog open={editParcelleInHectareOpen} onOpenChange={setEditParcelleInHectareOpen}>
+        <DialogContent className="max-w-md bg-card p-5">
+          <DialogHeader className="border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                <Edit className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  Modifier la sous-parcelle {editParcelleInHectareForm.numero}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Hectare racine : <strong className="text-foreground">{selectedHectare?.name}</strong>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateParcelleInHectare} className="space-y-4 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium">N° de sous-parcelle *</Label>
+                <Input
+                  value={editParcelleInHectareForm.numero}
+                  onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, numero: e.target.value })}
+                  placeholder="Ex: 223/01"
+                  required
+                  className="mt-1 h-9 text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium">Numéro RMB</Label>
+                <Input
+                  value={editParcelleInHectareForm.rmb_number}
+                  onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, rmb_number: e.target.value })}
+                  placeholder="Ex: RMB 223/01"
+                  className="mt-1 h-9 text-xs font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium">Surface (m²) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editParcelleInHectareForm.surface}
+                  onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, surface: e.target.value })}
+                  placeholder="600"
+                  required
+                  className="mt-1 h-9 text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium">Statut</Label>
+                <Select
+                  value={editParcelleInHectareForm.status}
+                  onValueChange={(val) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, status: val })}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disponible">Libre / Disponible</SelectItem>
+                    <SelectItem value="vendu">Vendue</SelectItem>
+                    <SelectItem value="reserve">Réservée</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {editParcelleInHectareForm.status === "vendu" && (
+              <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-3">
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span>Informations Acquéreur</span>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-medium">Nom de l'acheteur *</Label>
+                  <Input
+                    value={editParcelleInHectareForm.buyer_name}
+                    onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, buyer_name: e.target.value })}
+                    placeholder="Ex: Jean Dupont"
+                    required
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] font-medium">Téléphone</Label>
+                    <Input
+                      value={editParcelleInHectareForm.buyer_phone}
+                      onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, buyer_phone: e.target.value })}
+                      placeholder="+243..."
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-medium">Prix (USD)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editParcelleInHectareForm.prix}
+                      onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, prix: e.target.value })}
+                      placeholder="0"
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] font-medium">Type de paiement</Label>
+                    <Select
+                      value={editParcelleInHectareForm.payment_type}
+                      onValueChange={(val) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, payment_type: val })}
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="total">Total</SelectItem>
+                        <SelectItem value="partiel">Partiel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editParcelleInHectareForm.payment_type === "partiel" && (
+                    <div>
+                      <Label className="text-[11px] font-medium">Montant payé</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editParcelleInHectareForm.amount_paid}
+                        onChange={(e) => setEditParcelleInHectareForm({ ...editParcelleInHectareForm, amount_paid: e.target.value })}
+                        placeholder="0"
+                        className="mt-1 h-8 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditParcelleInHectareOpen(false)}
+                disabled={editParcelleInHectareSubmitting}
+                className="h-8 text-xs"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={editParcelleInHectareSubmitting}
+                className="h-8 text-xs font-semibold gap-1.5"
+              >
+                {editParcelleInHectareSubmitting ? "Enregistrement..." : "Enregistrer les modifications"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

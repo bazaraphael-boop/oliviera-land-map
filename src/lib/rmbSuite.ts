@@ -154,3 +154,77 @@ export function getNextAvailableRmb(
     isGap: false,
   };
 }
+
+/**
+ * Extrait le numéro ou code racine RMB d'un hectare (ex: "RMB 223" -> "223", "223" -> "223", "HECTARE 223" -> "223")
+ */
+export function getHectareRootRmb(hectare?: { rmb_number?: string | null; name?: string | null } | null): string {
+  if (!hectare) return "01";
+  if (hectare.rmb_number && hectare.rmb_number.trim()) {
+    const raw = hectare.rmb_number.trim();
+    const clean = raw.replace(/^rmb\s*[-_#]?\s*/i, "").trim();
+    if (clean) return clean;
+  }
+  if (hectare.name && hectare.name.trim()) {
+    const match = hectare.name.match(/\d+/);
+    if (match) return match[0];
+    return hectare.name.trim();
+  }
+  return "01";
+}
+
+/**
+ * Calcule le prochain numéro de parcelle dans un hectare suivant son numéro initial (ex: RMB 223/01, RMB 223/02, etc.)
+ */
+export function getNextParcelleInHectareRmb(
+  hectare: { rmb_number?: string | null; name?: string | null } | null | undefined,
+  existingParcelles: { rmb_number?: string | null; numero?: string | null }[] = []
+): {
+  rootRmb: string;
+  nextIndex: number;
+  formattedNumero: string;
+  formattedRmb: string;
+  isAvailable: boolean;
+} {
+  const rootRmb = getHectareRootRmb(hectare);
+  const occupiedIndices = new Set<number>();
+
+  existingParcelles.forEach((p) => {
+    const numStr = `${p.numero || ""} ${p.rmb_number || ""}`.trim();
+    // Chercher directement après le slash ex: "223/01" -> 1, "RMB 223/02" -> 2
+    const directSlash = numStr.match(/\/(\d+)/);
+    if (directSlash && directSlash[1]) {
+      const idx = parseInt(directSlash[1], 10);
+      if (!isNaN(idx) && idx > 0 && idx <= 100) {
+        occupiedIndices.add(idx);
+        return;
+      }
+    }
+    // Fallback : nombre simple en fin de numéro
+    const matchEnd = numStr.match(/(?:^|\s|-|_|#)(\d+)$/);
+    if (matchEnd && matchEnd[1]) {
+      const idx = parseInt(matchEnd[1], 10);
+      if (!isNaN(idx) && idx > 0 && idx <= 32) {
+        occupiedIndices.add(idx);
+      }
+    }
+  });
+
+  // Chercher le premier index disponible de 1 à 16 (ou au-delà)
+  let nextIndex = 1;
+  while (occupiedIndices.has(nextIndex) && nextIndex <= 32) {
+    nextIndex++;
+  }
+
+  const paddedIndex = String(nextIndex).padStart(2, "0");
+  const formattedNumero = `${rootRmb}/${paddedIndex}`;
+  const formattedRmb = `RMB ${rootRmb}/${paddedIndex}`;
+
+  return {
+    rootRmb,
+    nextIndex,
+    formattedNumero,
+    formattedRmb,
+    isAvailable: nextIndex <= 16,
+  };
+}

@@ -21,7 +21,7 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import { HectareSelector } from "@/components/HectareSelector";
 import { MultiDocumentUploader, uploadDocEntries, type DocEntry } from "@/components/MultiDocumentUploader";
 import { auditHectare } from "@/lib/numberingAudit";
-import { compareParcellesByRmbSuite, getNextAvailableRmb, extractRmbNumber } from "@/lib/rmbSuite";
+import { compareParcellesByRmbSuite, getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb } from "@/lib/rmbSuite";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
@@ -95,7 +95,7 @@ const Parcelles = () => {
   const [selectedParcelle, setSelectedParcelle] = useState<Parcelle | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedHectare, setSelectedHectare] = useState<string>(
-    searchParams.get("hectare") || "all"
+    searchParams.get("hectare") || "standalone"
   );
 
   // Hook de détection intelligente d'acquéreurs existants et de leur quota
@@ -188,37 +188,61 @@ const Parcelles = () => {
       const selectedHec = hectares.find(h => h.id === hectareId);
       if (!selectedHec) return;
 
-      // Exclure les hectares contenant "ISETECH"
-      if (selectedHec.name.toUpperCase().includes("ISETECH")) {
-        setFormData(prev => ({ ...prev, numero: "" }));
-        return;
-      }
-
       // Récupérer toutes les parcelles déjà créées pour cet hectare
       const { data: hParcelles, error } = await supabase
         .from("parcelles")
-        .select("id, numero, hectare_id, status")
+        .select("id, numero, rmb_number, hectare_id, status")
         .eq("hectare_id", hectareId);
 
       if (error) throw error;
 
-      // Audit intelligent : détecte les trous et propose le premier numéro manquant ou le suivant
-      const audit = auditHectare(selectedHec, hParcelles || [], 16);
-      const autoNumero = audit.nextSuggestedNumero;
+      // Calculer le prochain numéro dérivé dans cet hectare racine (ex: RMB 223/01, 223/02...)
+      const prop = getNextParcelleInHectareRmb(selectedHec, hParcelles || []);
 
       setFormData(prev => ({
         ...prev,
-        numero: autoNumero
+        numero: prop.formattedNumero,
+        rmb_number: prop.formattedRmb,
       }));
 
-      if (audit.hasGaps) {
-        toast.info(`Trou comblé : ${autoNumero} suggéré pour rétablir l'ordre`, {
-          duration: 3500,
-        });
-      }
+      toast.info(`Sous-parcelle indexée : ${prop.formattedRmb} assignée à l'hectare racine ${selectedHec.name}`);
     } catch (err) {
       console.error("Erreur lors du calcul automatique du numéro de parcelle:", err);
     }
+  };
+
+  const handleOpenCreateDialog = () => {
+    const isHectareActive = selectedHectare !== "all" && selectedHectare !== "standalone";
+    if (isHectareActive) {
+      const activeHec = hectares.find(h => h.id === selectedHectare);
+      const hParcelles = allParcelles.filter(p => p.hectare_id === selectedHectare);
+      const prop = getNextParcelleInHectareRmb(activeHec, hParcelles);
+      setFormData({
+        assignment_type: "hectare",
+        numero: prop.formattedNumero,
+        surface: "600",
+        prix: "",
+        hectare_id: selectedHectare,
+        rmb_number: prop.formattedRmb,
+        sale_type: "normal",
+        latitude: "",
+        longitude: "",
+      });
+    } else {
+      setFormData({
+        assignment_type: "standalone",
+        numero: nextRmbProposal.nextFormatted,
+        surface: "600",
+        prix: "",
+        hectare_id: "",
+        rmb_number: nextRmbProposal.nextFormatted,
+        sale_type: "normal",
+        latitude: "",
+        longitude: "",
+      });
+    }
+    setNewDocs([]);
+    setIsDialogOpen(true);
   };
 
   useEffect(() => {
@@ -858,20 +882,35 @@ const Parcelles = () => {
       <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
         <PageHeader
           title="Gestion des Parcelles"
-          description="Attribuez les emplacements de chaque hectare à vos acheteurs."
+          description={
+            selectedHectare === "standalone"
+              ? "🏷️ Liste principale des parcelles seules (hors hectare racine)."
+              : selectedHectare === "all"
+              ? "🌐 Vue globale de toutes les parcelles (seules et sous-parcelles d'hectares)."
+              : `📦 Sous-parcelles de l'hectare racine : ${hectares.find(h => h.id === selectedHectare)?.name || "Sélectionné"}`
+          }
+          actions={
+            <Button onClick={handleOpenCreateDialog} className="gap-2 font-semibold">
+              <Plus className="w-4 h-4" />
+              <span>Nouvelle parcelle</span>
+            </Button>
+          }
         />
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
           <Select value={selectedHectare} onValueChange={setSelectedHectare}>
-            <SelectTrigger className="w-full sm:w-[220px] shrink-0">
-              <SelectValue placeholder="Tous les emplacements" />
+            <SelectTrigger className="w-full sm:w-[260px] shrink-0 bg-card">
+              <SelectValue placeholder="Filtrer les parcelles" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les emplacements</SelectItem>
-              <SelectItem value="standalone">🏷️ Parcelles seules (hors hectare)</SelectItem>
+              <SelectItem value="standalone">🏷️ Liste principale (Parcelles seules)</SelectItem>
+              <SelectItem value="all">🌐 Vue globale (Toutes les parcelles)</SelectItem>
+              <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider border-t border-border mt-1 pt-1.5">
+                Hectares racines
+              </div>
               {hectares.map((h) => (
                 <SelectItem key={h.id} value={h.id}>
-                  {h.name}
+                  📦 {h.name} {h.rmb_number ? `(${h.rmb_number})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1117,6 +1156,213 @@ const Parcelles = () => {
             </p>
           </div>
         )}
+
+        {/* Dialog Création Nouvelle Parcelle */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-primary" />
+                <span>Créer une nouvelle parcelle</span>
+              </DialogTitle>
+              <DialogDescription>
+                Créez une parcelle autonome pour la liste principale ou une sous-parcelle rattachée à un hectare racine.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-5 pt-3">
+              {/* Type d'affectation */}
+              <div className="bg-muted/40 p-4 rounded-xl border border-border/40 space-y-3">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                  Affectation de la parcelle *
+                </Label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        assignment_type: "standalone",
+                        hectare_id: "",
+                        numero: nextRmbProposal.nextFormatted,
+                        rmb_number: nextRmbProposal.nextFormatted,
+                      }));
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                      formData.assignment_type === "standalone"
+                        ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 shadow-xs"
+                        : "border-border bg-background hover:bg-muted/50"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-foreground">Parcelle seule (Liste principale)</div>
+                      <div className="text-[10px] text-muted-foreground">Autonome, hors hectare racine</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const firstHec = (selectedHectare !== "all" && selectedHectare !== "standalone") 
+                        ? hectares.find(h => h.id === selectedHectare) 
+                        : hectares[0];
+                      const hParcelles = allParcelles.filter(p => p.hectare_id === firstHec?.id);
+                      const prop = getNextParcelleInHectareRmb(firstHec, hParcelles);
+                      setFormData(prev => ({
+                        ...prev,
+                        assignment_type: "hectare",
+                        hectare_id: firstHec?.id || "",
+                        numero: prop.formattedNumero,
+                        rmb_number: prop.formattedRmb,
+                      }));
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                      formData.assignment_type === "hectare"
+                        ? "border-primary bg-primary/10 ring-1 ring-primary shadow-xs"
+                        : "border-border bg-background hover:bg-muted/50"
+                    }`}
+                  >
+                    <MapPin className="w-4 h-4 text-primary shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-foreground">Sous-parcelle d'un Hectare</div>
+                      <div className="text-[10px] text-muted-foreground">Indexée ex: RMB 223/01</div>
+                    </div>
+                  </button>
+                </div>
+
+                {formData.assignment_type === "hectare" && (
+                  <div className="pt-2">
+                    <Label className="text-xs font-medium">Sélectionner l'hectare racine *</Label>
+                    <Select
+                      value={formData.hectare_id}
+                      onValueChange={handleHectareChange}
+                    >
+                      <SelectTrigger className="mt-1 bg-background">
+                        <SelectValue placeholder="Choisir un hectare racine" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hectares.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.name} {h.rmb_number ? `(${h.rmb_number})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-purple-700 dark:text-purple-300 mt-1.5 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Numérotation automatique dérivée : <strong>{formData.rmb_number}</strong> (reste confinée dans cet hectare)
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Numéro, RMB et surface */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs font-medium">N° de la parcelle *</Label>
+                  <Input
+                    value={formData.numero}
+                    onChange={(e) => setFormData(prev => ({ ...prev, numero: e.target.value }))}
+                    placeholder="Ex: 223/01 ou RMB 012"
+                    required
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Numéro RMB</Label>
+                    {formData.assignment_type === "standalone" && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, rmb_number: nextRmbProposal.nextFormatted }))}
+                        className="text-[10px] text-purple-600 hover:underline font-semibold"
+                      >
+                        Suite {nextRmbProposal.nextFormatted}
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    value={formData.rmb_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rmb_number: e.target.value }))}
+                    placeholder="Ex: RMB 223/01"
+                    className="mt-1 h-9 text-xs font-mono font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium">Surface (m²) *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.surface}
+                    onChange={(e) => setFormData(prev => ({ ...prev, surface: e.target.value }))}
+                    placeholder="600"
+                    required
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Prix et type de vente */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium">Type de vente</Label>
+                  <Select
+                    value={formData.sale_type}
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, sale_type: val }))}
+                  >
+                    <SelectTrigger className="mt-1 h-9 text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Vente normale</SelectItem>
+                      <SelectItem value="onereux">À titre gratuit</SelectItem>
+                      <SelectItem value="a_renseigner">À renseigner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.sale_type !== "onereux" && formData.sale_type !== "a_renseigner" && (
+                  <div>
+                    <Label className="text-xs font-medium">Prix (USD)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.prix}
+                      onChange={(e) => setFormData(prev => ({ ...prev, prix: e.target.value }))}
+                      placeholder="0"
+                      className="mt-1 h-9 text-xs"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Upload de documents */}
+              <div className="border-t border-border pt-3">
+                <MultiDocumentUploader
+                  docs={newDocs}
+                  onChange={setNewDocs}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="text-xs"
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" className="text-xs font-semibold">
+                  Créer la parcelle
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Dialog Édition Parcelle */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
