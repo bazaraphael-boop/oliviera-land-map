@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { FileText, Camera, Plus, Trash2, Upload, X, CheckCircle2 } from "lucide-react";
+import { FileText, Camera, Plus, Trash2, Upload, X, CheckCircle2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +112,42 @@ export function MultiDocumentUploader({
                 <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
                 <p className="text-xs text-muted-foreground">{doc.type}</p>
               </div>
+              {doc.file_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-primary hover:bg-primary/10 shrink-0"
+                  onClick={async () => {
+                    try {
+                      toast.info("Téléchargement du document...");
+                      const path = doc.file_url;
+                      if (path.startsWith("http://") || path.startsWith("https://")) {
+                        window.open(path, "_blank");
+                        return;
+                      }
+                      const { data, error } = await supabase.storage
+                        .from("buyer-documents")
+                        .download(path);
+                      if (error || !data) throw error;
+                      const blobUrl = window.URL.createObjectURL(data);
+                      const a = document.createElement("a");
+                      a.href = blobUrl;
+                      a.download = doc.title || "document";
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(blobUrl);
+                      document.body.removeChild(a);
+                      toast.success("Document téléchargé");
+                    } catch (e) {
+                      toast.error("Erreur lors du téléchargement");
+                    }
+                  }}
+                  title="Télécharger le document"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </Button>
+              )}
               {onDeleteExisting && (
                 <Button
                   type="button"
@@ -119,6 +155,7 @@ export function MultiDocumentUploader({
                   size="icon"
                   className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
                   onClick={() => onDeleteExisting(doc.id)}
+                  title="Supprimer ce document"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
