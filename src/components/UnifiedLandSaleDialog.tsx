@@ -31,7 +31,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb } from "@/lib/rmbSuite";
+import { getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb, areRmbConflicting, parseRmbParts } from "@/lib/rmbSuite";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { HectareSelector } from "@/components/HectareSelector";
 
@@ -84,6 +84,20 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     staleTime: 1000 * 30,
   });
 
+  const { data: sites = [] } = useQuery({
+    queryKey: ["unified-dialog-sites"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id, name, surface_totale")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+    staleTime: 1000 * 60,
+  });
+
   // Suggestion automatique du prochain numéro RMB
   const nextRmbProposal = useMemo(() => {
     return getNextAvailableRmb(parcelles, hectares);
@@ -91,6 +105,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
   // État du formulaire
   const [itemType, setItemType] = useState<LandItemType>(defaultItemType);
+  const [siteId, setSiteId] = useState<string>("");
   const [hectareQuantity, setHectareQuantity] = useState<string>("1");
   const [hectarePreset, setHectarePreset] = useState<string>("1ha");
   const [hectareId, setHectareId] = useState<string>(defaultHectareId);
@@ -259,45 +274,57 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
 
     if (!currentRmb && !currentNumero) return null;
 
-    // 1. Conflit sur le numéro RMB attribué (si renseigné)
-    if (currentRmb) {
-      const targetRmbNum = extractRmbNumber(currentRmb);
-      const targetNormRmb = normalizeText(currentRmb);
+    // Déterminer si le bien en cours de création est une sous-parcelle rattachée à un hectare
+    const parsedRmb = parseRmbParts(currentRmb);
+    const parsedNum = parseRmbParts(currentNumero);
+    const hasSubSlash = (parsedRmb && parsedRmb.subNum !== null) || (parsedNum && parsedNum.subNum !== null);
+    const isSubParcelle = itemType === "parcelle_in_hectare" || hasSubSlash;
 
-      // Vérifier dans les parcelles (seules les parcelles vendues avec acquéreur actif bloquent)
-      for (const p of parcelles) {
-        const isSold = p.status === "vendu" || p.status === "sold";
-        const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
-        if (!isSold || !hasBuyer) continue;
+    // 1. Vérification dans les parcelles existantes
+    for (const p of parcelles) {
+      const isSold = p.status === "vendu" || p.status === "sold";
+      const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
+      if (!isSold || !hasBuyer) continue;
 
-        const pRmbNum = extractRmbNumber(p.rmb_number) ?? (p.numero?.toUpperCase().includes("RMB") ? extractRmbNumber(p.numero) : null);
-        const isExactMatch = (p.rmb_number && normalizeText(p.rmb_number) === targetNormRmb) || (p.numero && normalizeText(p.numero) === targetNormRmb);
-        const isNumMatch = targetRmbNum !== null && pRmbNum !== null && targetRmbNum === pRmbNum;
+      const pRmb = (p.rmb_number || "").trim();
+      const pNum = (p.numero || "").trim();
 
-        if (isExactMatch || isNumMatch) {
-          return {
-            type: "parcelle" as const,
-            id: p.id,
-            nameOrNumero: p.numero,
-            rmbNumber: p.rmb_number || p.numero,
-            buyerName: p.buyer_name,
-            status: p.status,
-            conflictType: "rmb" as const,
-          };
-        }
+      const rmbMatch = currentRmb && pRmb && areRmbConflicting(currentRmb, pRmb);
+      const numMatch = currentNumero && pNum && areRmbConflicting(currentNumero, pNum);
+      const crossMatch1 = currentRmb && pNum && areRmbConflicting(currentRmb, pNum);
+      const crossMatch2 = currentNumero && pRmb && areRmbConflicting(currentNumero, pRmb);
+
+      if (rmbMatch || numMatch || crossMatch1 || crossMatch2) {
+        return {
+          type: "parcelle" as const,
+          id: p.id,
+          nameOrNumero: p.numero,
+          rmbNumber: p.rmb_number || p.numero,
+          buyerName: p.buyer_name,
+          status: p.status,
+          conflictType: (rmbMatch || crossMatch1) ? ("rmb" as const) : ("numero" as const),
+        };
       }
+    }
 
-      // Vérifier dans les hectares
+    // 2. Vérification dans les hectares
+    // IMPORTANT : Une sous-parcelle (ex: RMB 221/01) est un découpage interne d'un hectare racine
+    // Elle ne peut EN AUCUN CAS entrer en conflit avec son hectare racine (RMB 221) ou un autre hectare !
+    if (!isSubParcelle && itemType === "hectare") {
       for (const h of hectares) {
         const isSold = h.status === "vendu" || h.status === "sold";
         const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
         if (!isSold || !hasBuyer) continue;
 
-        const hRmbNum = extractRmbNumber(h.rmb_number) ?? (h.name?.toUpperCase().includes("RMB") ? extractRmbNumber(h.name) : null);
-        const isExactMatch = (h.rmb_number && normalizeText(h.rmb_number) === targetNormRmb) || (h.name && normalizeText(h.name) === targetNormRmb);
-        const isNumMatch = targetRmbNum !== null && hRmbNum !== null && targetRmbNum === hRmbNum;
+        const hRmb = (h.rmb_number || "").trim();
+        const hName = (h.name || "").trim();
 
-        if (isExactMatch || isNumMatch) {
+        const rmbMatch = currentRmb && hRmb && areRmbConflicting(currentRmb, hRmb);
+        const nameMatch = currentNumero && hName && areRmbConflicting(currentNumero, hName);
+        const crossMatch1 = currentRmb && hName && areRmbConflicting(currentRmb, hName);
+        const crossMatch2 = currentNumero && hRmb && areRmbConflicting(currentNumero, hRmb);
+
+        if (rmbMatch || nameMatch || crossMatch1 || crossMatch2) {
           return {
             type: "hectare" as const,
             id: h.id,
@@ -305,63 +332,39 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
             rmbNumber: h.rmb_number || h.name,
             buyerName: h.buyer_name,
             status: h.status,
-            conflictType: "rmb" as const,
+            conflictType: (rmbMatch || crossMatch1) ? ("rmb" as const) : ("numero" as const),
+          };
+        }
+      }
+    } else if (!isSubParcelle && itemType === "parcelle_alone") {
+      // Pour une parcelle seule sans slash (ex: RMB 221 pur), vérifier si un hectare porte le même RMB
+      for (const h of hectares) {
+        const isSold = h.status === "vendu" || h.status === "sold";
+        const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
+        if (!isSold || !hasBuyer) continue;
+
+        const hRmb = (h.rmb_number || "").trim();
+        const hName = (h.name || "").trim();
+
+        const rmbMatch = currentRmb && hRmb && areRmbConflicting(currentRmb, hRmb);
+        const nameMatch = currentNumero && hName && areRmbConflicting(currentNumero, hName);
+
+        if (rmbMatch || nameMatch) {
+          return {
+            type: "hectare" as const,
+            id: h.id,
+            nameOrNumero: h.name,
+            rmbNumber: h.rmb_number || h.name,
+            buyerName: h.buyer_name,
+            status: h.status,
+            conflictType: rmbMatch ? ("rmb" as const) : ("numero" as const),
           };
         }
       }
     }
 
-    // 2. Conflit direct sur le nom / numéro du bien (si non capturé par le RMB)
-    if (currentNumero) {
-      const targetNormNum = normalizeText(currentNumero);
-      const isRmbFormat = currentNumero.toUpperCase().includes("RMB");
-      const targetNumRmb = isRmbFormat ? extractRmbNumber(currentNumero) : null;
-
-      if (itemType === "hectare") {
-        for (const h of hectares) {
-          const isSold = h.status === "vendu" || h.status === "sold";
-          const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
-          if (!isSold || !hasBuyer) continue;
-
-          const isExact = normalizeText(h.name) === targetNormNum;
-          const isRmbMatch = targetNumRmb !== null && extractRmbNumber(h.name) === targetNumRmb;
-          if (isExact || isRmbMatch) {
-            return {
-              type: "hectare" as const,
-              id: h.id,
-              nameOrNumero: h.name,
-              rmbNumber: h.rmb_number || h.name,
-              buyerName: h.buyer_name,
-              status: h.status,
-              conflictType: isRmbFormat ? ("rmb" as const) : ("numero" as const),
-            };
-          }
-        }
-      } else {
-        for (const p of parcelles) {
-          const isSold = p.status === "vendu" || p.status === "sold";
-          const hasBuyer = Boolean(p.buyer_name && p.buyer_name.trim().length > 0);
-          if (!isSold || !hasBuyer) continue;
-
-          const isExact = normalizeText(p.numero) === targetNormNum;
-          const isRmbMatch = targetNumRmb !== null && extractRmbNumber(p.numero) === targetNumRmb;
-          if (isExact || isRmbMatch) {
-            return {
-              type: "parcelle" as const,
-              id: p.id,
-              nameOrNumero: p.numero,
-              rmbNumber: p.rmb_number || p.numero,
-              buyerName: p.buyer_name,
-              status: p.status,
-              conflictType: isRmbFormat ? ("rmb" as const) : ("numero" as const),
-            };
-          }
-        }
-      }
-    }
-
     return null;
-  }, [rmbNumber, numero, parcelles, hectares, itemType]);
+  }, [rmbNumber, numero, parcelles, hectares, itemType, hectareId]);
 
   // Vérifier si le conflit est autorisé (acquéreur existant en mode conservation de son dossier RMB)
   const isConflictAllowed = useMemo(() => {
@@ -411,7 +414,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
       }
     }
 
-    if (results.length < 4) {
+    if (results.length < 4 && itemType !== "parcelle_in_hectare") {
       for (const h of hectares) {
         const isSold = h.status === "vendu" || h.status === "sold";
         const hasBuyer = Boolean(h.buyer_name && h.buyer_name.trim().length > 0);
@@ -431,7 +434,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     }
 
     return results;
-  }, [rmbNumber, numero, parcelles, hectares, rmbConflict]);
+  }, [rmbNumber, numero, parcelles, hectares, rmbConflict, itemType]);
 
   // Sélection d'un acquéreur existant
   const handleSelectBuyer = (buyer: ExistingBuyer) => {
@@ -512,6 +515,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     setShowCivilDetails(false);
     setHectareQuantity("1");
     setHectarePreset("1ha");
+    setSiteId("");
   };
 
   // Validation et soumission atomique
@@ -586,6 +590,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
         const hectarePayload = {
           name: numero.trim(),
           surface: surfaceInHa,
+          site_id: siteId || null,
           status: "vendu",
           buyer_name: buyerName,
           buyer_last_name: postNom.trim() || null,
@@ -916,6 +921,26 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                     Vous pouvez choisir un bouton rapide ou renseigner librement la quantité ou la surface en m².
                   </span>
                 </div>
+
+                {sites.length > 0 && (
+                  <div className="pt-2 border-t border-purple-500/20">
+                    <Label className="text-xs font-semibold text-foreground mb-1 block">
+                      Site de rattachement foncier
+                    </Label>
+                    <Select value={siteId} onValueChange={setSiteId}>
+                      <SelectTrigger className="w-full text-xs bg-background">
+                        <SelectValue placeholder="Sélectionner le site (ex: Muanda village site 1...)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sites.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id} className="text-xs">
+                            {s.name} ({s.surface_totale} ha)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 

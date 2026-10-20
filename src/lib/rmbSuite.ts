@@ -228,3 +228,114 @@ export function getNextParcelleInHectareRmb(
     isAvailable: nextIndex <= 16,
   };
 }
+
+export interface ParsedRmb {
+  raw: string;
+  rootNum: number | null;
+  subNum: number | null;
+  normalized: string;
+}
+
+/**
+ * Décompose un numéro cadastral ou RMB en racine et sous-indice de parcelle :
+ * Exemples :
+ * - "RMB 221/01" -> rootNum: 221, subNum: 1, normalized: "221/01"
+ * - "221/01"     -> rootNum: 221, subNum: 1, normalized: "221/01"
+ * - "RMB 221"    -> rootNum: 221, subNum: null, normalized: "221"
+ * - "221"        -> rootNum: 221, subNum: null, normalized: "221"
+ */
+export function parseRmbParts(str?: string | null): ParsedRmb | null {
+  if (!str) return null;
+  const clean = str.trim();
+  if (!clean) return null;
+
+  // Chercher motif avec slash : <chiffres>/<chiffres>
+  const slashMatch = clean.match(/(?:^|\D)(\d+)\s*\/\s*(\d+)(?:\D|$)/);
+  if (slashMatch) {
+    const root = parseInt(slashMatch[1], 10);
+    const sub = parseInt(slashMatch[2], 10);
+    return {
+      raw: clean,
+      rootNum: isNaN(root) ? null : root,
+      subNum: isNaN(sub) ? null : sub,
+      normalized: `${root}/${String(sub).padStart(2, "0")}`,
+    };
+  }
+
+  // Chercher motif RMB <chiffres>
+  const rmbMatch = clean.match(/rmb\s*[-_#]?\s*(\d+)/i);
+  if (rmbMatch && rmbMatch[1]) {
+    const root = parseInt(rmbMatch[1], 10);
+    return {
+      raw: clean,
+      rootNum: isNaN(root) ? null : root,
+      subNum: null,
+      normalized: `${root}`,
+    };
+  }
+
+  // Chiffres purs sans slash
+  const numMatch = clean.match(/(\d+)/);
+  if (numMatch) {
+    const root = parseInt(numMatch[1], 10);
+    return {
+      raw: clean,
+      rootNum: isNaN(root) ? null : root,
+      subNum: null,
+      normalized: `${root}`,
+    };
+  }
+
+  return {
+    raw: clean,
+    rootNum: null,
+    subNum: null,
+    normalized: clean.toLowerCase().replace(/[^a-z0-9]/g, ""),
+  };
+}
+
+/**
+ * Vérifie si deux identifiants RMB ou numéros représentent exactement le même bien cadastral :
+ * - "RMB 221" et "221" -> TRUE (même numéro racine)
+ * - "RMB 221" et "RMB 221/01" -> FALSE (l'un est un hectare racine, l'autre est une sous-parcelle !)
+ * - "221/01" et "RMB 221/01" -> TRUE (même sous-parcelle)
+ * - "221/01" et "221/02" -> FALSE (deux sous-parcelles distinctes)
+ */
+export function areRmbConflicting(rmbA?: string | null, rmbB?: string | null): boolean {
+  if (!rmbA || !rmbB) return false;
+  const a = rmbA.trim();
+  const b = rmbB.trim();
+  if (!a || !b) return false;
+
+  const parsedA = parseRmbParts(a);
+  const parsedB = parseRmbParts(b);
+  if (!parsedA || !parsedB) return false;
+
+  // Règle essentielle :
+  // Si l'un a un sous-numéro (/01) et l'autre n'en a pas -> PAS DE CONFLIT !
+  // (Ex: une sous-parcelle 221/01 ne conflit JAMAIS avec un hectare 221 !)
+  if (
+    (parsedA.subNum !== null && parsedB.subNum === null) ||
+    (parsedA.subNum === null && parsedB.subNum !== null)
+  ) {
+    return false;
+  }
+
+  // Si les deux ont un sous-numéro : la racine ET le sous-numéro doivent être égaux
+  if (parsedA.subNum !== null && parsedB.subNum !== null) {
+    return (
+      parsedA.rootNum !== null &&
+      parsedB.rootNum !== null &&
+      parsedA.rootNum === parsedB.rootNum &&
+      parsedA.subNum === parsedB.subNum
+    );
+  }
+
+  // Si aucun n'a de sous-numéro : comparer les racines numériques
+  if (parsedA.rootNum !== null && parsedB.rootNum !== null) {
+    return parsedA.rootNum === parsedB.rootNum;
+  }
+
+  return parsedA.normalized === parsedB.normalized;
+}
+
