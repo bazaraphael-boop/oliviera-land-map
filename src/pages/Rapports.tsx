@@ -107,6 +107,7 @@ const Rapports = () => {
   const [soldParcellesList, setSoldParcellesList] = useState<any[]>([]);
   const [soldHectaresList, setSoldHectaresList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"parcelles" | "hectares">("parcelles");
+  const [reportSection, setReportSection] = useState<"synthese" | "transactions" | "audit_rmb">("synthese");
   const [duplicatesReportOpen, setDuplicatesReportOpen] = useState(false);
   const [allParcelles, setAllParcelles] = useState<any[]>([]);
   const [allHectares, setAllHectares] = useState<any[]>([]);
@@ -1750,841 +1751,827 @@ const Rapports = () => {
         {/* Header */}
         <PageHeader
           title="Rapports & Analyses"
-          description="Dernière étape : analysez les ventes, les revenus et l'occupation des terrains."
+          description="Suivez les ventes, consultez le journal des transactions et vérifiez la numérotation RMB."
         />
-        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-6">
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-wrap">
-            <select 
-              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm"
-              value={selectedMonth || "all"}
-              onChange={(e) => setSelectedMonth(e.target.value === "all" ? null : e.target.value)}
-            >
-              <option value="all">Tous les mois</option>
-              {availableMonths.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-            
-            <select 
-              className="px-3 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm"
-              value={selectedSaleType}
-              onChange={(e) => setSelectedSaleType(e.target.value)}
-            >
-              <option value="all">Toutes les transactions</option>
-              <option value="a_renseigner">À renseigner</option>
-              <option value="onereux">À titre gratuit</option>
-              <option value="total">Payé totalement</option>
-              <option value="partiel">Payé partiellement</option>
-              <option value="impaye">Impayé</option>
-            </select>
-
-            <Button onClick={exportToPDF} className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-3 sm:px-4">
-              <Download className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Exporter PDF</span>
-            </Button>
+        {/* Bandeau de chiffres clés (compact et lisible d'un coup d'œil) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border border-border bg-card divide-y lg:divide-y-0 sm:divide-x divide-border mb-5">
+          <div className="px-4 py-3 min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Revenus</p>
+            <p className="text-lg font-semibold text-foreground truncate">
+              {stats.totalRevenue.toLocaleString("fr-FR")} USD
+            </p>
+            <p className="text-xs text-muted-foreground">{stats.salesCount} vente{stats.salesCount > 1 ? "s" : ""}</p>
           </div>
-        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
-          <StatsCard
-            title="Revenus Total"
-            value={`${stats.totalRevenue.toLocaleString()} USD`}
-            subtitle={`${stats.salesCount} ventes réalisées`}
-            icon={DollarSign}
-            colorClass="bg-[hsl(160,84%,39%)]"
-          />
-          <StatsCard
-            title="Taux de Vente"
-            value={`${stats.salesRate.toFixed(1)}%`}
-            subtitle={`${stats.soldCount}/${stats.soldCount + stats.availableCount} parcelles`}
-            icon={TrendingUp}
-            colorClass="bg-[hsl(217,91%,60%)]"
-          />
-          <StatsCard
-            title="Prix Moyen"
-            value={`${Math.round(stats.averagePrice).toLocaleString()} USD`}
-            subtitle="par parcelle"
-            icon={BarChart2}
-            colorClass="bg-[hsl(24,95%,53%)]"
-          />
-          <StatsCard
-            title="Disponibles"
-            value={stats.availableCount.toString()}
-            subtitle="à vendre"
-            icon={Calendar}
-            colorClass="bg-[hsl(271,91%,65%)]"
-          />
-        </div>
+          <div className="px-4 py-3 min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Parcelles vendues</p>
+            <p className="text-lg font-semibold text-foreground truncate">
+              {stats.soldCount} <span className="text-xs font-normal text-muted-foreground">/ {stats.soldCount + stats.availableCount}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">Taux d'occupation : {stats.salesRate.toFixed(1)}%</p>
+          </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Évolution des Ventes */}
-          <Card className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
-              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
-                Évolution des Ventes
-              </h3>
-              <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
-                <Download className="w-3 h-3" /> Cliquez pour télécharger
-              </span>
-            </div>
-            <div className="h-48 sm:h-64">
-              {monthlyData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <BarChart2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-xs sm:text-sm">Aucune vente enregistrée</p>
-                  </div>
-                </div>
+          <div className="px-4 py-3 min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Disponibles</p>
+            <p className="text-lg font-semibold text-foreground truncate">{stats.availableCount}</p>
+            <p className="text-xs text-muted-foreground">
+              Prix moyen : {Math.round(stats.averagePrice).toLocaleString("fr-FR")} USD
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setReportSection("audit_rmb")}
+            className="px-4 py-3 min-w-0 text-left hover:bg-muted/50 transition-colors"
+            title="Ouvrir l'onglet Contrôle RMB"
+          >
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Numérotation RMB</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {totalMissingRmb === 0 && duplicateRMBs.length === 0 ? (
+                <span className="text-sm font-semibold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> Aucun problème
+                </span>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData} onClick={(data) => {
-                    if (data && data.activePayload && data.activePayload[0]) {
-                      const clickedMonth = data.activePayload[0].payload.sortKey;
-                      exportMonthlyPDF(clickedMonth);
-                    }
-                  }} style={{ cursor: 'pointer' }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="month" 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      tick={{ fontSize: 9 }}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      width={30}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "12px"
-                      }}
-                      formatter={(value: number, name: string) => {
-                        if (name === "revenus") return [`${value.toLocaleString()} USD`, "Revenus"];
-                        return [value, "Ventes"];
-                      }}
-                    />
-                    <Bar dataKey="ventes" radius={[6, 6, 0, 0]}>
-                      {monthlyData.map((entry) => (
-                        <Cell 
-                          key={entry.sortKey}
-                          fill={entry.sortKey === selectedMonth ? "hsl(160, 84%, 39%)" : "hsl(217, 91%, 60%)"}
-                          stroke={entry.sortKey === selectedMonth ? "hsl(160, 84%, 30%)" : "none"}
-                          strokeWidth={entry.sortKey === selectedMonth ? 2 : 0}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </Card>
-
-          {/* Performance par Hectare */}
-          <Card className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
-                Performance par Hectare
-              </h3>
-              <span className="text-[10px] sm:text-xs text-muted-foreground">Top 5</span>
-            </div>
-            <div className="space-y-3">
-              {hectareStats.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <BarChart2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-xs sm:text-sm">Aucune donnée disponible</p>
-                  </div>
-                </div>
-              ) : (
-                (() => {
-                  const top5 = hectareStats.slice(0, 5);
-                  const maxRevenue = Math.max(...top5.map(h => h.revenue));
-                  const colors = [
-                    "bg-[hsl(217,91%,60%)]",
-                    "bg-[hsl(160,84%,39%)]",
-                    "bg-[hsl(24,95%,53%)]",
-                    "bg-[hsl(271,91%,65%)]",
-                    "bg-[hsl(210,40%,50%)]",
-                  ];
-                  return top5.map((hectare, index) => {
-                    const pct = maxRevenue > 0 ? (hectare.revenue / maxRevenue) * 100 : 0;
-                    return (
-                      <div key={hectare.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors[index % 5]}`} />
-                            <span className="font-medium text-foreground truncate">{hectare.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-2">
-                            <span className="font-semibold text-foreground">{hectare.revenue.toLocaleString()} USD</span>
-                            <span className="text-muted-foreground text-[10px] sm:text-xs w-10 text-right">{hectare.salesRate.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                        <div className="h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${colors[index % 5]} transition-all duration-500`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  });
-                })()
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Rapport des Doublons RMB */}
-        {duplicateRMBs.length > 0 && (
-          <Card className="p-4 sm:p-6 mb-6 sm:mb-8 border-red-200 bg-red-50/50">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-2">
-                    Doublons RMB Détectés
-                  </h3>
-                  <Alert variant="destructive" className="mb-2 sm:mb-3">
-                    <AlertDescription className="text-xs sm:text-sm">
-                      {duplicateRMBs.length} numéro(s) RMB utilisé(s) plusieurs fois
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={exportDuplicatesPDF}
-                  className="text-xs"
-                >
-                  <Download className="w-3.5 h-3.5 sm:mr-1.5" />
-                  <span className="hidden sm:inline">PDF</span>
-                </Button>
-                <Button 
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDuplicatesReportOpen(true)}
-                  className="text-xs"
-                >
-                  Voir détail
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Détails par Statut */}
-        <Card className="p-4 sm:p-6">
-          <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-4">
-            Répartition par Statut
-          </h3>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <div className="p-3 sm:p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[10px] sm:text-sm font-medium text-foreground">Disponibles</span>
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-foreground">{stats.availableCount}</p>
-              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
-                {((stats.availableCount / (stats.availableCount + stats.soldCount)) * 100).toFixed(1)}%
-              </p>
-            </div>
-
-            <div className="p-3 sm:p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[10px] sm:text-sm font-medium text-foreground">Vendues</span>
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-500"></div>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-foreground">{stats.soldCount}</p>
-              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
-                {stats.salesRate.toFixed(1)}%
-              </p>
-            </div>
-
-            <div className="p-3 sm:p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-[10px] sm:text-sm font-medium text-foreground">Réservées</span>
-                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-orange-500"></div>
-              </div>
-              <p className="text-lg sm:text-2xl font-bold text-foreground">0</p>
-              <p className="text-[9px] sm:text-xs text-muted-foreground mt-1">
-                0%
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Détails des Ventes (Filtrable) */}
-        <Card className="p-4 sm:p-6 mt-6 sm:mt-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-sm sm:text-lg font-semibold text-foreground">
-                Détail des Transactions
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Liste des ventes et cessions selon les filtres actifs ({selectedSaleType === "all" ? "Tous" : selectedSaleType === "a_renseigner" ? "À renseigner" : selectedSaleType === "onereux" ? "Gratuits" : selectedSaleType === "total" ? "Payés totalement" : selectedSaleType === "partiel" ? "Payés partiellement" : "Impayés"})
-              </p>
-            </div>
-            
-            {/* Tabs Header */}
-            <div className="flex gap-1.5 bg-muted/60 p-1 rounded-lg self-start sm:self-auto border border-border/20">
-              <button
-                type="button"
-                onClick={() => setActiveTab("parcelles")}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-                  activeTab === "parcelles"
-                    ? "bg-background shadow-sm text-foreground border border-border/10"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Grid3x3 className="w-3.5 h-3.5" />
-                Parcelles ({soldParcellesList.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0)})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("hectares")}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-                  activeTab === "hectares"
-                    ? "bg-background shadow-sm text-foreground border border-border/10"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                Hectares ({soldHectaresList.length})
-              </button>
-            </div>
-          </div>
-
-          {activeTab === "parcelles" ? (
-            <div className="overflow-x-auto rounded-lg border border-border/40">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-border/60 text-muted-foreground font-medium bg-muted/30">
-                    <th className="p-3">Numéro</th>
-                    <th className="p-3">Hectare</th>
-                    <th className="p-3">Acheteur</th>
-                    <th className="p-3">Type</th>
-                    <th className="p-3 text-right">Prix</th>
-                    <th className="p-3 text-right">Payé</th>
-                    <th className="p-3 text-right">Reste</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {soldParcellesList.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
-                        Aucune parcelle vendue sur cette période avec ces filtres
-                      </td>
-                    </tr>
-                  ) : (
-                    soldParcellesList.map((p) => {
-                      const isFree = p.sale_type === "onereux";
-                      const remaining = isFree ? 0 : (p.prix - (p.amount_paid || 0));
-                      const isDuplicateRMB = p.rmb_number && duplicateRMBs.includes(p.rmb_number);
-                      const pCount = Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
-                      return (
-                        <tr 
-                          key={p.id} 
-                          className={`border-b border-border/40 hover:bg-muted/10 transition-colors ${
-                            isDuplicateRMB ? "bg-red-500/10 hover:bg-red-500/15 dark:bg-red-950/20" : ""
-                          }`}
-                        >
-                          <td className="p-3 font-semibold text-foreground">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>Parcelle {p.numero}</span>
-                                {pCount > 1 && (
-                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                    {pCount} parcelles ({p.surface} m²)
-                                  </span>
-                                )}
-                              </div>
-                              {p.rmb_number && (
-                                <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${
-                                  isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
-                                }`}>
-                                  {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
-                                  <span>RMB: {p.rmb_number}</span>
-                                  {isDuplicateRMB && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const num = parseInt(p.rmb_number.replace(/\D/g, ""), 10) || 0;
-                                        const matchingParcelles = allParcelles.filter((item) => item.rmb_number === p.rmb_number).map((item) => ({ ...item, _entityType: "parcelle" }));
-                                        const matchingHectares = allHectares.filter((item) => item.rmb_number === p.rmb_number).map((item) => ({ ...item, _entityType: "hectare" }));
-                                        handleOpenDuplicateModal({
-                                          num,
-                                          rmbFormatted: p.rmb_number,
-                                          items: [...matchingParcelles, ...matchingHectares],
-                                        });
-                                      }}
-                                      className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer inline-flex items-center gap-0.5 shadow-sm transition-transform hover:scale-105"
-                                      title="Cliquer pour voir et modifier ce doublon"
-                                    >
-                                      Doublon <Edit className="w-2.5 h-2.5 ml-0.5" />
-                                    </button>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 text-muted-foreground">{p.hectares?.name || "N/A"}</td>
-                          <td className="p-3 font-medium text-foreground">{p.buyer_name || "N/A"}</td>
-                          <td className="p-3">
-                            {(() => {
-                              const isPAR = p.sale_type === "a_renseigner" || (!p.sale_type && p.status === "vendu");
-                              return (
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  isFree 
-                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
-                                    : isPAR
-                                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
-                                    : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
-                                }`}>
-                                  {isFree ? "Gratuit" : isPAR ? "À renseigner" : "Normal"}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${p.prix?.toLocaleString()}`}</td>
-                          <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(p.amount_paid || 0).toLocaleString()}`}</td>
-                          <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
-                        </tr>
-                      );
-                    })
+                <>
+                  {totalMissingRmb > 0 && (
+                    <span className="text-sm font-semibold text-orange-600">
+                      {totalMissingRmb} trou{totalMissingRmb > 1 ? "s" : ""}
+                    </span>
                   )}
-                </tbody>
-              </table>
+                  {totalMissingRmb > 0 && duplicateRMBs.length > 0 && (
+                    <span className="text-muted-foreground">·</span>
+                  )}
+                  {duplicateRMBs.length > 0 && (
+                    <span className="text-sm font-semibold text-red-600">
+                      {duplicateRMBs.length} doublon{duplicateRMBs.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <p className="text-xs text-primary mt-0.5">Vérifier la suite →</p>
+          </button>
+        </div>
+
+        {/* Navigation principale en 3 onglets + Filtres contextuels */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6 border-b border-border pb-3">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setReportSection("synthese")}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                reportSection === "synthese"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span>Vue d'ensemble</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setReportSection("transactions")}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                reportSection === "transactions"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Journal des ventes</span>
+              <span
+                className={cn(
+                  "text-xs px-1.5 py-0.5 rounded-full tabular-nums",
+                  reportSection === "transactions"
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {soldParcellesList.reduce((sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)), 0) + soldHectaresList.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setReportSection("audit_rmb")}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                reportSection === "audit_rmb"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <ListOrdered className="w-4 h-4" />
+              <span>Contrôle RMB</span>
+              {(totalMissingRmb > 0 || duplicateRMBs.length > 0) && (
+                <span
+                  className={cn(
+                    "text-xs px-1.5 py-0.5 rounded-full font-semibold tabular-nums",
+                    reportSection === "audit_rmb"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : duplicateRMBs.length > 0
+                      ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                      : "bg-orange-500/15 text-orange-600 dark:text-orange-400"
+                  )}
+                >
+                  {totalMissingRmb + duplicateRMBs.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Filtres de période et export PDF */}
+          {reportSection !== "audit_rmb" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="h-9 px-3 rounded-lg border border-border bg-background text-xs sm:text-sm"
+                value={selectedMonth || "all"}
+                onChange={(e) => setSelectedMonth(e.target.value === "all" ? null : e.target.value)}
+              >
+                <option value="all">Tous les mois</option>
+                {availableMonths.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="h-9 px-3 rounded-lg border border-border bg-background text-xs sm:text-sm"
+                value={selectedSaleType}
+                onChange={(e) => setSelectedSaleType(e.target.value)}
+              >
+                <option value="all">Toutes les transactions</option>
+                <option value="total">Payé totalement</option>
+                <option value="partiel">Payé partiellement</option>
+                <option value="impaye">Impayé</option>
+                <option value="onereux">À titre gratuit</option>
+                <option value="a_renseigner">À renseigner</option>
+              </select>
+
+              <Button onClick={exportToPDF} size="sm" className="h-9 gap-1.5 text-xs sm:text-sm">
+                <Download className="w-4 h-4" />
+                <span>Exporter PDF</span>
+              </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/40">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-border/60 text-muted-foreground font-medium bg-muted/30">
-                    <th className="p-3">Hectare</th>
-                    <th className="p-3">Acheteur</th>
-                    <th className="p-3">Type</th>
-                    <th className="p-3 text-right">Prix</th>
-                    <th className="p-3 text-right">Payé</th>
-                    <th className="p-3 text-right">Reste</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {soldHectaresList.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center p-8 text-muted-foreground">
-                        Aucun hectare vendu sur cette période avec ces filtres
-                      </td>
-                    </tr>
-                  ) : (
-                    soldHectaresList.map((h) => {
-                      const isFree = h.sale_type === "onereux";
-                      const remaining = isFree ? 0 : (h.prix - (h.amount_paid || 0));
-                      const isDuplicateRMB = h.rmb_number && duplicateRMBs.includes(h.rmb_number);
-                      return (
-                        <tr 
-                          key={h.id} 
-                          className={`border-b border-border/40 hover:bg-muted/10 transition-colors ${
-                            isDuplicateRMB ? "bg-red-500/10 hover:bg-red-500/15 dark:bg-red-950/20" : ""
-                          }`}
-                        >
-                          <td className="p-3 font-semibold text-foreground">
-                            <div className="flex flex-col">
-                              <span className={isDuplicateRMB ? "text-red-600 font-bold" : ""}>{h.name}</span>
-                              {h.rmb_number && (
-                                <span className={`text-[10px] flex items-center gap-1 mt-0.5 ${
-                                  isDuplicateRMB ? "text-red-500 font-bold" : "text-muted-foreground"
-                                }`}>
-                                  {isDuplicateRMB && <AlertTriangle className="w-3.5 h-3.5 text-red-500 inline shrink-0" />}
-                                  <span>RMB: {h.rmb_number}</span>
-                                  {isDuplicateRMB && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const num = parseInt(h.rmb_number.replace(/\D/g, ""), 10) || 0;
-                                        const matchingParcelles = allParcelles.filter((item) => item.rmb_number === h.rmb_number).map((item) => ({ ...item, _entityType: "parcelle" }));
-                                        const matchingHectares = allHectares.filter((item) => item.rmb_number === h.rmb_number).map((item) => ({ ...item, _entityType: "hectare" }));
-                                        handleOpenDuplicateModal({
-                                          num,
-                                          rmbFormatted: h.rmb_number,
-                                          items: [...matchingParcelles, ...matchingHectares],
-                                        });
-                                      }}
-                                      className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer inline-flex items-center gap-0.5 shadow-sm transition-transform hover:scale-105"
-                                      title="Cliquer pour voir et modifier ce doublon"
-                                    >
-                                      Doublon <Edit className="w-2.5 h-2.5 ml-0.5" />
-                                    </button>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 font-medium text-foreground">{h.buyer_name || "N/A"}</td>
-                          <td className="p-3">
-                            {(() => {
-                              const isHAR = h.sale_type === "a_renseigner" || (!h.sale_type && (h.status === "vendu" || h.status === "sold"));
-                              return (
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  isFree 
-                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-500" 
-                                    : isHAR
-                                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
-                                    : "bg-blue-500/15 text-blue-700 dark:text-blue-500"
-                                }`}>
-                                  {isFree ? "Gratuit" : isHAR ? "À renseigner" : "Normal"}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="p-3 text-right font-medium text-foreground">{isFree ? "-" : `$${h.prix?.toLocaleString()}`}</td>
-                          <td className="p-3 text-right text-emerald-600 font-semibold">{isFree ? "-" : `$${(h.amount_paid || 0).toLocaleString()}`}</td>
-                          <td className="p-3 text-right font-medium text-orange-600">{isFree ? "-" : remaining > 0 ? `$${remaining.toLocaleString()}` : "-"}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-
-        {/* Suite logique des numéros RMB (de RMB 001 à ...) avec détection des trous */}
-        <Card className="p-4 sm:p-6 mt-6 sm:mt-8 border-border">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
-                <ListOrdered className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-bold text-foreground">
-                    Suite Logique des Numéros RMB
-                  </h3>
-                  <Badge variant="outline" className="text-xs font-mono bg-muted">
-                    {rmbSequence.length > 0
-                      ? `RMB 001 → ${rmbSequence[rmbSequence.length - 1].rmbFormatted}`
-                      : "Aucun RMB"}
-                  </Badge>
-                  {totalMissingRmb > 0 ? (
-                    <Badge className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold">
-                      {totalMissingRmb} trou{totalMissingRmb > 1 ? "s" : ""} détecté{totalMissingRmb > 1 ? "s" : ""}
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-emerald-600 text-white text-xs">
-                      Séquence continue sans trou
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Suivi séquentiel continu de chaque numéro RMB de RMB 001 à la fin. Les trous dans la suite logique sont clairement signalés en orange.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {duplicateRMBs.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDuplicatesReportOpen(true)}
+                  className="h-9 text-xs gap-1.5 border-red-500/40 text-red-600 hover:bg-red-500/10"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Doublons ({duplicateRMBs.length})</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={exportRmbSequencePDF}
                 disabled={rmbSequence.length === 0}
-                className="gap-2 text-xs"
+                className="h-9 gap-1.5 text-xs"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Exporter PDF (Suite RMB)</span>
+                <span>Exporter la suite RMB (PDF)</span>
               </Button>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="p-3 rounded-xl border border-border bg-muted/20">
-              <span className="text-[11px] text-muted-foreground font-medium">Plage analysée</span>
-              <p className="text-sm sm:text-base font-bold text-foreground mt-0.5">
-                {rmbSequence.length > 0
-                  ? `RMB 001 à ${rmbSequence[rmbSequence.length - 1].rmbFormatted}`
-                  : "—"}
-              </p>
-            </div>
-            <div className="p-3 rounded-xl border border-border bg-muted/20">
-              <span className="text-[11px] text-muted-foreground font-medium">Attribués</span>
-              <p className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {rmbSequence.length - totalMissingRmb}
-              </p>
-            </div>
-            <div className="p-3 rounded-xl border border-border bg-muted/20">
-              <span className="text-[11px] text-muted-foreground font-medium">Trous dans la suite</span>
-              <p
-                className={cn(
-                  "text-sm sm:text-base font-bold mt-0.5",
-                  totalMissingRmb > 0 ? "text-orange-600 dark:text-orange-400" : "text-emerald-600"
-                )}
-              >
-                {totalMissingRmb} manquant{totalMissingRmb > 1 ? "s" : ""}
-              </p>
-            </div>
-            <div className="p-3 rounded-xl border border-border bg-muted/20">
-              <span className="text-[11px] text-muted-foreground font-medium">Taux d'ordre</span>
-              <p className="text-sm sm:text-base font-bold text-foreground mt-0.5">
-                {rmbSequence.length > 0
-                  ? `${(
-                      ((rmbSequence.length - totalMissingRmb) / rmbSequence.length) *
-                      100
-                    ).toFixed(1)}%`
-                  : "100%"}
-              </p>
-            </div>
-          </div>
+        {/* ===================================================================== */}
+        {/* ONGLET 1 : VUE D'ENSEMBLE (GRAPHIQUES)                                */}
+        {/* ===================================================================== */}
+        {reportSection === "synthese" && (
+          <div className="space-y-6">
+            {/* Alerte rapide si des doublons RMB sont détectés */}
+            {duplicateRMBs.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-red-500/30 bg-red-500/5">
+                <div className="flex items-center gap-2.5 text-xs sm:text-sm">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>
+                    <strong className="text-red-600">{duplicateRMBs.length} numéro(s) RMB en doublon</strong> ont été détectés dans le cadastre.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDuplicatesReportOpen(true)}
+                    className="h-8 text-xs"
+                  >
+                    Voir les doublons
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReportSection("audit_rmb")}
+                    className="h-8 text-xs text-primary"
+                  >
+                    Contrôle RMB →
+                  </Button>
+                </div>
+              </div>
+            )}
 
-          {/* Filtres et recherche */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/30 overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => setRmbFilterMode("all")}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-                  rmbFilterMode === "all"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Tous ({rmbSequence.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRmbFilterMode("missing")}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-                  rmbFilterMode === "missing"
-                    ? "bg-orange-500 text-white font-bold shadow-sm"
-                    : "text-orange-600 hover:text-orange-700"
-                )}
-              >
-                Trous manquants ({totalMissingRmb})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRmbFilterMode("assigned")}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-                  rmbFilterMode === "assigned"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Attribués ({rmbSequence.length - totalMissingRmb})
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher RMB (ex: 007)..."
-                value={rmbSearchTerm}
-                onChange={(e) => setRmbSearchTerm(e.target.value)}
-                className="pl-9 h-9 text-xs"
-              />
-            </div>
-          </div>
-
-          {/* Tableau de la séquence logique */}
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
-                    Numéro RMB
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-48">
-                    État dans la suite
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px]">
-                    Emplacement cadastral
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px]">
-                    Concessionnaire / Titulaire
-                  </th>
-                  <th className="text-center px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
-                    Statut
-                  </th>
-                  <th className="text-right px-4 py-3 font-semibold text-foreground uppercase tracking-wider text-[11px] w-28">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredRmbSequence.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                      Aucun numéro correspondant aux critères sélectionnés.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRmbSequence.map((entry) => {
-                    if (entry.isMissing) {
-                      return (
-                        <tr
-                          key={entry.num}
-                          onClick={() => handleOpenMissingModal(entry)}
-                          className="bg-orange-500/10 hover:bg-orange-500/20 transition-colors border-l-4 border-l-orange-500 cursor-pointer group"
-                          title="Cliquer pour renseigner et attribuer ce numéro RMB manquant"
-                        >
-                          <td className="px-4 py-3 font-mono font-bold text-orange-700 dark:text-orange-400">
-                            {entry.rmbFormatted}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] gap-1 px-2.5 py-1 shadow-sm group-hover:scale-105 transition-transform">
-                              <AlertTriangle className="w-3 h-3" />
-                              <span>Manquant {entry.rmbFormatted}</span>
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground italic">
-                            Numéro sauté dans la suite logique — cliquer pour attribuer
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-orange-600 dark:text-orange-400 font-medium text-xs flex items-center gap-1 group-hover:underline">
-                              <Plus className="w-3.5 h-3.5" />
-                              Renseigner l'acquéreur
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wider bg-orange-200/80 dark:bg-orange-950 px-2 py-0.5 rounded-full border border-orange-300 dark:border-orange-800">
-                              Trou
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenMissingModal(entry);
-                              }}
-                              className="bg-orange-600 hover:bg-orange-700 text-white font-medium text-xs gap-1.5 h-8 px-3 shadow-sm"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Renseigner</span>
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    const firstItem = entry.items![0];
-                    const isParcelle = firstItem._entityType === "parcelle";
-                    const hasDup = entry.items!.length > 1;
-
-                    return (
-                      <tr
-                        key={entry.num}
-                        onClick={() => {
-                          if (hasDup) handleOpenDuplicateModal(entry);
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Évolution des Ventes */}
+              <Card className="p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-semibold text-foreground">
+                      Évolution mensuelle des ventes
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Cliquez sur une barre pour télécharger le rapport PDF du mois
+                    </p>
+                  </div>
+                </div>
+                <div className="h-56 sm:h-64">
+                  {monthlyData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <BarChart2 className="w-10 h-10 mx-auto mb-2 text-muted-foreground/40" />
+                        <p className="text-xs sm:text-sm">Aucune vente sur cette sélection</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={monthlyData}
+                        onClick={(data) => {
+                          if (data && data.activePayload && data.activePayload[0]) {
+                            const clickedMonth = data.activePayload[0].payload.sortKey;
+                            exportMonthlyPDF(clickedMonth);
+                          }
                         }}
-                        className={cn(
-                          "transition-colors",
-                          hasDup
-                            ? "bg-red-500/10 hover:bg-red-500/15 cursor-pointer"
-                            : "hover:bg-muted/40"
-                        )}
+                        style={{ cursor: "pointer" }}
                       >
-                        <td className="px-4 py-3 font-mono font-bold text-foreground">
-                          {entry.rmbFormatted}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge
-                              variant="outline"
-                              className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-medium"
-                            >
-                              <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                              Attribué
-                            </Badge>
-                            {hasDup && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenDuplicateModal(entry);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-transform hover:scale-105 cursor-pointer ring-2 ring-red-400/30"
-                                title="Cliquer pour voir et modifier ce doublon"
-                              >
-                                <AlertTriangle className="w-3 h-3" />
-                                <span>Doublon ({entry.items!.length})</span>
-                                <Edit className="w-2.5 h-2.5 ml-0.5 opacity-80" />
-                              </button>
-                            )}
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={10}
+                          tick={{ fontSize: 10 }}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} width={30} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                            fontSize: "12px",
+                          }}
+                          formatter={(value: number, name: string) => {
+                            if (name === "revenus") return [`${value.toLocaleString()} USD`, "Revenus"];
+                            return [value, "Ventes"];
+                          }}
+                        />
+                        <Bar dataKey="ventes" radius={[6, 6, 0, 0]}>
+                          {monthlyData.map((entry) => (
+                            <Cell
+                              key={entry.sortKey}
+                              fill={
+                                entry.sortKey === selectedMonth
+                                  ? "hsl(160, 84%, 39%)"
+                                  : "hsl(217, 91%, 60%)"
+                              }
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </Card>
+
+              {/* Performance par Hectare */}
+              <Card className="p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-semibold text-foreground">
+                      Hectares les plus actifs
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Top 5 par volume de revenus</p>
+                  </div>
+                </div>
+                <div className="space-y-3.5">
+                  {hectareStats.length === 0 ? (
+                    <div className="h-56 flex items-center justify-center text-muted-foreground">
+                      <p className="text-xs sm:text-sm">Aucune donnée disponible</p>
+                    </div>
+                  ) : (
+                    (() => {
+                      const top5 = hectareStats.slice(0, 5);
+                      const maxRevenue = Math.max(...top5.map((h) => h.revenue));
+                      return top5.map((hectare) => {
+                        const pct = maxRevenue > 0 ? (hectare.revenue / maxRevenue) * 100 : 0;
+                        return (
+                          <div key={hectare.id} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="font-medium text-foreground truncate">{hectare.name}</span>
+                              <div className="flex items-center gap-3 shrink-0 ml-2">
+                                <span className="font-semibold text-foreground tabular-nums">
+                                  {hectare.revenue.toLocaleString("fr-FR")} USD
+                                </span>
+                                <span className="text-muted-foreground text-xs w-10 text-right tabular-nums">
+                                  {hectare.salesRate.toFixed(0)}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all duration-500"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-foreground">
-                          <div>
-                            {isParcelle ? `Parcelle ${firstItem.numero}` : firstItem.name}
-                          </div>
-                          {firstItem.hectares?.name && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {firstItem.hectares.name}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-foreground">
-                            {firstItem.buyer_name || "Disponible (sans acquéreur)"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={cn(
-                              "px-2 py-0.5 rounded text-[10px] font-semibold",
-                              firstItem.status === "vendu" || firstItem.status === "sold"
-                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
-                                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                            )}
-                          >
-                            {firstItem.status === "vendu" || firstItem.status === "sold"
-                              ? "Vendu"
-                              : "Disponible"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {hasDup ? (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenDuplicateModal(entry);
-                              }}
-                              className="h-7 text-xs px-2.5 font-medium shadow-sm gap-1 hover:bg-red-700"
-                              title="Voir et modifier ce doublon"
-                            >
-                              <Edit className="w-3 h-3" />
-                              <span>Gérer</span>
-                            </Button>
-                          ) : (
-                            <span className="text-muted-foreground text-[11px]">—</span>
-                          )}
+                        );
+                      });
+                    })()
+                  )}
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* ===================================================================== */}
+        {/* ONGLET 2 : JOURNAL DES VENTES                                         */}
+        {/* ===================================================================== */}
+        {reportSection === "transactions" && (
+          <Card className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-sm sm:text-base font-semibold text-foreground">
+                  Détail des transactions
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Cliquez sur « Parcelles » ou « Hectares » pour basculer entre les deux listes.
+                </p>
+              </div>
+
+              <div className="flex gap-1 bg-muted p-1 rounded-lg self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("parcelles")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5",
+                    activeTab === "parcelles"
+                      ? "bg-background shadow-2xs text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Grid3x3 className="w-3.5 h-3.5" />
+                  <span>
+                    Parcelles (
+                    {soldParcellesList.reduce(
+                      (sum, p) => sum + Math.max(1, Math.ceil(Number(p.surface || 600) / 600)),
+                      0
+                    )}
+                    )
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("hectares")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5",
+                    activeTab === "hectares"
+                      ? "bg-background shadow-2xs text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Hectares ({soldHectaresList.length})</span>
+                </button>
+              </div>
+            </div>
+
+            {activeTab === "parcelles" ? (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground font-medium bg-muted/40">
+                      <th className="p-3">Lot / RMB</th>
+                      <th className="p-3">Hectare</th>
+                      <th className="p-3">Acheteur</th>
+                      <th className="p-3">Statut</th>
+                      <th className="p-3 text-right">Prix</th>
+                      <th className="p-3 text-right">Payé</th>
+                      <th className="p-3 text-right">Reste</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {soldParcellesList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                          Aucune parcelle vendue pour ces critères
                         </td>
                       </tr>
+                    ) : (
+                      soldParcellesList.map((p) => {
+                        const isFree = p.sale_type === "onereux";
+                        const remaining = isFree ? 0 : p.prix - (p.amount_paid || 0);
+                        const isDuplicateRMB = p.rmb_number && duplicateRMBs.includes(p.rmb_number);
+                        const pCount = Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
+                        const isPAR = p.sale_type === "a_renseigner" || (!p.sale_type && p.status === "vendu");
+                        return (
+                          <tr
+                            key={p.id}
+                            className={cn(
+                              "hover:bg-muted/30 transition-colors",
+                              isDuplicateRMB && "bg-red-500/5"
+                            )}
+                          >
+                            <td className="p-3 font-medium text-foreground">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span>Parcelle {p.numero}</span>
+                                {pCount > 1 && (
+                                  <span className="text-[11px] text-muted-foreground">({pCount} p.)</span>
+                                )}
+                                {p.rmb_number && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    · {p.rmb_number}
+                                  </span>
+                                )}
+                                {isDuplicateRMB && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const num = parseInt(p.rmb_number.replace(/\D/g, ""), 10) || 0;
+                                      const matchingParcelles = allParcelles
+                                        .filter((item) => item.rmb_number === p.rmb_number)
+                                        .map((item) => ({ ...item, _entityType: "parcelle" }));
+                                      const matchingHectares = allHectares
+                                        .filter((item) => item.rmb_number === p.rmb_number)
+                                        .map((item) => ({ ...item, _entityType: "hectare" }));
+                                      handleOpenDuplicateModal({
+                                        num,
+                                        rmbFormatted: p.rmb_number,
+                                        items: [...matchingParcelles, ...matchingHectares],
+                                      });
+                                    }}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-600 font-semibold hover:bg-red-500/25"
+                                  >
+                                    Doublon
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 text-muted-foreground">{p.hectares?.name || "—"}</td>
+                            <td className="p-3 font-medium text-foreground">{p.buyer_name || "—"}</td>
+                            <td className="p-3">
+                              <span
+                                className={cn(
+                                  "px-2 py-0.5 rounded text-[11px] font-medium",
+                                  isFree || isPAR
+                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    : "bg-muted text-foreground"
+                                )}
+                              >
+                                {isFree ? "Gratuit" : isPAR ? "À renseigner" : "Normal"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-foreground">
+                              {isFree ? "—" : `${(p.prix || 0).toLocaleString("fr-FR")} $`}
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-emerald-600 font-medium">
+                              {isFree ? "—" : `${(p.amount_paid || 0).toLocaleString("fr-FR")} $`}
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-orange-600">
+                              {isFree || remaining <= 0 ? "—" : `${remaining.toLocaleString("fr-FR")} $`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground font-medium bg-muted/40">
+                      <th className="p-3">Hectare / RMB</th>
+                      <th className="p-3">Acheteur</th>
+                      <th className="p-3">Statut</th>
+                      <th className="p-3 text-right">Prix</th>
+                      <th className="p-3 text-right">Payé</th>
+                      <th className="p-3 text-right">Reste</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {soldHectaresList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center p-8 text-muted-foreground">
+                          Aucun hectare vendu pour ces critères
+                        </td>
+                      </tr>
+                    ) : (
+                      soldHectaresList.map((h) => {
+                        const isFree = h.sale_type === "onereux";
+                        const remaining = isFree ? 0 : h.prix - (h.amount_paid || 0);
+                        const isDuplicateRMB = h.rmb_number && duplicateRMBs.includes(h.rmb_number);
+                        const isHAR =
+                          h.sale_type === "a_renseigner" ||
+                          (!h.sale_type && (h.status === "vendu" || h.status === "sold"));
+                        return (
+                          <tr
+                            key={h.id}
+                            className={cn(
+                              "hover:bg-muted/30 transition-colors",
+                              isDuplicateRMB && "bg-red-500/5"
+                            )}
+                          >
+                            <td className="p-3 font-medium text-foreground">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span>{h.name}</span>
+                                {h.rmb_number && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    · {h.rmb_number}
+                                  </span>
+                                )}
+                                {isDuplicateRMB && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const num = parseInt(h.rmb_number.replace(/\D/g, ""), 10) || 0;
+                                      const matchingParcelles = allParcelles
+                                        .filter((item) => item.rmb_number === h.rmb_number)
+                                        .map((item) => ({ ...item, _entityType: "parcelle" }));
+                                      const matchingHectares = allHectares
+                                        .filter((item) => item.rmb_number === h.rmb_number)
+                                        .map((item) => ({ ...item, _entityType: "hectare" }));
+                                      handleOpenDuplicateModal({
+                                        num,
+                                        rmbFormatted: h.rmb_number,
+                                        items: [...matchingParcelles, ...matchingHectares],
+                                      });
+                                    }}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-600 font-semibold hover:bg-red-500/25"
+                                  >
+                                    Doublon
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 font-medium text-foreground">{h.buyer_name || "—"}</td>
+                            <td className="p-3">
+                              <span
+                                className={cn(
+                                  "px-2 py-0.5 rounded text-[11px] font-medium",
+                                  isFree || isHAR
+                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    : "bg-muted text-foreground"
+                                )}
+                              >
+                                {isFree ? "Gratuit" : isHAR ? "À renseigner" : "Normal"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-foreground">
+                              {isFree ? "—" : `${(h.prix || 0).toLocaleString("fr-FR")} $`}
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-emerald-600 font-medium">
+                              {isFree ? "—" : `${(h.amount_paid || 0).toLocaleString("fr-FR")} $`}
+                            </td>
+                            <td className="p-3 text-right tabular-nums text-orange-600">
+                              {isFree || remaining <= 0 ? "—" : `${remaining.toLocaleString("fr-FR")} $`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* ===================================================================== */}
+        {/* ONGLET 3 : CONTRÔLE DES NUMÉROS RMB (SUITE LOGIQUE & DOUBLONS)        */}
+        {/* ===================================================================== */}
+        {reportSection === "audit_rmb" && (
+          <div className="space-y-4">
+            {/* Alerte doublons si existants */}
+            {duplicateRMBs.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-red-500/30 bg-red-500/5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {duplicateRMBs.length} numéro(s) RMB attribué(s) plusieurs fois
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Cliquez sur « Gérer les doublons » pour attribuer un nouveau numéro aux lots en conflit.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="outline" size="sm" onClick={exportDuplicatesPDF} className="h-8 text-xs">
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    PDF Doublons
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDuplicatesReportOpen(true)}
+                    className="h-8 text-xs"
+                  >
+                    Gérer les doublons
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Card className="p-4 sm:p-5">
+              {/* Filtres et barre de recherche de la suite RMB */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-1 border-b sm:border-b-0 border-border overflow-x-auto">
+                  {([
+                    { key: "all", label: "Toute la suite", count: rmbSequence.length, dot: null },
+                    { key: "missing", label: "Trous à renseigner", count: totalMissingRmb, dot: "bg-orange-500" },
+                    {
+                      key: "assigned",
+                      label: "Attribués",
+                      count: rmbSequence.length - totalMissingRmb,
+                      dot: "bg-emerald-500",
+                    },
+                  ] as const).map((tab) => {
+                    const active = rmbFilterMode === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setRmbFilterMode(tab.key)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                          active
+                            ? "bg-foreground text-background font-semibold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`} />}
+                        <span>{tab.label}</span>
+                        <span className="opacity-75 tabular-nums">({tab.count})</span>
+                      </button>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Chercher un RMB ou un nom..."
+                    value={rmbSearchTerm}
+                    onChange={(e) => setRmbSearchTerm(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Tableau de la séquence logique */}
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
+                      <th className="text-left px-4 py-2.5 w-28">N° RMB</th>
+                      <th className="text-left px-4 py-2.5 w-40">État</th>
+                      <th className="text-left px-4 py-2.5">Emplacement</th>
+                      <th className="text-left px-4 py-2.5">Titulaire</th>
+                      <th className="text-right px-4 py-2.5 w-32">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredRmbSequence.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          Aucun numéro correspondant aux critères sélectionnés.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRmbSequence.map((entry) => {
+                        if (entry.isMissing) {
+                          return (
+                            <tr
+                              key={entry.num}
+                              onClick={() => handleOpenMissingModal(entry)}
+                              className="bg-orange-500/5 hover:bg-orange-500/10 transition-colors cursor-pointer"
+                            >
+                              <td className="px-4 py-2.5 font-mono font-semibold text-orange-600 dark:text-orange-400">
+                                {entry.rmbFormatted}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                                  Numéro manquant
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-muted-foreground italic text-xs">
+                                Non attribué
+                              </td>
+                              <td className="px-4 py-2.5 text-muted-foreground text-xs">—</td>
+                              <td className="px-4 py-2.5 text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenMissingModal(entry);
+                                  }}
+                                  className="h-7 text-xs px-2.5 border-orange-500/40 text-orange-600 hover:bg-orange-500/10"
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Renseigner
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        const firstItem = entry.items![0];
+                        const isParcelle = firstItem._entityType === "parcelle";
+                        const hasDup = entry.items!.length > 1;
+
+                        return (
+                          <tr
+                            key={entry.num}
+                            onClick={() => {
+                              if (hasDup) handleOpenDuplicateModal(entry);
+                            }}
+                            className={cn(
+                              "transition-colors",
+                              hasDup
+                                ? "bg-red-500/5 hover:bg-red-500/10 cursor-pointer"
+                                : "hover:bg-muted/30"
+                            )}
+                          >
+                            <td className="px-4 py-2.5 font-mono font-semibold text-foreground">
+                              {entry.rmbFormatted}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {hasDup ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                  Doublon ({entry.items!.length})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  Attribué
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-foreground">
+                              <span>{isParcelle ? `Parcelle ${firstItem.numero}` : firstItem.name}</span>
+                              {firstItem.hectares?.name && (
+                                <span className="text-xs text-muted-foreground ml-1.5">
+                                  · {firstItem.hectares.name}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 font-medium text-foreground">
+                              {firstItem.buyer_name || (
+                                <span className="text-muted-foreground font-normal">Disponible</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              {hasDup ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenDuplicateModal(entry);
+                                  }}
+                                  className="h-7 text-xs px-2.5 border-red-500/40 text-red-600 hover:bg-red-500/10"
+                                >
+                                  <Edit className="w-3 h-3 mr-1" />
+                                  Corriger
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </div>
-        </Card>
+        )}
       </div>
 
       {/* Dialog pour le rapport des doublons RMB */}
