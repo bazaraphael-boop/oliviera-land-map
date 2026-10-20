@@ -1,6 +1,3 @@
-import { Card } from "@/components/ui/card";
-import { Users, DollarSign, MapPin, LandPlot, AlertTriangle } from "lucide-react";
-
 interface BuyerStatsCardsProps {
   totalAcheteurs: number;
   totalRevenu: number;
@@ -10,91 +7,33 @@ interface BuyerStatsCardsProps {
   onFilterMissingDocs?: () => void;
 }
 
-export function BuyerStatsCards({ 
-  totalAcheteurs, 
-  totalRevenu, 
-  totalParcelles, 
+/**
+ * Bandeau de statistiques compact et sobre (une seule ligne, sans couleurs vives).
+ * Le compteur "sans document" est géré par les filtres, il n'est donc plus dupliqué ici.
+ */
+export function BuyerStatsCards({
+  totalAcheteurs,
+  totalRevenu,
+  totalParcelles,
   totalHectares,
-  missingDocsCount,
-  onFilterMissingDocs
 }: BuyerStatsCardsProps) {
   const stats = [
-    { label: "Acheteurs", value: totalAcheteurs, icon: Users, color: "from-primary/20 to-primary/5", iconColor: "text-primary", bgColor: "bg-primary/10" },
-    ...(missingDocsCount !== undefined ? [{
-      label: "Sans document",
-      value: missingDocsCount,
-      suffix: (missingDocsCount > 0 ? "incomplet(s)" : "dossier"),
-      icon: AlertTriangle,
-      color: missingDocsCount > 0 ? "from-red-500/25 to-red-500/10 border border-red-500/30" : "from-emerald-500/20 to-emerald-500/5",
-      iconColor: missingDocsCount > 0 ? "text-red-600" : "text-emerald-600",
-      bgColor: missingDocsCount > 0 ? "bg-red-500/20" : "bg-emerald-500/10",
-      onClick: onFilterMissingDocs,
-    }] : []),
-    { label: "Revenus", value: `${totalRevenu.toLocaleString()}`, suffix: "USD", icon: DollarSign, color: "from-emerald-500/20 to-emerald-500/5", iconColor: "text-emerald-600", bgColor: "bg-emerald-500/10" },
-    { label: "Parcelles", value: totalParcelles, icon: MapPin, color: "from-blue-500/20 to-blue-500/5", iconColor: "text-blue-600", bgColor: "bg-blue-500/10" },
-    { label: "Hectares", value: totalHectares, icon: LandPlot, color: "from-amber-500/20 to-amber-500/5", iconColor: "text-amber-600", bgColor: "bg-amber-500/10" }
+    { label: "Acheteurs", value: totalAcheteurs.toLocaleString("fr-FR") },
+    { label: "Revenus", value: `${totalRevenu.toLocaleString("fr-FR")} USD` },
+    { label: "Parcelles", value: totalParcelles.toLocaleString("fr-FR") },
+    { label: "Hectares", value: Number(totalHectares.toFixed(2)).toLocaleString("fr-FR") },
   ];
 
   return (
-    <>
-      {/* Mobile: horizontal scroll */}
-      <div className="sm:hidden -mx-4 px-4 overflow-x-auto">
-        <div className="flex w-max gap-3 pb-2">
-          {stats.map((stat) => (
-            <Card
-              key={stat.label}
-              className={`w-[220px] shrink-0 p-3 bg-gradient-to-br ${stat.color} border-0 shadow-sm`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
-                  <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xl font-bold text-foreground truncate">
-                    {stat.value}
-                    {stat.suffix && (
-                      <span className="text-sm font-normal text-muted-foreground ml-1">
-                        {stat.suffix}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-                </div>
-              </div>
-            </Card>
-          ))}
+    <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-border bg-card divide-y sm:divide-y-0 sm:divide-x divide-border">
+      {stats.map((stat) => (
+        <div key={stat.label} className="px-4 py-3 min-w-0">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{stat.label}</p>
+          <p className="text-lg font-semibold text-foreground truncate" title={stat.value}>
+            {stat.value}
+          </p>
         </div>
-      </div>
-
-      {/* Desktop/tablet */}
-      <div className={`hidden sm:grid grid-cols-2 ${missingDocsCount !== undefined ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3`}>
-        {stats.map((stat) => (
-          <Card 
-            key={stat.label} 
-            onClick={stat.onClick}
-            className={`p-4 bg-gradient-to-br ${stat.color} shadow-sm transition-all ${
-              stat.onClick ? 'cursor-pointer hover:scale-[1.02] hover:shadow-md' : 'border-0'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
-                <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl lg:text-2xl font-bold text-foreground truncate">
-                  {stat.value}
-                  {stat.suffix && (
-                    <span className="text-xs font-normal text-muted-foreground ml-1">
-                      {stat.suffix}
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </>
+      ))}
+    </div>
   );
 }

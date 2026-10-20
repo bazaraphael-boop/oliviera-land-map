@@ -1512,11 +1512,6 @@ const Acheteurs = () => {
               <span className="md:hidden">Export</span>
             </Button>
 
-            <div className="hidden lg:flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{filteredAcheteurs.length} concessionnaire{filteredAcheteurs.length > 1 ? 's' : ''}</span>
-            </div>
-
             <Button onClick={() => setShowNewBuyerDialog(true)} className="h-11 px-4 gap-2 font-semibold">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nouvelle Inscription Foncière</span>
@@ -1525,73 +1520,48 @@ const Acheteurs = () => {
           </div>
         </div>
 
-        {/* Filtres rapides par statut des documents justificatifs */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setDocFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              docFilter === "all"
-                ? "bg-foreground text-background shadow-xs"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            Tous les concessionnaires ({acheteurs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setDocFilter("missing")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              docFilter === "missing"
-                ? "bg-red-600 text-white shadow-xs"
-                : "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20 border border-red-500/30"
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            ⚠️ Documents non ajoutés ({missingDocsCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setDocFilter("with")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              docFilter === "with"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            ✓ Avec documents ({withDocsCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setDocFilter("pending_sale")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              docFilter === "pending_sale"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            ⏳ Ventes à renseigner ({pendingSalesCount})
-          </button>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="mb-6">
-          <BuyerStatsCards 
+        {/* Statistiques (bandeau compact) */}
+        <div className="mb-4">
+          <BuyerStatsCards
             totalAcheteurs={acheteurs.length}
             totalRevenu={acheteurs.reduce((sum, a) => sum + a.totalAchat, 0)}
             totalParcelles={acheteurs.reduce((sum, a) => sum + a.nombreParcelles, 0)}
             totalHectares={acheteurs.reduce((sum, a) => sum + a.nombreHectares, 0)}
-            missingDocsCount={missingDocsCount}
-            onFilterMissingDocs={() => setDocFilter(docFilter === "missing" ? "all" : "missing")}
           />
+        </div>
+
+        {/* Filtres rapides par statut des documents justificatifs */}
+        <div className="flex items-center gap-1 mb-4 border-b border-border overflow-x-auto">
+          {([
+            { key: "all", label: "Tous", count: acheteurs.length, dot: null },
+            { key: "missing", label: "Sans document", count: missingDocsCount, dot: "bg-red-500" },
+            { key: "with", label: "Avec documents", count: withDocsCount, dot: "bg-emerald-500" },
+            { key: "pending_sale", label: "Ventes à renseigner", count: pendingSalesCount, dot: "bg-amber-500" },
+          ] as const).map((f) => {
+            const active = docFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setDocFilter(f.key as typeof docFilter)}
+                className={`flex items-center gap-2 px-3 py-2 -mb-px text-sm whitespace-nowrap border-b-2 transition-colors ${
+                  active
+                    ? "border-primary text-foreground font-semibold"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f.dot && <span className={`w-1.5 h-1.5 rounded-full ${f.dot}`} />}
+                <span>{f.label}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{f.count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Vue CARTES */}
         {viewMode === "cards" && (
           <div className="flex-1 overflow-y-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               {displayedAcheteurs.map((acheteur) => (
                 <BuyerCard
                   key={acheteur.id}

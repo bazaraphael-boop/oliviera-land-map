@@ -1,8 +1,22 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { User, Phone, Mail, Edit2, ChevronRight, Pin, FileText, DollarSign, Grid3x3, Map as MapIcon, AlertTriangle, CheckCircle2, Clock, SlidersHorizontal, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Phone,
+  Edit2,
+  ChevronRight,
+  MoreHorizontal,
+  SlidersHorizontal,
+  Trash2,
+  CheckSquare,
+  Square,
+} from "lucide-react";
 
 interface Acheteur {
   id: string;
@@ -28,6 +42,18 @@ interface BuyerCardProps {
   onDelete?: () => void;
 }
 
+/** Nombre maximum de lots affichés avant le "+N" */
+const MAX_VISIBLE_LOTS = 4;
+
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+}
+
 export function BuyerCard({
   acheteur,
   onShowDetails,
@@ -36,276 +62,156 @@ export function BuyerCard({
   onEditQuota,
   onDelete,
 }: BuyerCardProps) {
-  const isPinned = !acheteur.paper_form_completed;
-
-  const isItemPending = (item: { sale_type?: string | null }) => item.sale_type === 'a_renseigner' || !item.sale_type;
+  const isItemPending = (item: { sale_type?: string | null }) =>
+    item.sale_type === "a_renseigner" || !item.sale_type;
 
   const totalItemsCount = acheteur.parcelles.length + acheteur.hectares.length;
-  const isAllPending = totalItemsCount > 0 &&
+  const isAllPending =
+    totalItemsCount > 0 &&
     (acheteur.parcelles.length === 0 || acheteur.parcelles.every(isItemPending)) &&
     (acheteur.hectares.length === 0 || acheteur.hectares.every(isItemPending));
+  const hasPendingSale =
+    acheteur.parcelles.some(isItemPending) || acheteur.hectares.some(isItemPending);
 
-  const hasPendingSale = acheteur.parcelles.some(isItemPending) ||
-    acheteur.hectares.some(isItemPending);
+  // Liste unifiée des lots (parcelles + hectares), libellé court
+  const lots = [
+    ...acheteur.parcelles
+      .filter((p) => p.numero || p.rmb_number)
+      .map((p) => {
+        const n = p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600));
+        return {
+          label: p.rmb_number || p.numero,
+          extra: n > 1 ? `${n} p.` : null,
+          pending: isItemPending(p),
+        };
+      }),
+    ...acheteur.hectares
+      .filter((h) => h.name || h.rmb_number)
+      .map((h) => ({
+        label: h.rmb_number || h.name,
+        extra: `${Number(h.surface || 1)} ha`,
+        pending: isItemPending(h),
+      })),
+  ];
+  const visibleLots = lots.slice(0, MAX_VISIBLE_LOTS);
+  const hiddenLotsCount = lots.length - visibleLots.length;
 
-  // Collecter tous les RMB de parcelles
-  const parcelleRmbs = acheteur.parcelles
-    .map(p => ({
-      numero: p.numero,
-      rmb: p.rmb_number,
-      surface: p.surface,
-      isPending: isItemPending(p),
-      nombreParcelles: p.nombreParcelles || Math.max(1, Math.ceil(Number(p.surface || 600) / 600))
-    }))
-    .filter(p => p.numero || p.rmb);
+  // Un seul indicateur de statut, par ordre de priorité
+  const status = !acheteur.has_documents
+    ? { dot: "bg-red-500", text: "Sans document", cls: "text-red-600 dark:text-red-400" }
+    : hasPendingSale
+    ? { dot: "bg-amber-500", text: "Vente à renseigner", cls: "text-amber-700 dark:text-amber-400" }
+    : {
+        dot: "bg-emerald-500",
+        text: `${acheteur.documents_count} doc${(acheteur.documents_count || 0) > 1 ? "s" : ""}`,
+        cls: "text-muted-foreground",
+      };
 
-  // Collecter tous les RMB d'hectares
-  const hectareRmbs = acheteur.hectares
-    .map(h => ({
-      nom: h.name,
-      rmb: h.rmb_number,
-      surface: h.surface,
-      isPending: isItemPending(h),
-    }))
-    .filter(h => h.nom || h.rmb);
+  const summary = [
+    acheteur.nombreParcelles > 0
+      ? `${acheteur.nombreParcelles} parcelle${acheteur.nombreParcelles > 1 ? "s" : ""}`
+      : null,
+    acheteur.nombreHectares > 0 ? `${acheteur.nombreHectares} ha` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <Card className={`relative overflow-hidden transition-all duration-200 ${
-      isAllPending
-        ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/5 via-card to-card shadow-sm hover:shadow-md'
-        : isPinned
-        ? 'border-orange-500/50 bg-gradient-to-r from-orange-500/5 via-card to-card shadow-sm'
-        : 'bg-card hover:shadow-md'
-    }`}>
-      {isAllPending ? (
-        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
-      ) : isPinned ? (
-        <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
-      ) : null}
-      <div className="p-3 sm:p-4 space-y-3">
+    <Card
+      className="group bg-card hover:border-primary/40 transition-colors cursor-pointer"
+      onClick={onShowDetails}
+    >
+      <div className="flex items-center gap-3 p-3 sm:px-4">
+        {/* Avatar */}
+        <div className="w-9 h-9 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-semibold shrink-0">
+          {getInitials(acheteur.buyer_name) || "?"}
+        </div>
 
-        {/* Ligne 1 : Identité */}
-        <div className="flex items-start gap-3">
-          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl shrink-0 flex items-center justify-center ${
-            isAllPending
-              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
-              : isPinned
-              ? 'bg-orange-500/20 text-orange-500'
-              : 'bg-gradient-to-br from-primary/20 to-primary/5 text-primary'
-          }`}>
-            {isAllPending ? (
-              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
-            ) : isPinned ? (
-              <Pin className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
-            ) : (
-              <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-            )}
+        {/* Identité + lots */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-semibold text-sm text-foreground truncate">{acheteur.buyer_name}</h3>
+            <span className={`flex items-center gap-1.5 text-xs shrink-0 ${status.cls}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+              {status.text}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-foreground text-sm sm:text-base truncate">{acheteur.buyer_name}</h3>
-              {isAllPending ? (
-                <Badge
-                  variant="outline"
-                  className="bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-bold gap-1 px-2 py-0.5 shadow-2xs"
-                >
-                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                  <span>À renseigner (En attente)</span>
-                </Badge>
-              ) : hasPendingSale ? (
-                <Badge
-                  variant="outline"
-                  className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-medium gap-1 px-1.5 py-0.5"
-                >
-                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                  <span>Vente à régulariser</span>
-                </Badge>
-              ) : null}
-              {!acheteur.has_documents ? (
-                <Badge
-                  variant="outline"
-                  className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-[10px] font-bold gap-1 px-2 py-0.5 shadow-xs"
-                >
-                  <AlertTriangle className="w-3 h-3 text-red-600 shrink-0" />
-                  <span>Document non ajouté</span>
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-medium gap-1 px-2 py-0.5"
-                >
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                  <span>{acheteur.documents_count} doc{(acheteur.documents_count || 0) > 1 ? 's' : ''}</span>
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-              {acheteur.buyer_phone && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Phone className="w-3 h-3 shrink-0" />{acheteur.buyer_phone}
-                </span>
-              )}
-              {acheteur.buyer_email && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Mail className="w-3 h-3 shrink-0" /><span className="truncate max-w-[140px]">{acheteur.buyer_email}</span>
-                </span>
-              )}
-            </div>
-          </div>
-          {/* Actions */}
-          <div className="flex items-center gap-1 shrink-0">
-            <div
-              className="flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-muted/50"
-              onClick={(e) => { e.stopPropagation(); onTogglePaperForm(); }}
-              title={acheteur.paper_form_completed ? "Formulaire complété" : "Formulaire à compléter"}
-            >
-              <Checkbox checked={acheteur.paper_form_completed} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <FileText className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${acheteur.paper_form_completed ? 'text-emerald-500' : 'text-orange-500'}`} />
-            </div>
-            {onEditQuota && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditQuota();
-                }}
-                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                title="Modifier le quota de parcelles"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </Button>
+
+          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-muted-foreground">
+            {acheteur.buyer_phone && (
+              <span className="flex items-center gap-1">
+                <Phone className="w-3 h-3" />
+                {acheteur.buyer_phone}
+              </span>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-              title="Modifier les coordonnées"
-            >
-              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </Button>
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                title="Supprimer ce concessionnaire"
-              >
-                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </Button>
+            {visibleLots.length > 0 && (
+              <span className="flex items-center gap-1 flex-wrap">
+                {visibleLots.map((l, i) => (
+                  <span
+                    key={i}
+                    className={`px-1.5 py-0.5 rounded bg-muted font-mono text-[11px] ${
+                      l.pending ? "text-amber-700 dark:text-amber-400" : "text-foreground/80"
+                    }`}
+                  >
+                    {l.label}
+                    {l.extra && <span className="opacity-60"> · {l.extra}</span>}
+                  </span>
+                ))}
+                {hiddenLotsCount > 0 && (
+                  <span className="text-[11px] text-muted-foreground">+{hiddenLotsCount}</span>
+                )}
+              </span>
             )}
-            <Button variant="outline" size="sm" onClick={onShowDetails} className="h-7 sm:h-8 px-2 sm:px-3 text-xs">
-              <span className="hidden sm:inline">Détails</span>
-              <span className="sm:hidden">Voir</span>
-              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 sm:ml-1" />
-            </Button>
           </div>
         </div>
 
-        {/* Ligne 2 : Parcelles avec numéros */}
-        {parcelleRmbs.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pl-0 sm:pl-[52px]">
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mr-1">
-              <Grid3x3 className="w-3 h-3" /> Parcelles :
-            </span>
-            {parcelleRmbs.map((p, i) => (
-              <Badge
-                key={i}
-                variant="secondary"
-                className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
-                  p.isPending
-                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
-                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                }`}
-              >
-                {p.numero || p.rmb}
-                {p.rmb && p.numero && p.rmb !== p.numero && (
-                  <span className="ml-1 opacity-60">· {p.rmb}</span>
-                )}
-                {p.nombreParcelles > 1 && (
-                  <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-300">({p.nombreParcelles} p.)</span>
-                )}
-                {p.isPending && (
-                  <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
-                )}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Résumé chiffré */}
+        <div className="hidden md:block text-right shrink-0">
+          <p className="text-sm font-semibold text-foreground tabular-nums">
+            {isAllPending ? "—" : `${acheteur.totalAchat.toLocaleString("fr-FR")} USD`}
+          </p>
+          <p className="text-xs text-muted-foreground">{summary}</p>
+        </div>
 
-        {/* Ligne 3 : Hectares avec noms */}
-        {hectareRmbs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pl-0 sm:pl-[52px]">
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mr-1">
-              <MapIcon className="w-3 h-3" /> Hectares :
-            </span>
-            {hectareRmbs.map((h, i) => {
-              const surfHa = Number(h.surface || 1);
-              const surfDisplay =
-                surfHa < 1
-                  ? `${surfHa} ha (${Math.round(surfHa * 10000).toLocaleString("fr-FR")} m²)`
-                  : `${surfHa} ha`;
-              return (
-                <Badge
-                  key={i}
-                  variant="secondary"
-                  className={`text-[10px] sm:text-xs px-1.5 py-0.5 font-medium ${
-                    h.isPending
-                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
-                      : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
-                  }`}
-                >
-                  {h.nom}
-                  {h.rmb && (
-                    <span className="ml-1 opacity-60">· {h.rmb}</span>
-                  )}
-                  <span className="ml-1 font-semibold text-blue-800 dark:text-blue-300">
-                    ({surfDisplay})
-                  </span>
-                  {h.isPending && (
-                    <span className="ml-1 text-[9px] font-bold text-amber-700 dark:text-amber-300">· À renseigner</span>
-                  )}
-                </Badge>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Ligne 4 : Résumé financier */}
-        <div className="flex items-center gap-2 flex-wrap pl-0 sm:pl-[52px] pt-1 border-t border-border/40">
-          {acheteur.nombreParcelles > 0 && (
-            <Badge variant="secondary" className="text-[10px] sm:text-xs">
-              <Grid3x3 className="w-3 h-3 mr-1" />
-              {acheteur.nombreParcelles} parcelle{acheteur.nombreParcelles > 1 ? 's' : ''}
-            </Badge>
-          )}
-          {acheteur.nombreHectares > 0 && (
-            <Badge className="text-[10px] sm:text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
-              <MapIcon className="w-3 h-3 mr-1" />
-              {acheteur.nombreHectares < 1
-                ? `${acheteur.nombreHectares} ha (${Math.round(acheteur.nombreHectares * 10000).toLocaleString("fr-FR")} m²)`
-                : `${acheteur.nombreHectares} ha`}
-            </Badge>
-          )}
-          {isAllPending ? (
-            <Badge variant="outline" className="text-[10px] sm:text-xs ml-auto bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-semibold gap-1 px-2 py-0.5">
-              <Clock className="w-3 h-3 text-amber-600" />
-              <span>Montant à renseigner</span>
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-[10px] sm:text-xs ml-auto">
-              <DollarSign className="w-3 h-3 mr-0.5" />
-              {acheteur.totalAchat.toLocaleString()} USD
-              {hasPendingSale && (
-                <span className="text-[9px] text-amber-600 dark:text-amber-400 ml-1 font-medium">(+ en attente)</span>
+        {/* Actions : une seule icône visible + menu */}
+        <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="Actions">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={onEdit}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Modifier les coordonnées
+              </DropdownMenuItem>
+              {onEditQuota && (
+                <DropdownMenuItem onClick={onEditQuota}>
+                  <SlidersHorizontal className="w-4 h-4 mr-2" />
+                  Modifier le quota
+                </DropdownMenuItem>
               )}
-            </Badge>
-          )}
+              <DropdownMenuItem onClick={onTogglePaperForm}>
+                {acheteur.paper_form_completed ? (
+                  <CheckSquare className="w-4 h-4 mr-2 text-emerald-600" />
+                ) : (
+                  <Square className="w-4 h-4 mr-2" />
+                )}
+                Fiche papier complétée
+              </DropdownMenuItem>
+              {onDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </div>
     </Card>
