@@ -2230,7 +2230,7 @@ const Hectares = () => {
                     <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                       {buyers.slice(0, 8).map((b) => (
                         <button
-                          key={b.key}
+                          key={b.id}
                           type="button"
                           onClick={() => handleSelectBuyerForAdd(b)}
                           className="px-2 py-0.5 rounded-md bg-background border border-blue-300 dark:border-blue-700 hover:border-blue-500 text-[11px] font-medium text-foreground transition-colors"
@@ -2616,7 +2616,7 @@ const Hectares = () => {
                     <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                       {buyers.slice(0, 8).map((b) => (
                         <button
-                          key={b.key}
+                          key={b.id}
                           type="button"
                           onClick={() => handleSelectBuyerForEdit(b)}
                           className="px-2 py-0.5 rounded-md bg-background border border-blue-300 dark:border-blue-700 hover:border-blue-500 text-[11px] font-medium text-foreground transition-colors"
