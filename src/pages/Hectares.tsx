@@ -599,7 +599,7 @@ const Hectares = () => {
     });
 
     const toInsert = [];
-    for (let i = 1; i <= 16; i++) {
+    for (let i = 1; i <= 15; i++) {
       if (!existingIndices.has(i)) {
         const padded = String(i).padStart(2, "0");
         toInsert.push({
@@ -617,7 +617,7 @@ const Hectares = () => {
     }
 
     if (toInsert.length === 0) {
-      toast.info("Toutes les 16 sous-parcelles (01 à 16) sont déjà créées pour cet hectare.");
+      toast.info("Toutes les 15 sous-parcelles (01 à 15) sont déjà créées pour cet hectare.");
       return;
     }
 
@@ -1152,7 +1152,7 @@ const Hectares = () => {
                       </Badge>
                       {(() => {
                         const count = parcelleCountByHectare[hectare.id] || 0;
-                        const percentage = Math.round((count / 16) * 100);
+                        const percentage = Math.round((count / 15) * 100);
                         const isNearFull = percentage >= 80;
                         const isFull = percentage >= 100;
                         return (
@@ -1160,7 +1160,7 @@ const Hectares = () => {
                             variant={isFull ? "destructive" : isNearFull ? "secondary" : "outline"}
                             className="text-xs font-medium"
                           >
-                            {count}/16 • {percentage}%
+                            {count}/15 • {percentage}%
                           </Badge>
                         );
                       })()}
@@ -1320,8 +1320,8 @@ const Hectares = () => {
           {(() => {
             const duplicateRMBs = getDuplicateRMBs();
             const soldCount = parcelles.filter(p => p.status === 'vendu').length;
-            const availableCount = Math.max(0, 16 - soldCount);
-            const percentSold = Math.round((soldCount / 16) * 100);
+            const availableCount = Math.max(0, 15 - soldCount);
+            const percentSold = Math.round((soldCount / 15) * 100);
 
             // Filtrer et trier les parcelles à afficher
             const displayedParcelles = parcelles
@@ -1350,14 +1350,14 @@ const Hectares = () => {
                             Parcelles · {selectedHectare?.name}
                           </DialogTitle>
                           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[11px] font-semibold">
-                            {soldCount}/16 vendue{soldCount > 1 ? "s" : ""} ({percentSold}%)
+                            {soldCount}/15 vendue{soldCount > 1 ? "s" : ""} ({percentSold}%)
                           </Badge>
                           <Badge variant="outline" className="text-[11px] font-mono bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
                             🔒 Racine : RMB {getHectareRootRmb(selectedHectare)}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {selectedHectare?.location || "Concession"} · 16 parcelles de 600 m² (ou regroupées)
+                          {selectedHectare?.location || "Concession"} · 15 parcelles (ou regroupées)
                         </p>
                       </div>
                     </div>
@@ -1372,16 +1372,16 @@ const Hectares = () => {
                         <Plus className="w-3.5 h-3.5" />
                         <span>Enregistrer une sous-parcelle</span>
                       </Button>
-                      {parcelles.length < 16 && (
+                      {parcelles.length < 15 && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleBatchInitParcellesInHectare}
                           className="h-8 px-2.5 text-xs font-medium gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                          title="Générer en 1 clic les 16 sous-parcelles (ex: RMB 223/01 à 223/16)"
+                          title="Générer en 1 clic les 15 sous-parcelles (ex: RMB 223/01 à 223/15)"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
-                          <span>Découper (16 parcelles)</span>
+                          <span>Découper (15 parcelles)</span>
                         </Button>
                       )}
                     </div>

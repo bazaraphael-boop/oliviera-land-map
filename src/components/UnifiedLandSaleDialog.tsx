@@ -481,13 +481,13 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     const occupied = list.reduce((total, p) => total + Math.ceil(Number(p.surface || 600) / 600), 0);
     return {
       occupied,
-      remaining: Math.max(0, 16 - occupied),
-      total: 16,
+      remaining: Math.max(0, 15 - occupied),
+      total: 15,
     };
   };
 
   const currentHectareOccupancy = useMemo(() => {
-    if (!hectareId) return { occupied: 0, remaining: 16, total: 16 };
+    if (!hectareId) return { occupied: 0, remaining: 15, total: 15 };
     return getHectareOccupancy(hectareId);
   }, [hectareId, parcelles]);
 
@@ -553,7 +553,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
         return;
       }
       const newEffectif = Math.ceil(surfaceNum / 600);
-      if (currentHectareOccupancy.occupied + newEffectif > 16) {
+      if (currentHectareOccupancy.occupied + newEffectif > 15) {
         toast.error(
           `Capacité dépassée : cet hectare dispose de ${currentHectareOccupancy.remaining} places disponibles (${newEffectif} requises)`
         );
@@ -834,7 +834,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                       <strong className="text-foreground">
                         {currentHectareOccupancy.remaining} places
                       </strong>{" "}
-                      sur 16
+                      sur 15
                     </span>
                   )}
                 </Label>

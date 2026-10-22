@@ -141,8 +141,8 @@ const Parcelles = () => {
     }, 0);
     return {
       occupied: occupiedEffectif,
-      remaining: 16 - occupiedEffectif,
-      total: 16
+      remaining: 15 - occupiedEffectif,
+      total: 15
     };
   };
   const [editFormData, setEditFormData] = useState({
@@ -347,8 +347,8 @@ const Parcelles = () => {
         
         const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
 
-        if (occupiedEffectif + newParcelleEffectif > 16) {
-          toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${16 - occupiedEffectif} disponible)`);
+        if (occupiedEffectif + newParcelleEffectif > 15) {
+          toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${15 - occupiedEffectif} disponible)`);
           return;
         }
       }
@@ -518,8 +518,8 @@ const Parcelles = () => {
         // Calculer l'effectif que cette parcelle va ajouter
         const newParcelleEffectif = Math.ceil(selectedParcelle.surface / 600);
 
-        if (occupiedEffectif + newParcelleEffectif > 16) {
-          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${16 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
+        if (occupiedEffectif + newParcelleEffectif > 15) {
+          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${15 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
           return;
         }
       }
@@ -646,7 +646,7 @@ const Parcelles = () => {
     try {
       setReassignSubmitting(true);
 
-      // Si on affecte à un hectare différent, vérifier la capacité (16 max)
+      // Si on affecte à un hectare différent, vérifier la capacité (15 max)
       if (newHectareId && newHectareId !== parcelleToReassign.hectare_id) {
         const { data: existingParcelles, error: countError } = await supabase
           .from("parcelles")
@@ -661,9 +661,9 @@ const Parcelles = () => {
 
         const parcelleEffectif = Math.ceil(Number(parcelleToReassign.surface || 600) / 600);
 
-        if (occupiedEffectif + parcelleEffectif > 16) {
+        if (occupiedEffectif + parcelleEffectif > 15) {
           toast.error(
-            `Capacité insuffisante : cet hectare dispose de ${16 - occupiedEffectif} effectifs disponibles (${parcelleEffectif} requis).`
+            `Capacité insuffisante : cet hectare dispose de ${15 - occupiedEffectif} effectifs disponibles (${parcelleEffectif} requis).`
           );
           setReassignSubmitting(false);
           return;

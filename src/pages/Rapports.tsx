@@ -714,7 +714,7 @@ const Rapports = () => {
   }, [allParcelles, missingForm.itemType, missingForm.hectareId]);
 
   const calculatedQuotaUnits = useMemo(() => {
-    if (missingForm.itemType === "hectare_complet") return 16;
+    if (missingForm.itemType === "hectare_complet") return 15;
     if (missingForm.itemType === "demi_hectare") return 8;
     const s = Number(missingForm.surface || 600);
     return Math.max(1, Math.ceil(s / 600));
@@ -3556,7 +3556,7 @@ const Rapports = () => {
                         className="mt-1 h-9 text-xs"
                       />
                       <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                        Base concession : 10 000 m² (~16 parcelles)
+                        Base concession : 10 000 m² (~15 parcelles)
                       </span>
                     </div>
 
@@ -3566,11 +3566,11 @@ const Rapports = () => {
                           Quota d'achat : 1 Hectare complet (10 000 m²)
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          Équivalent d'une grande concession de ~16 parcelles
+                          Équivalent d'une grande concession de ~15 parcelles
                         </div>
                       </div>
                       <Badge className="bg-emerald-600 text-white font-bold text-xs">
-                        1 Hectare (16 p.)
+                        1 Hectare (15 p.)
                       </Badge>
                     </div>
                   </div>

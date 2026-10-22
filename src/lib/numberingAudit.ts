@@ -71,7 +71,7 @@ export interface HectareAuditResult {
   presentMap: Map<number, ParcelleItem[]>;
   /** Trous détectés dans la séquence existante (ex: 1, 2, 4 -> trou: 3) */
   missingGaps: number[];
-  /** Emplacements restants après le plus grand numéro jusqu'à la capacité (ex: 5..16) */
+  /** Emplacements restants après le plus grand numéro jusqu'à la capacité (ex: 5..15) */
   remainingSlots: number[];
   /** Tous les numéros manquants (trous + restants jusqu'à maxCapacity) */
   allMissingUpToCapacity: number[];
@@ -90,7 +90,7 @@ export interface HectareAuditResult {
 export function auditHectare(
   hectare: HectareItem,
   parcelles: ParcelleItem[],
-  maxCapacity: number = 16
+  maxCapacity: number = 15
 ): HectareAuditResult {
   const prefix = getCleanHectarePrefix(hectare.name);
   const presentMap = new Map<number, ParcelleItem[]>();

@@ -91,7 +91,7 @@ export function compareParcellesByRmbSuite(a: any, b: any): number {
     return infoA.rmbNum - infoB.rmbNum;
   }
 
-  // Si même RMB (ex: parcelles dans le même hectare), classer par sous-numéro (1..16)
+  // Si même RMB (ex: parcelles dans le même hectare), classer par sous-numéro (1..15)
   if (infoA.subNum !== infoB.subNum) {
     return infoA.subNum - infoB.subNum;
   }
@@ -210,7 +210,7 @@ export function getNextParcelleInHectareRmb(
     }
   });
 
-  // Chercher le premier index disponible de 1 à 16 (ou au-delà)
+  // Chercher le premier index disponible de 1 à 15 (ou au-delà)
   let nextIndex = 1;
   while (occupiedIndices.has(nextIndex) && nextIndex <= 32) {
     nextIndex++;
@@ -225,7 +225,7 @@ export function getNextParcelleInHectareRmb(
     nextIndex,
     formattedNumero,
     formattedRmb,
-    isAvailable: nextIndex <= 16,
+    isAvailable: nextIndex <= 15,
   };
 }
 
