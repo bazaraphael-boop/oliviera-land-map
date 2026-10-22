@@ -249,8 +249,16 @@ export const BuyerDocuments = ({
       }
 
       // Upload vers storage
-      const fileExt = uploadForm.file.name.split(".").pop();
-      const fileName = `${buyerId}/${Date.now()}.${fileExt}`;
+      const fileExt = (uploadForm.file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
+      // Le nom de l'acheteur peut contenir accents, virgules, espaces : on le nettoie pour le chemin de stockage
+      const safeFolder =
+        String(buyerId)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "acheteur";
+      const fileName = `${safeFolder}/${Date.now()}.${fileExt}`;
       const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage

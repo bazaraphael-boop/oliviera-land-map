@@ -925,7 +925,8 @@ const Rapports = () => {
             if (!doc.file || !doc.title) continue;
             try {
               const ext = doc.file.name.split(".").pop();
-              const filePath = `${buyerId}/${Date.now()}_${doc.id}.${ext}`;
+              const safeFolder = buyerId.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "acheteur";
+              const filePath = `${safeFolder}/${Date.now()}_${doc.id}.${ext}`;
               const { error: upErr } = await supabase.storage.from("buyer-documents").upload(filePath, doc.file);
               if (!upErr) {
                 await supabase.from("buyer_documents").insert({
