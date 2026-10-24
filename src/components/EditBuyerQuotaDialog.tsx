@@ -84,6 +84,13 @@ interface EditBuyerQuotaDialogProps {
   onSuccess?: () => void;
 }
 
+const cleanSaleType = (v?: string | null): "normal" | "onereux" | null => {
+  const t = (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  if (t === "normal") return "normal";
+  if (t === "onereux") return "onereux";
+  return null;
+};
+
 export function EditBuyerQuotaDialog({
   open,
   onOpenChange,
@@ -169,7 +176,7 @@ export function EditBuyerQuotaDialog({
         prix: String(p.prix || 0),
         payment_type: (p.payment_type as "total" | "partiel") || "total",
         amount_paid: String(p.amount_paid || 0),
-        sale_type: p.sale_type || "normal",
+        sale_type: p.sale_type ?? "",
       };
     });
     setParcellesDrafts(initialDrafts);
@@ -259,7 +266,7 @@ export function EditBuyerQuotaDialog({
           payment_type: draft.payment_type,
           amount_paid: amountPaidNum,
           remaining_amount: remainingNum,
-          sale_type: draft.sale_type,
+          sale_type: cleanSaleType(draft.sale_type),
         })
         .eq("id", pId);
 
@@ -402,7 +409,7 @@ export function EditBuyerQuotaDialog({
           buyer_territoire: acheteur.buyer_territoire,
           buyer_province: acheteur.buyer_province,
           purchase_type: "parcelle",
-          sale_type: newParcelSaleType,
+          sale_type: cleanSaleType(newParcelSaleType),
           prix: prixNum,
           payment_type: newParcelPaymentType,
           amount_paid: amountPaidNum,
