@@ -6,10 +6,11 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import PageHeader from "@/components/PageHeader";
 import LeveTerrainPanel from "@/components/LeveTerrainPanel";
+import CadastreImportPanel from "@/components/CadastreImportPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Layers, Crosshair } from "lucide-react";
+import { MapPin, Layers, Crosshair, FileInput } from "lucide-react";
 import { toast } from "sonner";
 
 interface Hectare {
@@ -221,6 +222,10 @@ const Localisation = () => {
                 <Crosshair className="w-4 h-4 mr-2" />
                 Levé de terrain GPS
               </TabsTrigger>
+              <TabsTrigger value="cadastre">
+                <FileInput className="w-4 h-4 mr-2" />
+                Bornes Cadastre
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="carte" className="flex-1 mt-0">
@@ -270,6 +275,10 @@ const Localisation = () => {
 
             <TabsContent value="leve" className="flex-1 mt-0">
               <LeveTerrainPanel />
+            </TabsContent>
+
+            <TabsContent value="cadastre" className="flex-1 mt-0">
+              <CadastreImportPanel />
             </TabsContent>
           </Tabs>
         </div>
