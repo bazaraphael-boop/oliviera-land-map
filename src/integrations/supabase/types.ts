@@ -418,6 +418,8 @@ export type Database = {
           parcelle_id: string | null
           payment_date: string
           payment_method: string | null
+          proof_file_name: string | null
+          proof_file_path: string | null
         }
         Insert: {
           amount: number
@@ -429,6 +431,8 @@ export type Database = {
           parcelle_id?: string | null
           payment_date?: string
           payment_method?: string | null
+          proof_file_name?: string | null
+          proof_file_path?: string | null
         }
         Update: {
           amount?: number
@@ -440,6 +444,8 @@ export type Database = {
           parcelle_id?: string | null
           payment_date?: string
           payment_method?: string | null
+          proof_file_name?: string | null
+          proof_file_path?: string | null
         }
         Relationships: [
           {
