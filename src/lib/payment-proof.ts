@@ -19,3 +19,8 @@ export function paymentProofPath(userId: string, paymentId: string, mimeType: st
   if (!extension) throw new Error("Format de preuve non pris en charge");
   return `${userId}/${paymentId}/proof.${extension}`;
 }
+
+// Existing payments are amended with attachment metadata only, never financial fields.
+export function paymentProofUpdate(path: string, fileName: string) {
+  return { proof_file_path: path, proof_file_name: fileName.slice(0, 255) };
+}

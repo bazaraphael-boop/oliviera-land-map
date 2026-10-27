@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { paymentProofPath, validatePaymentProof } from "../src/lib/payment-proof";
+import { paymentProofPath, paymentProofUpdate, validatePaymentProof } from "../src/lib/payment-proof";
 
 describe("payment proof", () => {
   test("accepts a payment photo and a PDF", () => {
@@ -12,5 +12,14 @@ describe("payment proof", () => {
   });
   test("uses owner and payment IDs instead of accented buyer or file names", () => {
     expect(paymentProofPath("owner-id", "payment-id", "image/jpeg")).toBe("owner-id/payment-id/proof.jpg");
+  });
+  test("attaches proof to an existing payment without changing financial fields", () => {
+    const payment = { amount: 22442, payment_date: "2026-10-27", invoice_number: "RMB 201" };
+    const update = paymentProofUpdate("owner/payment/proof.pdf", "reçu.pdf");
+    expect(Object.keys(update).sort()).toEqual(["proof_file_name", "proof_file_path"]);
+    expect({ ...payment, ...update }).toEqual({
+      amount: 22442, payment_date: "2026-10-27", invoice_number: "RMB 201",
+      proof_file_path: "owner/payment/proof.pdf", proof_file_name: "reçu.pdf",
+    });
   });
 });
