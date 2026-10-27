@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { paymentProofPath, validatePaymentProof } from "./payment-proof";
+import { paymentProofPath, validatePaymentProof } from "../src/lib/payment-proof";
 
 describe("payment proof", () => {
   test("accepts a payment photo and a PDF", () => {
