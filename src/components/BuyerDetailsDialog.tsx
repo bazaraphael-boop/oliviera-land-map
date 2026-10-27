@@ -17,6 +17,7 @@ import {
   SlidersHorizontal, Trash2
 } from "lucide-react";
 import { BuyerDocuments } from "@/components/BuyerDocuments";
+import { PaymentHistory } from "@/components/PaymentHistory";
 
 interface Acheteur {
   id: string;
@@ -468,6 +469,8 @@ export function BuyerDetailsDialog({
                 )}
               </div>
             </CollapsibleSection>
+
+            <PaymentHistory parcelleIds={acheteur.parcelles.map(p => p.id)} hectareIds={acheteur.hectares.map(h => h.id)} />
 
             {/* Section Documents - collapsible */}
             <CollapsibleSection 

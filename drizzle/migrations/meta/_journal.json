@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793089214831,
+      "tag": "0000_add_payment_proofs",
+      "breakpoints": true
+    }
+  ]
+}

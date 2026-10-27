@@ -9,6 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
+import { PaymentProofPicker } from "@/components/PaymentProofPicker";
+import { PaymentHistory } from "@/components/PaymentHistory";
+import { PAYMENT_PROOF_BUCKET, paymentProofPath, validatePaymentProof } from "@/lib/payment-proof";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface PaymentDialogProps {
   open: boolean;
@@ -39,6 +43,8 @@ export const PaymentDialog = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const queryClient = useQueryClient();
   const [lastPaymentData, setLastPaymentData] = useState<{
     invoiceNumber: string;
     paymentAmount: number;
@@ -213,6 +219,11 @@ export const PaymentDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    if (proofFile) {
+      const error = validatePaymentProof(proofFile);
+      if (error) { toast.error(error); return; }
+    }
     
     const paymentAmount = parseFloat(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
@@ -226,13 +237,26 @@ export const PaymentDialog = ({
     }
     
     setLoading(true);
+    let uploadedProofPath: string | null = null;
+    let paymentSaved = false;
     
     try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error("Session expirée, veuillez vous reconnecter");
+      const paymentId = crypto.randomUUID();
+      if (proofFile) {
+        uploadedProofPath = paymentProofPath(session.user.id, paymentId, proofFile.type);
+        const { error } = await supabase.storage.from(PAYMENT_PROOF_BUCKET).upload(uploadedProofPath, proofFile, { contentType: proofFile.type });
+        if (error) { uploadedProofPath = null; throw new Error(`Preuve non enregistrée : ${error.message}`); }
+      }
       // Générer un numéro de facture unique
       const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
       
       // Enregistrer le paiement
       const paymentData: any = {
+        id: paymentId,
+        proof_file_path: uploadedProofPath,
+        proof_file_name: proofFile?.name.slice(0, 255) || null,
         amount: paymentAmount,
         payment_method: paymentMethod,
         notes: notes,
@@ -250,6 +274,8 @@ export const PaymentDialog = ({
         .insert([paymentData]);
       
       if (paymentError) throw paymentError;
+      paymentSaved = true;
+      queryClient.invalidateQueries({ queryKey: ["payment-history"] });
       
       // Calculer le nouveau reste à payer
       const newRemainingAmount = remainingAmount - paymentAmount;
@@ -288,9 +314,14 @@ export const PaymentDialog = ({
       setAmount("");
       setPaymentMethod("");
       setNotes("");
+      setProofFile(null);
     } catch (error) {
+      if (uploadedProofPath && !paymentSaved) {
+        await supabase.storage.from(PAYMENT_PROOF_BUCKET).remove([uploadedProofPath]);
+      }
       console.error("Erreur:", error);
-      toast.error("Erreur lors de l'enregistrement du paiement");
+      toast.error(paymentSaved ? "Paiement enregistré, mais le solde n'a pas pu être actualisé. Ne répétez pas ce paiement." : error instanceof Error ? error.message : "Erreur lors de l'enregistrement du paiement");
+      if (paymentSaved) { setAmount(""); setProofFile(null); onPaymentComplete(); }
     } finally {
       setLoading(false);
     }
@@ -298,12 +329,17 @@ export const PaymentDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
+      if (loading) return;
       if (!isOpen) {
         setLastPaymentData(null);
+        setProofFile(null);
+        setAmount("");
+        setPaymentMethod("");
+        setNotes("");
       }
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {lastPaymentData ? "Paiement enregistré" : "Enregistrer un paiement"}
@@ -406,12 +442,14 @@ export const PaymentDialog = ({
                 />
               </div>
               
+              <PaymentProofPicker file={proofFile} onChange={setProofFile} disabled={loading} />
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Enregistrement..." : "Enregistrer le paiement"}
               </Button>
             </form>
           </div>
         )}
+        <PaymentHistory parcelleIds={itemType === "parcelle" ? [itemId] : []} hectareIds={itemType === "hectare" ? [itemId] : []} />
       </DialogContent>
     </Dialog>
   );
