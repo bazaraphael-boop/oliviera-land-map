@@ -891,6 +891,18 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
     });
   }, [parcelles, deferredSearchTerm, sortBy]);
 
+  const viewSummary = useMemo(() => {
+    let sold = 0;
+    let available = 0;
+    let remaining = 0;
+    filteredParcelles.forEach((p) => {
+      if (p.status === "vendu") sold++;
+      else if (p.status !== "reserve") available++;
+      if (p.payment_type === "partiel") remaining += Number(p.remaining_amount || 0);
+    });
+    return { total: filteredParcelles.length, sold, available, remaining };
+  }, [filteredParcelles]);
+
   const displayedParcelles = useMemo(() => {
     return filteredParcelles.slice(0, displayLimit);
   }, [filteredParcelles, displayLimit]);
@@ -1011,14 +1023,18 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      disponible: "bg-green-500/10 text-green-500",
-      vendu: "bg-blue-500/10 text-blue-500",
-      reserve: "bg-orange-500/10 text-orange-500",
+  // Statut lisible : libellé, fond et pastille
+  const getStatusStyle = (status: string) => {
+    const styles = {
+      vendu: { label: "Vendue", className: "bg-blue-500/10 text-blue-700 dark:text-blue-300", dot: "bg-blue-500" },
+      reserve: { label: "Réservée", className: "bg-amber-500/10 text-amber-800 dark:text-amber-300", dot: "bg-amber-500" },
+      disponible: { label: "Disponible", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" },
     };
-    return colors[status as keyof typeof colors] || colors.disponible;
+    return styles[status as keyof typeof styles] || styles.disponible;
   };
+
+  // L'emplacement n'est utile que dans les vues qui mélangent les rattachements
+  const showLocation = selectedHectare === "all" || selectedHectare === "assigned";
 
   if (loading) {
     return (
@@ -1035,15 +1051,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
       <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
         <PageHeader
           title="Gestion des Parcelles"
-          description={
-            selectedHectare === "standalone"
-              ? "🏷️ Liste principale des parcelles seules (hors hectare racine)."
-              : selectedHectare === "all"
-              ? "🌐 Vue globale de toutes les parcelles (seules et sous-parcelles d'hectares)."
-              : selectedHectare === "assigned"
-              ? "📦 Toutes les parcelles affectées à un hectare."
-              : `📦 Sous-parcelles de l'hectare racine : ${hectares.find(h => h.id === selectedHectare)?.name || "Sélectionné"}`
-          }
+          description="Parcelles vendues ou disponibles, seules ou découpées dans un hectare."
           actions={
             <Button onClick={handleOpenCreateDialog} className="gap-2 font-semibold">
               <Plus className="w-4 h-4" />
@@ -1052,7 +1060,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
           }
         />
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
           <div className="flex flex-wrap gap-1 p-1 rounded-lg border border-border bg-card shrink-0" role="tablist" aria-label="Type de parcelles">
             {([
               { scope: "all", value: "all", label: "Toutes", count: allParcelles.length },
@@ -1073,7 +1081,10 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                {tab.label} <span className="opacity-70 font-medium">({tab.count})</span>
+                {tab.label}
+                <span className={`ml-1.5 tabular-nums font-medium ${parcelleScope === tab.scope ? "text-primary-foreground/75" : "text-muted-foreground/80"}`}>
+                  {tab.count}
+                </span>
               </button>
             ))}
           </div>
@@ -1098,9 +1109,10 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
           )}
 
           <div className="flex-1 relative min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              placeholder="Rechercher par N°, acquéreur, RMB..."
+              placeholder="Rechercher un numéro, un acquéreur, un RMB…"
+              aria-label="Rechercher une parcelle"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -1109,26 +1121,53 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
 
           {/* Sélecteur de tri / classement de la suite logique RMB */}
           <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
-            <SelectTrigger className="w-full sm:w-[220px] shrink-0 bg-card">
-              <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-primary" />
+            <SelectTrigger className="w-full sm:w-[200px] shrink-0 bg-card" aria-label="Ordre d'affichage">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-muted-foreground" aria-hidden="true" />
               <SelectValue placeholder="Ordre d'affichage" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="rmb_asc">📋 Suite logique RMB (Défaut)</SelectItem>
-              <SelectItem value="numero_asc">🔢 N° parcelle croissant</SelectItem>
-              <SelectItem value="numero_desc">🔢 N° parcelle décroissant</SelectItem>
-              <SelectItem value="surface_desc">📐 Surface décroissante</SelectItem>
-              <SelectItem value="status">🏷️ Par statut</SelectItem>
+              <SelectItem value="rmb_asc">Suite logique RMB</SelectItem>
+              <SelectItem value="numero_asc">N° croissant</SelectItem>
+              <SelectItem value="numero_desc">N° décroissant</SelectItem>
+              <SelectItem value="surface_desc">Surface décroissante</SelectItem>
+              <SelectItem value="status">Par statut</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {listLoading && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3" role="status" aria-live="polite">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Chargement des parcelles…</span>
-          </div>
-        )}
+        {/* Résumé de la vue : où l'on est et ce qu'elle contient */}
+        <div className="mt-5 mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm" aria-live="polite">
+          <h2 className="font-semibold text-foreground">
+            {selectedHectare === "all"
+              ? "Toutes les parcelles"
+              : selectedHectare === "standalone"
+              ? "Parcelles seules"
+              : selectedHectare === "assigned"
+              ? "Parcelles sur un hectare"
+              : `Hectare ${hectares.find((h) => h.id === selectedHectare)?.name || ""}`}
+          </h2>
+          {listLoading ? (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground" role="status">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              Chargement…
+            </span>
+          ) : (
+            <span className="text-muted-foreground tabular-nums">
+              {viewSummary.total} parcelle{viewSummary.total > 1 ? "s" : ""}
+              <span aria-hidden="true"> · </span>
+              <span className="text-blue-700 dark:text-blue-300">{viewSummary.sold} vendue{viewSummary.sold > 1 ? "s" : ""}</span>
+              <span aria-hidden="true"> · </span>
+              <span className="text-emerald-700 dark:text-emerald-300">{viewSummary.available} disponible{viewSummary.available > 1 ? "s" : ""}</span>
+              {viewSummary.remaining > 0 && (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  <span className="text-destructive">${viewSummary.remaining.toLocaleString("fr-FR")} restant dû</span>
+                </>
+              )}
+              {deferredSearchTerm.trim() && <span> pour « {deferredSearchTerm.trim()} »</span>}
+            </span>
+          )}
+        </div>
 
         <div
           aria-busy={listLoading}
@@ -1137,183 +1176,136 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
           {displayedParcelles.map((parcelle) => {
             const quotaCount = Math.ceil(Number(parcelle.surface || 600) / 600);
             const isGratuit = parcelle.sale_type === "onereux" || parcelle.sale_type === "onéreux";
+            const isPriceMissing = parcelle.sale_type === "a_renseigner" || (parcelle.status === "vendu" && !parcelle.sale_type);
+            const rmb = parcelle.rmb_number || parcelle.hectares?.rmb_number;
+            const status = getStatusStyle(parcelle.status);
 
             return (
               <Card
                 key={parcelle.id}
-                className={`p-4 flex flex-col justify-between hover:shadow-md transition-shadow bg-card rounded-xl relative group ${
+                className={`flex flex-col bg-card rounded-xl transition-shadow hover:shadow-md ${
                   selectedIds.has(parcelle.id) ? "border-primary ring-2 ring-primary/30" : "border-border/80"
                 }`}
               >
-                <div>
-                  {/* En-tête : Titre, surface et menu d'actions compact */}
-                  <div className="flex items-start justify-between gap-2 mb-2.5">
-                    <div className="min-w-0 flex items-start gap-2">
-                      <Checkbox
-                        checked={selectedIds.has(parcelle.id)}
-                        onCheckedChange={() => toggleSelected(parcelle.id)}
-                        aria-label={`Sélectionner la parcelle ${parcelle.numero}`}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="font-bold text-sm text-foreground tracking-tight">
-                          Parcelle {parcelle.numero}
-                        </h3>
-                        {(parcelle.rmb_number || parcelle.hectares?.rmb_number) && (
-                          <Badge variant="outline" className="text-[10px] font-mono bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 px-1.5 py-0 font-bold">
-                            Suite {parcelle.rmb_number || parcelle.hectares?.rmb_number}
-                          </Badge>
-                        )}
-                        {quotaCount > 1 && (
-                          <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-1.5 py-0">
-                            {quotaCount} quotas
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                        {parcelle.surface} m²
-                      </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* Badge de statut épuré */}
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${getStatusBadge(parcelle.status)}`}>
-                        {parcelle.status}
-                      </span>
-
-                      {/* Menu d'actions propre (évite d'entasser 3 boutons) */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
-                            title="Options"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem
-                            onClick={() => handleOpenReassignModal(parcelle)}
-                            className="gap-2 cursor-pointer text-xs"
-                          >
-                            <ArrowLeftRight className="w-3.5 h-3.5 text-primary" />
-                            <span>Changer l'affectation</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleEdit(parcelle)}
-                            className="gap-2 cursor-pointer text-xs"
-                          >
-                            <Edit className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span>Modifier les détails</span>
-                          </DropdownMenuItem>
-                          {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && !isGratuit && (
-                            <DropdownMenuItem
-                              onClick={() => handleAddPayment(parcelle)}
-                              className="gap-2 cursor-pointer text-xs"
-                            >
-                              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Ajouter un paiement</span>
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(parcelle.id)}
-                            className="gap-2 text-destructive cursor-pointer text-xs focus:text-destructive"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Supprimer</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                {/* Identité : sélection, numéro, statut, actions */}
+                <div className="flex items-start gap-2.5 px-4 pt-4">
+                  <Checkbox
+                    checked={selectedIds.has(parcelle.id)}
+                    onCheckedChange={() => toggleSelected(parcelle.id)}
+                    aria-label={`Sélectionner la parcelle ${parcelle.numero}`}
+                    className="mt-1 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base leading-tight text-foreground truncate" title={`Parcelle ${parcelle.numero}`}>
+                      Parcelle {parcelle.numero}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground tabular-nums truncate">
+                      {rmb ? `RMB ${rmb}` : "Sans RMB"}
+                      <span aria-hidden="true"> · </span>
+                      {Number(parcelle.surface || 0).toLocaleString("fr-FR")} m²
+                      {quotaCount > 1 && (
+                        <>
+                          <span aria-hidden="true"> · </span>
+                          {quotaCount} quotas
+                        </>
+                      )}
+                    </p>
                   </div>
+                  <span className={`shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${status.className}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
+                    {status.label}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="-mr-2 -mt-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        aria-label={`Actions pour la parcelle ${parcelle.numero}`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem onClick={() => handleEdit(parcelle)} className="gap-2 cursor-pointer text-xs">
+                        <Edit className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Modifier les détails</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenReassignModal(parcelle)} className="gap-2 cursor-pointer text-xs">
+                        <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Changer l'affectation</span>
+                      </DropdownMenuItem>
+                      {parcelle.status === "vendu" && parcelle.remaining_amount > 0 && !isGratuit && (
+                        <DropdownMenuItem onClick={() => handleAddPayment(parcelle)} className="gap-2 cursor-pointer text-xs">
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Ajouter un paiement</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(parcelle.id)}
+                        className="gap-2 text-destructive cursor-pointer text-xs focus:text-destructive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Supprimer</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                  {/* Emplacement cadastral : Hectare d'accueil OU Parcelle seule (clic direct pour changer !) */}
+                {/* Acquéreur */}
+                <div className="px-4 pt-4 pl-11 flex items-center gap-2 min-w-0">
+                  <User className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  {parcelle.buyer_name ? (
+                    <span className="text-sm font-medium text-foreground truncate" title={parcelle.buyer_name}>
+                      {parcelle.buyer_name}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Aucun acquéreur</span>
+                  )}
+                </div>
+
+                {/* Emplacement : seulement quand la vue ne le dit pas déjà */}
+                {showLocation && (
                   <button
                     type="button"
                     onClick={() => handleOpenReassignModal(parcelle)}
-                    className="w-full text-left p-2 rounded-lg border transition-all hover:border-primary/50 group/btn flex items-center justify-between gap-1.5 bg-muted/40 hover:bg-muted/70 mb-3"
-                    title="Cliquer pour changer l'affectation ou transformer en parcelle seule"
+                    className="mx-4 mt-2 ml-11 self-start max-w-[calc(100%-3.75rem)] inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    title="Changer l'affectation"
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {parcelle.hectares?.name ? (
-                        <>
-                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <span className="text-xs font-medium text-foreground truncate" title={parcelle.hectares.name}>
-                            {parcelle.hectares.name}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                          <span className="text-xs font-medium text-amber-700 dark:text-amber-400 truncate">
-                            Parcelle seule (hors hectare)
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground group-hover/btn:text-primary shrink-0 flex items-center gap-0.5 font-medium">
-                      <ArrowLeftRight className="w-2.5 h-2.5" />
-                      <span>Changer</span>
-                    </span>
+                    {parcelle.hectares?.name ? (
+                      <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="truncate">{parcelle.hectares?.name || "Parcelle seule"}</span>
                   </button>
+                )}
 
-                  {/* Détails alignés : RMB et Prix */}
-                  <div className="space-y-1.5 text-xs pt-1 border-t border-border/60">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Numéro RMB :</span>
-                      {(parcelle.rmb_number || parcelle.hectares?.rmb_number) ? (
-                        <span className="font-mono font-bold text-foreground bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-[11px] border border-purple-500/20">
-                          {parcelle.rmb_number || parcelle.hectares?.rmb_number}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground italic text-[11px]">—</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Prix :</span>
-                      {isGratuit ? (
-                        <Badge variant="secondary" className="text-[10px] font-medium">
-                          À titre gratuit
-                        </Badge>
-                      ) : (parcelle.sale_type === "a_renseigner" || (parcelle.status === "vendu" && !parcelle.sale_type)) ? (
-                        <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
-                          {Number(parcelle.prix) > 0 ? `$${Number(parcelle.prix).toLocaleString()} (À renseigner)` : "À renseigner"}
-                        </Badge>
-                      ) : (
-                        <span className="font-bold text-foreground">
-                          ${Number(parcelle.prix || 0).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section Acquéreur (si vendu) */}
-                {parcelle.buyer_name && (
-                  <div className="mt-3 pt-2 border-t border-border/60 text-xs">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <User className="w-3.5 h-3.5 shrink-0 text-foreground/70" />
-                      <span className="font-medium text-foreground truncate" title={parcelle.buyer_name}>
-                        {parcelle.buyer_name}
+                {/* Montant */}
+                <div className="mt-auto pt-4">
+                  <div className="mx-4 flex items-baseline justify-between gap-2 border-t border-border/60 py-3 text-sm">
+                    {isGratuit ? (
+                      <span className="text-muted-foreground">À titre gratuit</span>
+                    ) : isPriceMissing ? (
+                      <span className="font-medium text-amber-700 dark:text-amber-400">
+                        Prix à renseigner
+                        {Number(parcelle.prix) > 0 && (
+                          <span className="tabular-nums"> · ${Number(parcelle.prix).toLocaleString("fr-FR")}</span>
+                        )}
                       </span>
-                    </div>
-
-                    {parcelle.payment_type === "partiel" && !isGratuit && (
-                      <div className="flex items-center justify-between mt-1 text-[11px]">
-                        <span className="text-muted-foreground">Reste dû :</span>
-                        <span className="font-semibold text-destructive">
-                          ${Number(parcelle.remaining_amount || 0).toLocaleString()}
-                        </span>
-                      </div>
+                    ) : (
+                      <span className="font-semibold text-foreground tabular-nums">
+                        ${Number(parcelle.prix || 0).toLocaleString("fr-FR")}
+                      </span>
+                    )}
+                    {parcelle.payment_type === "partiel" && !isGratuit && Number(parcelle.remaining_amount) > 0 && (
+                      <span className="text-xs font-medium text-destructive tabular-nums">
+                        Reste ${Number(parcelle.remaining_amount).toLocaleString("fr-FR")}
+                      </span>
                     )}
                   </div>
-                )}
+                </div>
               </Card>
             );
           })}
@@ -1412,15 +1404,44 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
           </div>
         )}
 
-        {filteredParcelles.length === 0 && (
-          <div className="text-center py-12">
-            <Grid3x3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              Aucune parcelle trouvée
-            </h3>
-            <p className="text-muted-foreground">
-              Commencez par créer votre première parcelle
-            </p>
+        {filteredParcelles.length === 0 && !listLoading && (
+          <div className="text-center py-16 px-4 rounded-xl border border-dashed border-border">
+            <Grid3x3 className="w-10 h-10 text-muted-foreground mx-auto mb-3" aria-hidden="true" />
+            {deferredSearchTerm.trim() ? (
+              <>
+                <h3 className="text-base font-semibold text-foreground mb-1">
+                  Aucune parcelle ne correspond à « {deferredSearchTerm.trim()} »
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Vérifiez l'orthographe ou cherchez dans toutes les parcelles.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSearchTerm("")}>
+                    Effacer la recherche
+                  </Button>
+                  {selectedHectare !== "all" && (
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedHectare("all")}>
+                      Chercher dans toutes les parcelles
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-base font-semibold text-foreground mb-1">
+                  Aucune parcelle dans cette vue
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {isSpecificHectare
+                    ? "Cet hectare n'a pas encore de parcelle."
+                    : "Créez une parcelle ou changez d'onglet."}
+                </p>
+                <Button size="sm" onClick={handleOpenCreateDialog} className="gap-1.5">
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  Nouvelle parcelle
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -1809,7 +1830,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
               {editFormData.status === "vendu" && (
                 <>
                   {/* Section: Informations Acheteur */}
-                  <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 border-l-4 border-l-emerald-500 space-y-4">
+                  <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20 space-y-4">
                     <div className="flex items-center gap-2 pb-1 border-b border-emerald-500/10">
                       <User className="w-4.5 h-4.5 text-emerald-600" />
                       <h3 className="font-semibold text-foreground text-sm">Informations Acheteur</h3>
@@ -1892,7 +1913,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
 
                   {/* Section: Détails de paiement */}
                   {editFormData.sale_type !== "onereux" && editFormData.sale_type !== "a_renseigner" && (
-                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 border-l-4 border-l-primary space-y-4">
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 space-y-4">
                       <div className="flex items-center gap-2 pb-1 border-b border-primary/10">
                         <CreditCard className="w-4.5 h-4.5 text-primary" />
                         <h3 className="font-semibold text-foreground text-sm">Détails de paiement</h3>
