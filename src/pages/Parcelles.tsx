@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical, ArrowUpDown, UserCheck, Clock } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Grid3x3, DollarSign, User, Phone, Mail, Calendar, Package, CreditCard, MapPin, ListOrdered, Hash, Sparkles, Layers, ArrowLeftRight, Check, Loader2, MoreVertical, ArrowUpDown, UserCheck, Clock, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -344,6 +345,128 @@ const Parcelles = () => {
 
   // Liste affichée + données des compteurs (onglets, occupation des hectares, prochain RMB)
   const refreshParcelles = () => Promise.all([fetchParcelles(), fetchAllParcelles()]);
+
+  // ===== Sélection multiple et actions groupées =====
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkHectareId, setBulkHectareId] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  // Changer de vue repart d'une sélection vide
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectedHectare]);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectedParcelles = useMemo(
+    () => parcelles.filter((p) => selectedIds.has(p.id)),
+    [parcelles, selectedIds]
+  );
+
+  const handleBulkAssign = async () => {
+    if (!bulkHectareId || selectedParcelles.length === 0) return;
+    setBulkSubmitting(true);
+    try {
+      const { data: existing, error: countError } = await supabase
+        .from("parcelles")
+        .select("id, surface")
+        .eq("hectare_id", bulkHectareId);
+      if (countError) throw countError;
+
+      const occupied = (existing || []).reduce((t, p) => t + Math.ceil(Number(p.surface || 600) / 600), 0);
+      const moving = selectedParcelles.filter((p) => p.hectare_id !== bulkHectareId);
+      const needed = moving.reduce((t, p) => t + Math.ceil(Number(p.surface || 600) / 600), 0);
+      const capacity = hectareCapacity(hectares.find((h) => h.id === bulkHectareId));
+
+      if (occupied + needed > capacity) {
+        toast.error(
+          `Capacité insuffisante : cet hectare a ${Math.max(0, capacity - occupied)} place(s) libre(s) sur ${capacity}, la sélection en demande ${needed}.`
+        );
+        return;
+      }
+
+      if (moving.length > 0) {
+        const { error } = await supabase
+          .from("parcelles")
+          .update({ hectare_id: bulkHectareId })
+          .in("id", moving.map((p) => p.id));
+        if (error) throw error;
+      }
+
+      const hectareName = hectares.find((h) => h.id === bulkHectareId)?.name || "l'hectare";
+      toast.success(`${moving.length} parcelle(s) affectée(s) à ${hectareName}`);
+      setBulkAssignOpen(false);
+      clearSelection();
+      await refreshParcelles();
+    } catch (err: any) {
+      console.error("Erreur affectation groupée:", err);
+      toast.error(`Erreur : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
+  const handleBulkDetach = async () => {
+    const attached = selectedParcelles.filter((p) => p.hectare_id);
+    if (attached.length === 0) {
+      toast.info("Les parcelles sélectionnées sont déjà des parcelles seules");
+      return;
+    }
+    if (!confirm(`Détacher ${attached.length} parcelle(s) de leur hectare pour en faire des parcelles seules ?`)) return;
+    setBulkSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("parcelles")
+        .update({ hectare_id: null })
+        .in("id", attached.map((p) => p.id));
+      if (error) throw error;
+      toast.success(`${attached.length} parcelle(s) transformée(s) en parcelles seules`);
+      clearSelection();
+      await refreshParcelles();
+    } catch (err: any) {
+      console.error("Erreur détachement groupé:", err);
+      toast.error(`Erreur : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedParcelles.length;
+    if (count === 0) return;
+    const sold = selectedParcelles.filter((p) => p.status === "vendu").length;
+    const warning = sold > 0 ? `
+
+Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs paiements.` : "";
+    if (!confirm(`Supprimer définitivement ${count} parcelle(s) ?${warning}`)) return;
+    setBulkSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("parcelles")
+        .delete()
+        .in("id", selectedParcelles.map((p) => p.id));
+      if (error) throw error;
+      toast.success(`${count} parcelle(s) supprimée(s)`);
+      clearSelection();
+      await refreshParcelles();
+      queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
+    } catch (err: any) {
+      console.error("Erreur suppression groupée:", err);
+      toast.error(`Erreur : ${err.message || "Erreur inconnue"}`);
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1018,12 +1141,21 @@ const Parcelles = () => {
             return (
               <Card
                 key={parcelle.id}
-                className="p-4 flex flex-col justify-between hover:shadow-md transition-shadow border-border/80 bg-card rounded-xl relative group"
+                className={`p-4 flex flex-col justify-between hover:shadow-md transition-shadow bg-card rounded-xl relative group ${
+                  selectedIds.has(parcelle.id) ? "border-primary ring-2 ring-primary/30" : "border-border/80"
+                }`}
               >
                 <div>
                   {/* En-tête : Titre, surface et menu d'actions compact */}
                   <div className="flex items-start justify-between gap-2 mb-2.5">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex items-start gap-2">
+                      <Checkbox
+                        checked={selectedIds.has(parcelle.id)}
+                        onCheckedChange={() => toggleSelected(parcelle.id)}
+                        aria-label={`Sélectionner la parcelle ${parcelle.numero}`}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="font-bold text-sm text-foreground tracking-tight">
                           Parcelle {parcelle.numero}
@@ -1042,6 +1174,7 @@ const Parcelles = () => {
                       <p className="text-xs text-muted-foreground mt-0.5 font-medium">
                         {parcelle.surface} m²
                       </p>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
@@ -1186,6 +1319,72 @@ const Parcelles = () => {
           })}
         </div>
         
+        {selectedIds.size > 0 && (
+          <div
+            className="sticky bottom-4 z-20 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/95 backdrop-blur px-3 py-2.5 shadow-lg"
+            role="region"
+            aria-label="Actions sur la sélection"
+          >
+            <span className="text-sm font-semibold text-foreground mr-1">
+              {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            {selectedIds.size < filteredParcelles.length && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setSelectedIds(new Set(filteredParcelles.map((p) => p.id)))}
+              >
+                Tout sélectionner ({filteredParcelles.length})
+              </Button>
+            )}
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                disabled={bulkSubmitting || hectares.length === 0}
+                onClick={() => {
+                  setBulkHectareId(isSpecificHectare ? selectedHectare : hectares[0]?.id || "");
+                  setBulkAssignOpen(true);
+                }}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                Affecter à un hectare
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                disabled={bulkSubmitting}
+                onClick={handleBulkDetach}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Rendre parcelles seules
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                disabled={bulkSubmitting}
+                onClick={handleBulkDelete}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Supprimer
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={clearSelection}
+                aria-label="Annuler la sélection"
+                title="Annuler la sélection"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {filteredParcelles.length > displayLimit && (
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground">
@@ -1799,6 +1998,48 @@ const Parcelles = () => {
         </Dialog>
 
         {/* Modale de réaffectation rapide : Affecter à un hectare OU Transformer en parcelle seule */}
+        <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+          <DialogContent className="max-w-md bg-card">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">
+                Affecter {selectedParcelles.length} parcelle{selectedParcelles.length > 1 ? "s" : ""} à un hectare
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Elles occuperont{" "}
+                {selectedParcelles
+                  .filter((p) => p.hectare_id !== bulkHectareId)
+                  .reduce((t, p) => t + Math.ceil(Number(p.surface || 600) / 600), 0)}{" "}
+                place(s) dans l'hectare choisi.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 pt-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Hectare d'accueil *
+              </Label>
+              <HectareSelector
+                hectares={hectares}
+                selectedId={bulkHectareId}
+                onSelect={setBulkHectareId}
+                getOccupancy={getHectareOccupancy}
+                requiredQuota={selectedParcelles
+                  .filter((p) => p.hectare_id !== bulkHectareId)
+                  .reduce((t, p) => t + Math.ceil(Number(p.surface || 600) / 600), 0)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setBulkAssignOpen(false)} disabled={bulkSubmitting}>
+                Annuler
+              </Button>
+              <Button onClick={handleBulkAssign} disabled={bulkSubmitting || !bulkHectareId} className="gap-1.5">
+                {bulkSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Affecter
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={reassignModalOpen} onOpenChange={setReassignModalOpen}>
           <DialogContent className="max-w-md bg-card">
             <DialogHeader>
