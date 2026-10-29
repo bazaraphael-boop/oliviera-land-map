@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useDeferredValue } from "react";
+import { useEffect, useState, useMemo, useDeferredValue, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -91,6 +91,13 @@ const Parcelles = () => {
   const [allParcelles, setAllParcelles] = useState<Parcelle[]>([]);
   const [hectares, setHectares] = useState<Hectare[]>([]);
   const [loading, setLoading] = useState(true);
+  // Rechargement de la liste après un changement d'onglet ou d'hectare
+  const [listLoading, setListLoading] = useState(false);
+  // Numéro de la dernière requête de liste : une réponse plus ancienne qui
+  // arrive en retard ne doit pas écraser la vue actuellement sélectionnée.
+  const listRequestId = useRef(0);
+  // Parcelle dont la fenêtre « Modifier » attend ses documents
+  const editDocsParcelleId = useRef<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"rmb_asc" | "numero_asc" | "numero_desc" | "surface_desc" | "status">("rmb_asc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -298,6 +305,8 @@ const Parcelles = () => {
   };
 
   const fetchParcelles = async () => {
+    const requestId = ++listRequestId.current;
+    setListLoading(true);
     try {
       let query = supabase.from("parcelles").select(`
         *,
@@ -319,15 +328,22 @@ const Parcelles = () => {
 
       const { data, error } = await query.order("numero");
 
+      if (requestId !== listRequestId.current) return;
       if (error) throw error;
       setParcelles((data as any) || []);
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Erreur lors du chargement des parcelles");
     } finally {
-      setLoading(false);
+      if (requestId === listRequestId.current) {
+        setLoading(false);
+        setListLoading(false);
+      }
     }
   };
+
+  // Liste affichée + données des compteurs (onglets, occupation des hectares, prochain RMB)
+  const refreshParcelles = () => Promise.all([fetchParcelles(), fetchAllParcelles()]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -404,8 +420,7 @@ const Parcelles = () => {
         latitude: "",
         longitude: "",
       });
-      fetchParcelles();
-      fetchAllParcelles();
+      refreshParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error: any) {
       console.error("Erreur:", error);
@@ -421,7 +436,7 @@ const Parcelles = () => {
       if (error) throw error;
 
       toast.success("Parcelle supprimée");
-      fetchParcelles();
+      refreshParcelles();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
     } catch (error) {
       console.error("Erreur:", error);
@@ -459,18 +474,20 @@ const Parcelles = () => {
       longitude: parcelle.longitude?.toString() || "",
     });
     setEditDocs([]);
-    // Charger les documents existants
+    setExistingDocs([]);
+    // Ouvrir tout de suite ; les documents existants arrivent ensuite
+    setIsEditDialogOpen(true);
+    editDocsParcelleId.current = parcelle.id;
     try {
       const { data } = await supabase
         .from("documents")
         .select("id, title, type, file_url")
         .eq("parcelle_id", parcelle.id)
         .order("created_at");
-      setExistingDocs(data || []);
+      if (editDocsParcelleId.current === parcelle.id) setExistingDocs(data || []);
     } catch {
-      setExistingDocs([]);
+      if (editDocsParcelleId.current === parcelle.id) setExistingDocs([]);
     }
-    setIsEditDialogOpen(true);
   };
 
   const handleSelectExistingBuyer = (buyer: ExistingBuyer) => {
@@ -627,7 +644,7 @@ const Parcelles = () => {
       setSelectedExistingBuyer(null);
       setEditDocs([]);
       setExistingDocs([]);
-      fetchParcelles();
+      refreshParcelles();
       refetchBuyerDetection();
       queryClient.invalidateQueries({ queryKey: ["acheteurs"] });
       queryClient.invalidateQueries({ queryKey: ["existing-buyers-detection"] });
@@ -702,7 +719,7 @@ const Parcelles = () => {
 
       setReassignModalOpen(false);
       setParcelleToReassign(null);
-      await fetchParcelles();
+      await refreshParcelles();
     } catch (err: any) {
       console.error("Erreur affectation parcelle:", err);
       toast.error(`Erreur : ${err.message || "Erreur inconnue"}`);
@@ -983,7 +1000,17 @@ const Parcelles = () => {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {listLoading && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3" role="status" aria-live="polite">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Chargement des parcelles…</span>
+          </div>
+        )}
+
+        <div
+          aria-busy={listLoading}
+          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-opacity ${listLoading ? "opacity-50 pointer-events-none" : ""}`}
+        >
           {displayedParcelles.map((parcelle) => {
             const quotaCount = Math.ceil(Number(parcelle.surface || 600) / 600);
             const isGratuit = parcelle.sale_type === "onereux" || parcelle.sale_type === "onéreux";
