@@ -10,7 +10,7 @@ import DashboardSidebar from "@/components/DashboardSidebar";
 import StatsCard from "@/components/StatsCard";
 import { jsPDF } from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
-import landManagementGradient from "@/assets/land_management_gradient.png";
+import landManagementGradient from "@/assets/land_management_gradient.webp";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
 import { RecentActivityFeed } from "@/components/RecentActivityFeed";
@@ -601,6 +601,8 @@ const Dashboard = () => {
                 <img 
                   src={landManagementGradient} 
                   alt="Gestion des terres" 
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
                 />
               </div>

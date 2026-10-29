@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode, Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,17 +10,27 @@ import { Button } from "@/components/ui/button";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Sites from "./pages/Sites";
-import Hectares from "./pages/Hectares";
-import Parcelles from "./pages/Parcelles";
-import Acheteurs from "./pages/Acheteurs";
-import Localisation from "./pages/Localisation";
-import Rapports from "./pages/Rapports";
-import Parametres from "./pages/Parametres";
-import Utilisateurs from "./pages/Utilisateurs";
-import Documents from "./pages/Documents";
 import NotFound from "./pages/NotFound";
+
+// Chaque page n'est téléchargée qu'à la première visite : Mapbox, turf, jsPDF
+// et recharts ne pèsent plus sur l'ouverture de l'application.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Sites = lazy(() => import("./pages/Sites"));
+const Hectares = lazy(() => import("./pages/Hectares"));
+const Parcelles = lazy(() => import("./pages/Parcelles"));
+const Acheteurs = lazy(() => import("./pages/Acheteurs"));
+const Localisation = lazy(() => import("./pages/Localisation"));
+const Rapports = lazy(() => import("./pages/Rapports"));
+const Parametres = lazy(() => import("./pages/Parametres"));
+const Utilisateurs = lazy(() => import("./pages/Utilisateurs"));
+const Documents = lazy(() => import("./pages/Documents"));
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background" role="status" aria-live="polite">
+    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    <span className="sr-only">Chargement…</span>
+  </div>
+);
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -97,6 +107,7 @@ const App = () => {
             <BrowserRouter>
               <Sonner />
               <Toaster />
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
@@ -113,6 +124,7 @@ const App = () => {
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </NotificationProvider>

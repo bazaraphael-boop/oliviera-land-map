@@ -243,40 +243,41 @@ export const RecentActivityFeed = () => {
   useEffect(() => {
     loadActivities();
 
+    // Une vente ou un découpage modifie souvent plusieurs lignes d'un coup :
+    // on regroupe les événements pour ne recharger le fil qu'une seule fois.
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleReload = () => {
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(loadActivities, 1000);
+    };
+
     // Configuration des écouteurs temps réel Supabase
     const channel = supabase
       .channel("dashboard-activities-live")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "buyer_documents" },
-        () => {
-          loadActivities();
-        }
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "documents" },
-        () => {
-          loadActivities();
-        }
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "parcelles" },
-        () => {
-          loadActivities();
-        }
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "hectares" },
-        () => {
-          loadActivities();
-        }
+        scheduleReload
       )
       .subscribe();
 
     return () => {
+      clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
   }, []);
