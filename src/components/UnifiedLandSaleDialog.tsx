@@ -555,7 +555,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
         return;
       }
       const newEffectif = Math.ceil(surfaceNum / 600);
-      if (currentHectareOccupancy.occupied + newEffectif > 15) {
+      if (currentHectareOccupancy.occupied + newEffectif > currentHectareOccupancy.total) {
         toast.error(
           `Capacité dépassée : cet hectare dispose de ${currentHectareOccupancy.remaining} places disponibles (${newEffectif} requises)`
         );
