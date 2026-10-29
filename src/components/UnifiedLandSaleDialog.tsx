@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { hectareCapacity, PARCELLES_PER_HA } from "@/lib/hectareCapacity";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb, areRmbConflicting, parseRmbParts } from "@/lib/rmbSuite";
@@ -61,7 +62,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("hectares")
-        .select("id, name, surface, rmb_number, location, status, buyer_name")
+        .select("id, name, surface, purchase_type, rmb_number, location, status, buyer_name")
         .order("name");
       if (error) throw error;
       return data || [];
@@ -479,17 +480,18 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
   const getHectareOccupancy = (hId: string) => {
     const list = parcelles.filter((p) => p.hectare_id === hId);
     const occupied = list.reduce((total, p) => total + Math.ceil(Number(p.surface || 600) / 600), 0);
+    const capacity = hectareCapacity(hectares.find((h: any) => h.id === hId));
     return {
       occupied,
-      remaining: Math.max(0, 15 - occupied),
-      total: 15,
+      remaining: Math.max(0, capacity - occupied),
+      total: capacity,
     };
   };
 
   const currentHectareOccupancy = useMemo(() => {
-    if (!hectareId) return { occupied: 0, remaining: 15, total: 15 };
+    if (!hectareId) return { occupied: 0, remaining: PARCELLES_PER_HA, total: PARCELLES_PER_HA };
     return getHectareOccupancy(hectareId);
-  }, [hectareId, parcelles]);
+  }, [hectareId, parcelles, hectares]);
 
   // Réinitialisation du formulaire
   const resetForm = () => {
@@ -834,7 +836,7 @@ export const UnifiedLandSaleDialog: React.FC<UnifiedLandSaleDialogProps> = ({
                       <strong className="text-foreground">
                         {currentHectareOccupancy.remaining} places
                       </strong>{" "}
-                      sur 15
+                      sur {currentHectareOccupancy.total}
                     </span>
                   )}
                 </Label>

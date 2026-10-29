@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { hectareCapacity } from "@/lib/hectareCapacity";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -770,7 +771,7 @@ const Sites = () => {
                   const isExpanded = expandedHectare === hectare.id;
                   const isSold = hectare.status === "sold" || hectare.status === "vendu";
                   const isWholeHectareSold = isSold && hectare.parcelle_count === 0 && hectare.buyer_name;
-                  const totalSlots = 15; // RÈGLE CADASTRALE OFFICIELLE : 1 HECTARE = 15 PARCELLES
+                  const totalSlots = hectareCapacity(hectare); // 15 parcelles par hectare, 8 pour un demi-hectare
                   const parcelleCount = hectare.parcelle_count || 0;
 
                   return (
@@ -808,7 +809,7 @@ const Sites = () => {
                                 <span>{hectare.prix ? `${Number(hectare.prix).toLocaleString()} USD` : "Prix N/A"}</span>
                                 <span>•</span>
                                 <span className="font-medium">
-                                  {isWholeHectareSold ? "15/15 occupées" : `${parcelleCount}/${totalSlots} parcelles`}
+                                  {isWholeHectareSold ? `${totalSlots}/${totalSlots} occupées` : `${parcelleCount}/${totalSlots} parcelles`}
                                 </span>
                               </div>
                             </div>
@@ -817,13 +818,13 @@ const Sites = () => {
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="w-10 h-10 rounded-full border-2 border-border flex items-center justify-center">
                               <span className={`text-xs font-bold ${
-                                isWholeHectareSold || parcelleCount >= 13
+                                isWholeHectareSold || parcelleCount >= totalSlots - 2
                                   ? "text-destructive"
-                                  : parcelleCount >= 8
+                                  : parcelleCount >= Math.ceil(totalSlots / 2)
                                   ? "text-orange-500"
                                   : "text-primary"
                               }`}>
-                                {isWholeHectareSold ? "15" : parcelleCount}
+                                {isWholeHectareSold ? totalSlots : parcelleCount}
                               </span>
                             </div>
                             {isExpanded ? (
@@ -857,7 +858,7 @@ const Sites = () => {
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-sm font-medium text-foreground">Quota d'occupation</span>
                                   <span className="text-sm font-semibold text-destructive">
-                                    15 / 15 — Complet
+                                    {totalSlots} / {totalSlots} — Complet
                                   </span>
                                 </div>
                                 <Progress value={100} className="h-2.5" />

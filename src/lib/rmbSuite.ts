@@ -1,3 +1,4 @@
+import { hectareCapacity } from "./hectareCapacity";
 /**
  * Utilitaires pour le classement et la gestion de la suite logique RMB
  */
@@ -177,7 +178,7 @@ export function getHectareRootRmb(hectare?: { rmb_number?: string | null; name?:
  * Calcule le prochain numéro de parcelle dans un hectare suivant son numéro initial (ex: RMB 223/01, RMB 223/02, etc.)
  */
 export function getNextParcelleInHectareRmb(
-  hectare: { rmb_number?: string | null; name?: string | null } | null | undefined,
+  hectare: { rmb_number?: string | null; name?: string | null; surface?: number | string | null; purchase_type?: string | null } | null | undefined,
   existingParcelles: { rmb_number?: string | null; numero?: string | null }[] = []
 ): {
   rootRmb: string;
@@ -210,7 +211,7 @@ export function getNextParcelleInHectareRmb(
     }
   });
 
-  // Chercher le premier index disponible de 1 à 15 (ou au-delà)
+  // Chercher le premier index disponible de 1 à la capacité de l'hectare (ou au-delà)
   let nextIndex = 1;
   while (occupiedIndices.has(nextIndex) && nextIndex <= 32) {
     nextIndex++;
@@ -225,7 +226,7 @@ export function getNextParcelleInHectareRmb(
     nextIndex,
     formattedNumero,
     formattedRmb,
-    isAvailable: nextIndex <= 15,
+    isAvailable: nextIndex <= hectareCapacity(hectare),
   };
 }
 
