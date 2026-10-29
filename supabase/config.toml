@@ -1,1 +1,4 @@
 project_id = "tnipazqtagvkisnpxvoj"
+
+[auth]
+enable_signup = false
