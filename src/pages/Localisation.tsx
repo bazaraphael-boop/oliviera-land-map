@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { MAPBOX_TOKEN } from "@/lib/mapbox";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DashboardSidebar from "@/components/DashboardSidebar";
@@ -72,25 +73,7 @@ const Localisation = () => {
     if (!mapContainer.current) return;
 
     try {
-      let token = null;
-      try {
-        const { data, error } = await supabase.functions.invoke('get-secret', {
-          body: { secret_name: 'MAPBOX_PUBLIC_TOKEN' }
-        });
-        if (!error && data) {
-          token = data.MAPBOX_PUBLIC_TOKEN;
-        }
-      } catch (err) {
-        console.warn("Impossible de récupérer le token depuis Supabase Secrets, utilisation du token de secours:", err);
-      }
-
-      if (!token) {
-        const p1 = "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTAwY2ky";
-        const p2 = "bnA0d3lyeGN1diJ9.quwSl78K254hIA18Yl64gA";
-        token = p1 + p2;
-      }
-
-      mapboxgl.accessToken = token;
+      mapboxgl.accessToken = MAPBOX_TOKEN;
 
       // Muanda, RDC coordinates
       map.current = new mapboxgl.Map({
