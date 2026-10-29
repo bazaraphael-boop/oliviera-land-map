@@ -24,6 +24,7 @@ import { auditHectare } from "@/lib/numberingAudit";
 import { compareParcellesByRmbSuite, getNextAvailableRmb, extractRmbNumber, getNextParcelleInHectareRmb, getHectareRootRmb } from "@/lib/rmbSuite";
 import { useBuyerDetection, type ExistingBuyer, normalizeText } from "@/hooks/useBuyerDetection";
 import { BuyerQuotaSuggestion } from "@/components/BuyerQuotaSuggestion";
+import { hectareCapacity } from "@/lib/hectareCapacity";
 import { UnifiedLandSaleDialog } from "@/components/UnifiedLandSaleDialog";
 import jsPDF from "jspdf";
 import headerImage from "@/assets/en_tete_concession_manuel.jpg";
@@ -78,6 +79,8 @@ interface Hectare {
   rmb_number: string | null;
   latitude: number | null;
   longitude: number | null;
+  surface: number | null;
+  purchase_type: string | null;
 }
 
 const Parcelles = () => {
@@ -97,6 +100,11 @@ const Parcelles = () => {
   const [selectedHectare, setSelectedHectare] = useState<string>(
     searchParams.get("hectare") || "standalone"
   );
+  // "all", "standalone" et "assigned" (toutes les parcelles sur un hectare) sont des vues ;
+  // toute autre valeur est l'identifiant d'un hectare précis.
+  const isSpecificHectare = !["all", "standalone", "assigned"].includes(selectedHectare);
+  const parcelleScope: "all" | "standalone" | "hectare" =
+    selectedHectare === "all" ? "all" : selectedHectare === "standalone" ? "standalone" : "hectare";
 
   // Hook de détection intelligente d'acquéreurs existants et de leur quota
   const { findMatchingBuyers, refetch: refetchBuyerDetection } = useBuyerDetection();
@@ -139,10 +147,11 @@ const Parcelles = () => {
     const occupiedEffectif = hectareParcelles.reduce((total, p) => {
       return total + Math.ceil(p.surface / 600);
     }, 0);
+    const capacity = hectareCapacity(hectares.find(h => h.id === hectareId));
     return {
       occupied: occupiedEffectif,
-      remaining: 15 - occupiedEffectif,
-      total: 15
+      remaining: capacity - occupiedEffectif,
+      total: capacity
     };
   };
   const [editFormData, setEditFormData] = useState({
@@ -212,8 +221,7 @@ const Parcelles = () => {
   };
 
   const handleOpenCreateDialog = () => {
-    const isHectareActive = selectedHectare !== "all" && selectedHectare !== "standalone";
-    if (isHectareActive) {
+    if (isSpecificHectare) {
       const activeHec = hectares.find(h => h.id === selectedHectare);
       const hParcelles = allParcelles.filter(p => p.hectare_id === selectedHectare);
       const prop = getNextParcelleInHectareRmb(activeHec, hParcelles);
@@ -266,7 +274,7 @@ const Parcelles = () => {
     try {
       const { data, error } = await supabase
         .from("hectares")
-        .select("id, name, rmb_number, latitude, longitude")
+        .select("id, name, rmb_number, latitude, longitude, surface, purchase_type")
         .order("name");
 
       if (error) throw error;
@@ -303,6 +311,8 @@ const Parcelles = () => {
       
       if (selectedHectare === "standalone") {
         query = query.is("hectare_id", null);
+      } else if (selectedHectare === "assigned") {
+        query = query.not("hectare_id", "is", null);
       } else if (selectedHectare && selectedHectare !== "all") {
         query = query.eq("hectare_id", selectedHectare);
       }
@@ -347,8 +357,9 @@ const Parcelles = () => {
         
         const newParcelleEffectif = Math.ceil(parseFloat(formData.surface) / 600);
 
-        if (occupiedEffectif + newParcelleEffectif > 15) {
-          toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${15 - occupiedEffectif} disponible)`);
+        const capacity = hectareCapacity(hectares.find(h => h.id === hectareIdToSave));
+        if (occupiedEffectif + newParcelleEffectif > capacity) {
+          toast.error(`Limite atteinte : cette parcelle occupe ${newParcelleEffectif} en effectif et l'hectare n'a plus assez d'espace (${capacity - occupiedEffectif} disponible sur ${capacity})`);
           return;
         }
       }
@@ -383,11 +394,11 @@ const Parcelles = () => {
       setIsDialogOpen(false);
       setNewDocs([]);
       setFormData({ 
-        assignment_type: selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? "hectare" : "standalone",
+        assignment_type: isSpecificHectare ? "hectare" : "standalone",
         numero: "", 
         surface: "", 
         prix: "", 
-        hectare_id: selectedHectare && selectedHectare !== "all" && selectedHectare !== "standalone" ? selectedHectare : "", 
+        hectare_id: isSpecificHectare ? selectedHectare : "", 
         rmb_number: "",
         sale_type: "normal",
         latitude: "",
@@ -518,8 +529,9 @@ const Parcelles = () => {
         // Calculer l'effectif que cette parcelle va ajouter
         const newParcelleEffectif = Math.ceil(selectedParcelle.surface / 600);
 
-        if (occupiedEffectif + newParcelleEffectif > 15) {
-          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${15 - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
+        const capacity = hectareCapacity(hectares.find(h => h.id === newHectareId));
+        if (occupiedEffectif + newParcelleEffectif > capacity) {
+          toast.error(`Limite atteinte : l'hectare sélectionné n'a pas assez d'espace (${capacity - occupiedEffectif} en effectif disponible, ${newParcelleEffectif} requis)`);
           return;
         }
       }
@@ -646,7 +658,7 @@ const Parcelles = () => {
     try {
       setReassignSubmitting(true);
 
-      // Si on affecte à un hectare différent, vérifier la capacité (15 max)
+      // Si on affecte à un hectare différent, vérifier sa capacité (15 par ha, 8 pour un demi-ha)
       if (newHectareId && newHectareId !== parcelleToReassign.hectare_id) {
         const { data: existingParcelles, error: countError } = await supabase
           .from("parcelles")
@@ -661,9 +673,10 @@ const Parcelles = () => {
 
         const parcelleEffectif = Math.ceil(Number(parcelleToReassign.surface || 600) / 600);
 
-        if (occupiedEffectif + parcelleEffectif > 15) {
+        const capacity = hectareCapacity(hectares.find(h => h.id === newHectareId));
+        if (occupiedEffectif + parcelleEffectif > capacity) {
           toast.error(
-            `Capacité insuffisante : cet hectare dispose de ${15 - occupiedEffectif} effectifs disponibles (${parcelleEffectif} requis).`
+            `Capacité insuffisante : cet hectare dispose de ${capacity - occupiedEffectif} effectifs disponibles (${parcelleEffectif} requis).`
           );
           setReassignSubmitting(false);
           return;
@@ -887,6 +900,8 @@ const Parcelles = () => {
               ? "🏷️ Liste principale des parcelles seules (hors hectare racine)."
               : selectedHectare === "all"
               ? "🌐 Vue globale de toutes les parcelles (seules et sous-parcelles d'hectares)."
+              : selectedHectare === "assigned"
+              ? "📦 Toutes les parcelles affectées à un hectare."
               : `📦 Sous-parcelles de l'hectare racine : ${hectares.find(h => h.id === selectedHectare)?.name || "Sélectionné"}`
           }
           actions={
@@ -897,24 +912,50 @@ const Parcelles = () => {
           }
         />
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
-          <Select value={selectedHectare} onValueChange={setSelectedHectare}>
-            <SelectTrigger className="w-full sm:w-[260px] shrink-0 bg-card">
-              <SelectValue placeholder="Filtrer les parcelles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="standalone">🏷️ Liste principale (Parcelles seules)</SelectItem>
-              <SelectItem value="all">🌐 Vue globale (Toutes les parcelles)</SelectItem>
-              <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider border-t border-border mt-1 pt-1.5">
-                Hectares racines
-              </div>
-              {hectares.map((h) => (
-                <SelectItem key={h.id} value={h.id}>
-                  📦 {h.name} {h.rmb_number ? `(${h.rmb_number})` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 mb-6">
+          <div className="flex flex-wrap gap-1 p-1 rounded-lg border border-border bg-card shrink-0" role="tablist" aria-label="Type de parcelles">
+            {([
+              { scope: "all", value: "all", label: "Toutes", count: allParcelles.length },
+              { scope: "standalone", value: "standalone", label: "Parcelles seules", count: allParcelles.filter(p => !p.hectare_id).length },
+              { scope: "hectare", value: "assigned", label: "Sur un hectare", count: allParcelles.filter(p => p.hectare_id).length },
+            ] as const).map((tab) => (
+              <button
+                key={tab.scope}
+                type="button"
+                role="tab"
+                aria-selected={parcelleScope === tab.scope}
+                onClick={() => {
+                  if (parcelleScope !== tab.scope) setSelectedHectare(tab.value);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+                  parcelleScope === tab.scope
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {tab.label} <span className="opacity-70 font-medium">({tab.count})</span>
+              </button>
+            ))}
+          </div>
+
+          {parcelleScope === "hectare" && (
+            <Select value={selectedHectare} onValueChange={setSelectedHectare}>
+              <SelectTrigger className="w-full sm:w-[240px] shrink-0 bg-card" aria-label="Choisir l'hectare">
+                <SelectValue placeholder="Choisir un hectare" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="assigned">Tous les hectares</SelectItem>
+                {hectares.map((h) => {
+                  const { occupied, total } = getHectareOccupancy(h.id);
+                  return (
+                    <SelectItem key={h.id} value={h.id}>
+                      {h.name} {h.rmb_number ? `(${h.rmb_number})` : ""} · {occupied}/{total}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
 
           <div className="flex-1 relative min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1204,7 +1245,7 @@ const Parcelles = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const firstHec = (selectedHectare !== "all" && selectedHectare !== "standalone") 
+                      const firstHec = isSpecificHectare
                         ? hectares.find(h => h.id === selectedHectare) 
                         : hectares[0];
                       const hParcelles = allParcelles.filter(p => p.hectare_id === firstHec?.id);

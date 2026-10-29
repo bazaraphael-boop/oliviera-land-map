@@ -777,9 +777,9 @@ const LeveTerrainPanel = () => {
                       const acc = p.accuracy;
                       const tone = acc < 5 ? "green" : acc <= 10 ? "orange" : "red";
                       const toneClasses: Record<string, string> = {
-                        green: "border-l-green-500 bg-green-500/5",
-                        orange: "border-l-orange-500 bg-orange-500/5",
-                        red: "border-l-red-500 bg-red-500/5",
+                        green: "bg-green-500/5",
+                        orange: "bg-orange-500/5",
+                        red: "bg-red-500/5",
                       };
                       const dotClasses: Record<string, string> = {
                         green: "bg-green-500",
@@ -789,7 +789,7 @@ const LeveTerrainPanel = () => {
                       return (
                         <div
                           key={p.timestamp}
-                          className={`flex items-center gap-2 rounded-md border border-border border-l-2 px-2 py-1.5 ${toneClasses[tone]}`}
+                          className={`flex items-center gap-2 rounded-md border border-border px-2 py-1.5 ${toneClasses[tone]}`}
                         >
                           <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
                             {LETTERS[i] || i + 1}
