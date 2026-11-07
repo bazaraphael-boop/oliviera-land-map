@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useDeferredValue, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -272,7 +273,7 @@ const Parcelles = () => {
   }, [selectedHectare]);
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCurrentUser();
     if (!user) {
       navigate("/login");
     }
@@ -524,7 +525,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
       if (error) throw error;
 
       if (newParcelleData && newDocs.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getCurrentUser();
         const uploaded = await uploadDocEntries(newDocs, newParcelleData.id, user?.id);
         if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
       }
@@ -746,7 +747,7 @@ Attention : ${sold} d'entre elles sont vendues, avec leur acquéreur et leurs pa
 
       // Upload des nouveaux documents
       if (editDocs.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getCurrentUser();
         const uploaded = await uploadDocEntries(editDocs, selectedParcelle.id, user?.id);
         if (uploaded > 0) toast.success(`${uploaded} document(s) ajouté(s)`);
       }

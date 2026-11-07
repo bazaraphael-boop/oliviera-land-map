@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import * as turf from "@turf/turf";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ const CadastreImportPanel = () => {
     if (invalid > 0) return toast.error(`${invalid} parcelle(s) contiennent des erreurs`);
 
     setSaving(true);
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData } = await getCurrentUser();
     const label = format === "dd" ? "DD" : format === "utm" ? `UTM WGS84 ${zone}S` : `Cadastre ${zone}S`;
     const payload = ready.map(({ r, i }) => {
       const ring = r!.points.map((p) => [p.lng, p.lat]);

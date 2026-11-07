@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -247,7 +248,7 @@ const Acheteurs = () => {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCurrentUser();
       if (!user) {
         navigate("/login");
         return;
@@ -279,7 +280,7 @@ const Acheteurs = () => {
   }, [newBuyerForm.selected_item, newBuyerForm.item_type]);
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCurrentUser();
     if (!user) {
       navigate("/login");
     }

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import OfflineBanner from "@/components/OfflineBanner";
 
 // Chaque page n'est téléchargée qu'à la première visite : Mapbox, turf, jsPDF
 // et recharts ne pèsent plus sur l'ouverture de l'application.
@@ -94,6 +95,13 @@ const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 15, // Mise en cache mémoire pendant 15 minutes
       refetchOnWindowFocus: false, // Évite de recharger l'ensemble des données quand on change d'onglet
       retry: 1,
+      // Lancer les requêtes même hors connexion : le service worker sert alors
+      // les dernières données reçues (sinon React Query les met en pause)
+      networkMode: "offlineFirst",
+    },
+    mutations: {
+      // Hors connexion, échouer tout de suite plutôt que rester bloqué en attente
+      networkMode: "always",
     },
   },
 });
@@ -107,6 +115,7 @@ const App = () => {
             <BrowserRouter>
               <Sonner />
               <Toaster />
+              <OfflineBanner />
               <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />

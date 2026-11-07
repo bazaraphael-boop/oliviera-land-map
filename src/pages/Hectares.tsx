@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth";
 import { hectareCapacity } from "@/lib/hectareCapacity";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -202,7 +203,7 @@ const Hectares = () => {
   }, [parcellesDialogOpen, selectedHectare]);
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCurrentUser();
     if (!user) {
       navigate("/login");
     }
@@ -566,7 +567,7 @@ const Hectares = () => {
       if (error) throw error;
 
       if (addParcelleDocs.length > 0 && insertedParcelle?.id) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getCurrentUser();
         const uploaded = await uploadDocEntries(addParcelleDocs, insertedParcelle.id, user?.id);
         if (uploaded > 0) toast.success(`${uploaded} document(s) enregistré(s)`);
       }
@@ -721,7 +722,7 @@ const Hectares = () => {
 
       // Upload des nouveaux documents
       if (editParcelleDocs.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getCurrentUser();
         const uploaded = await uploadDocEntries(editParcelleDocs, editParcelleInHectareForm.id, user?.id);
         if (uploaded > 0) toast.success(`${uploaded} document(s) enregistré(s)`);
       }

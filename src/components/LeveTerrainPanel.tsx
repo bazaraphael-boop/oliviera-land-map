@@ -3,6 +3,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import * as turf from "@turf/turf";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/lib/auth";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -592,7 +593,7 @@ const LeveTerrainPanel = () => {
     ring.push(ring[0]);
     const wkt = `SRID=4326;POLYGON((${ring.map(([lng, lat]) => `${lng} ${lat}`).join(",")}))`;
 
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData } = await getCurrentUser();
     const payload = {
       nom_agent: agentName.trim(),
       nom_client: clientName.trim() || null,

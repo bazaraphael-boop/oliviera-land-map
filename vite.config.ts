@@ -16,6 +16,10 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
+  build: {
+    // Liste des fichiers du build, lue par public/sw.js pour le mode hors connexion
+    manifest: "asset-manifest.json",
+  },
   optimizeDeps: {
     include: ["react", "react-dom", "react/jsx-runtime"],
   },

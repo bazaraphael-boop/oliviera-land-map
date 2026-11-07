@@ -6,6 +6,7 @@ import NotificationBell from "./NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
+import { clearOfflineData } from "@/lib/auth";
 import { toast } from "sonner";
 import { homeItem, processSteps, toolItems, adminItems, type NavItem } from "@/lib/navigation";
 import { InstallAppButton } from "./InstallAppButton";
@@ -38,6 +39,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearOfflineData();
     toast.success("Déconnexion réussie");
     onNavigate?.();
     navigate("/");
